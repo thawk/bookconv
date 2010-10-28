@@ -1,6 +1,6 @@
 #!/usr/bin/python2
-# vim: set fileencoding=utf-8
-# Author: thawk(thawk009@gmail.com), posted at www.hi-pda.com
+# vim: set fileencoding=utf-8 foldmethod=marker:
+# Author: thawk(thawk009@gmail.com)
 
 # {{{ Imports
 import codecs
@@ -1174,6 +1174,7 @@ def title_normalize_from_html(title):
 # }}}
 
 # {{{ Inputters
+# {{{ -- Inputter
 class Inputter(object):
     def __init__(self, default_encoding=""):
         ## 入口文件
@@ -1211,7 +1212,9 @@ class Inputter(object):
 
     def fullpath(self, filename=None):
         raise NotImplementedError()
+#   }}}
 
+#   {{{ -- FileSysInputter
 class FileSysInputter(Inputter):
     def __init__(self, basedir=u"", encoding=""):
         Inputter.__init__(self, encoding)
@@ -1247,7 +1250,9 @@ class FileSysInputter(Inputter):
             filename = self.entry
 
         return os.path.normpath(os.path.join(self.basedir, filename))
+#   }}}
 
+#   {{{ -- ChmInputter
 class ChmInputter(Inputter):
     def __init__(self, filename, encoding=""):
         def callback(cf,ui,lst):
@@ -1294,6 +1299,9 @@ class ChmInputter(Inputter):
 
         return os.path.normpath(os.path.join(self.filename, filename))
 
+#   }}}
+
+#   {{{ -- UrlInputter
 class UrlInputter(Inputter):
     def __init__(self, baseurl=u"", encoding=""):
         Inputter.__init__(self, encoding)
@@ -1384,6 +1392,9 @@ class UrlInputter(Inputter):
 
         return basejoin(self.baseurl, filename)
 
+#   }}}
+
+#   {{{ -- SubInputter
 class SubInputter(Inputter):
     def __init__(self, inputter, root):
         Inputter.__init__(self, inputter.default_encoding)
@@ -1417,50 +1428,55 @@ class SubInputter(Inputter):
             filename = self.entry
 
         return self.inputter.fullpath(os.path.join(self.root, filename))
+#   }}}
 # }}}
 
 # {{{ Parsers
-def parse_book(inputter):
-    logging.debug(u"{indent}Searching suitable parse for {path}".format(
-            indent=u"      "*inputter.nested_level, path=inputter.fullpath()))
-
-    if isinstance(inputter, UrlInputter):
-        # 看看有没有与url对应的解释器
-        for web_info in WEB_INFOS:
-            if web_info["pattern"].match(inputter.fullpath()):
-                parser = globals()[web_info["parser"]]()
-                logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
-                    path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
-
-                try:
-                    return parser.parse(inputter)
-                except NotParseableError as e:
-                    # try next parser
-                    logging.error(u"{indent}    {path} should be parsed with {parser}, but failed: {error}!".format(
-                        path=inputter.fullpath(), indent=u"      "*inputter.nested_level, parser=parser.__class__.__name__, error=e))
-
-                    raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
-                
-    for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), IFengBookParser(), TxtParser(), EasyChmParser(), HtmlBuilderParser()):
-        logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
-            path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
-
-        try:
-            return parser.parse(inputter)
-        except NotParseableError as e:
-            # try next parser
-            pass
-
-    logging.error(u"{indent}    {path} is not parseable by any parser".format(
-        path=inputter.fullpath(), indent=u"      "*inputter.nested_level))
-
-    raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
-
+#   {{{ -- Parser
 class Parser(object):
     def parse(self, inputter):
         raise NotImplementedError(u"Parser::parse() is not implemented!")
 
-# {{{ HtmlBuilderParser
+    @classmethod
+    def parse_book(cls, inputter):
+        logging.debug(u"{indent}Searching suitable parse for {path}".format(
+                indent=u"      "*inputter.nested_level, path=inputter.fullpath()))
+
+        if isinstance(inputter, UrlInputter):
+            # 看看有没有与url对应的解释器
+            for web_info in WEB_INFOS:
+                if web_info["pattern"].match(inputter.fullpath()):
+                    parser = globals()[web_info["parser"]]()
+                    logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
+                        path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
+
+                    try:
+                        return parser.parse(inputter)
+                    except NotParseableError as e:
+                        # try next parser
+                        logging.error(u"{indent}    {path} should be parsed with {parser}, but failed: {error}!".format(
+                            path=inputter.fullpath(), indent=u"      "*inputter.nested_level, parser=parser.__class__.__name__, error=e))
+
+                        raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
+                    
+        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), IFengBookParser(), TxtParser(), EasyChmParser(), HtmlBuilderParser()):
+            logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
+                path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
+
+            try:
+                return parser.parse(inputter)
+            except NotParseableError as e:
+                # try next parser
+                pass
+
+        logging.error(u"{indent}    {path} is not parseable by any parser".format(
+            path=inputter.fullpath(), indent=u"      "*inputter.nested_level))
+
+        raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
+
+#   }}}
+
+#   {{{ -- HtmlBuilderParser
 class HtmlBuilderParser(Parser):
     re_idx_comment = re.compile(u"<!--.*?-->")
     re_idx_toc     = re.compile(u".*<font class=f3>[^<]+", re.IGNORECASE)
@@ -1705,9 +1721,9 @@ class HtmlBuilderParser(Parser):
             bookinfo.chapters[0:0] = [intro]
 
         return bookinfo
-# }}}
+#   }}}
 
-# {{{ EasyChmParser
+#   {{{ -- EasyChmParser
 class EasyChmParser(Parser):
     #re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<filename>[^']+)'\s*,\s*'(?P<chapter_title>[^']*)'\s*,\s*'([^']*)'\s*(?:,\s*'(?P<l1title>[^']*)')?(?:,\s*'(?P<chapter_intro>[^']*)')?.*?\]\s*;", re.IGNORECASE)
     #re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<filename>[^']+)'\s*,\s*'(?P<chapter_title>[^']*)'\s*,\s*'([^']*)'\s*(?<upper_titles>(?:,\s*'(?P<l1title>[^']*)')*)(?:,\s*'(?P<chapter_intro>[^']*)')?.*?\]\s*;", re.IGNORECASE)
@@ -1985,9 +2001,9 @@ class EasyChmParser(Parser):
             bookinfo.chapters[0:0] = [intro]
 
         return bookinfo
-# }}}
+#   }}}
 
-# {{{ IFengBookParser
+#   {{{ -- IFengBookParser
 class IFengBookParser(Parser):
     re_info = re.compile(
         u"<div class=\"infoTab\">\s*" +
@@ -2139,9 +2155,9 @@ class IFengBookParser(Parser):
         bookinfo.chapters[0:0] = preliminaries
 
         return bookinfo
-# }}}
+#   }}}
 
-# {{{ InfzmParser
+#   {{{ -- InfzmParser
 # 南方周末
 class InfzmParser(Parser):
     re_info = re.compile(
@@ -2391,9 +2407,9 @@ class InfzmParser(Parser):
         options.rearrange_toc = False
 
         return bookinfo
-# }}}
+#   }}}
 
-# {{{ TxtParser
+#   {{{ -- TxtParser
 class TxtParser(Parser):
     def parse(self, inputter):
         if not inputter.entry or inputter.entry[-4:].lower() != ".txt":
@@ -2440,9 +2456,10 @@ class TxtParser(Parser):
         bookinfo.intro = root_chapter.intro
 
         return bookinfo
-# }}}
+#   }}}
 
-# {{{ CollectionParser
+#   {{{ -- CollectionParsers
+#     {{{ ---- CollectionParser
 class CollectionParser(Parser):
     entrys = ()
     re_comment = re.compile(u"<!--.*?-->")
@@ -2532,7 +2549,7 @@ class CollectionParser(Parser):
                                 break
                         else:
                             # 该链接未出现过
-                            subbookinfo = parse_book(subinputter)
+                            subbookinfo = Parser.parse_book(subinputter)
                             assert(subbookinfo)
 
                             chapter = Chapter()
@@ -2623,7 +2640,9 @@ class CollectionParser(Parser):
         bookinfo.chapters[0:0] = extra_chapters
 
         return bookinfo
+#     }}}
 
+#     {{{ ---- HtmlBuilderCollectionParser
 class HtmlBuilderCollectionParser(CollectionParser):
     entrys = ( u"cover.html", u"cover.htm" )
 
@@ -2647,6 +2666,9 @@ class HtmlBuilderCollectionParser(CollectionParser):
     re_extra     = re.compile(u"\s*<font class=m2>(?P<title>[^<]+?)(?:[:：])?</font><br>\s*", re.IGNORECASE)
     re_extra_end = re.compile(u".*<(?!br>).*", re.IGNORECASE)
 
+#     }}}
+
+#     {{{ ---- EasyChmCollectionParser
 class EasyChmCollectionParser(CollectionParser):
     entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
@@ -2655,8 +2677,18 @@ class EasyChmCollectionParser(CollectionParser):
 		# <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
         re.compile(u"\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
     )
+
+#     }}}
 #   }}}
 # }}}
+
+# {{{ Converters
+
+#   {{{ -- Converter
+class Converter(object):
+    def convert(self, bookinfo, outputter):
+        raise NotImplementedError()
+#   }}}
 
 # {{{ HtmlOutputer
 class HtmlOutputer(object):
@@ -3354,6 +3386,29 @@ def convert_to_epub(bookinfo, options):
         logging.info(u"  Done.")
 # }}}
 
+# {{{ Outputters
+#   {{{ -- Outputter
+class Outputter(object):
+    def add_file(self, path, content, properties=None):
+        raise NotImplementedError()
+#   }}}
+
+#   {{{ -- MemOutputter
+class MemOutputter(Outputter):
+    def __init__(self):
+        super().__init__()
+        self.files = list()
+
+    def add_file(self, path, content, properties=None):
+        self.files.append({
+            "path"       : path,
+            "content"    : content,
+            "properties" : properties,
+        })
+#   }}}
+
+# }}}
+
 # {{{ convert_book
 def convert_book(path, options):
     def chapters_normalize(chapters, level, prefix):
@@ -3409,7 +3464,7 @@ def convert_book(path, options):
 
     try:
         with inputter:
-            bookinfo = parse_book(inputter)
+            bookinfo = Parser.parse_book(inputter)
     except NotParseableError as e:
         logging.error(e.value)
 
