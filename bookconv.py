@@ -3285,30 +3285,8 @@ class EpubConverter(Converter):
 
         return pretty_xml(xml)
 
-    def build_epub(self, epubfile, opf, ncx, filelist):
+    def build_epub(self, outputter, opf, ncx, filelist):
         """ 根据opf、ncx及filelist中的文件内容，构造epub文件 """
-
-        exists_files = dict()   # 用于记录已增加到zip包中的文件
-
-        def zip_it(zip, filename, content, permissions=0644, compression=zipfile.ZIP_DEFLATED, loglevel=logging.DEBUG):
-            dirname = os.path.dirname(filename)
-            # 创建上层目录
-            if dirname and not exists_files.has_key(dirname):
-                zip_it(zip, dirname, '', permissions=0700, loglevel=loglevel)
-
-            zipname = filename
-            if permissions & 0700 == 0700:
-                zipname = os.path.join(filename, "")
-
-            logging.log(loglevel, u"    Adding {0}".format(zipname))
-
-            info = zipfile.ZipInfo(zipname)
-            info.compress_type = compression
-            info.date_time = localtime(time())[:6]
-            info.external_attr = permissions << 16L
-            zip.writestr(info, content)
-
-            exists_files[filename] = True
 
         CONTAINER='''\
 <?xml version="1.0"?>
@@ -3322,23 +3300,21 @@ class EpubConverter(Converter):
         logging.debug(u"  Creating empty EPUB file...")
 
         logging.info(u"  Adding structure files...")
-        epub = zipfile.ZipFile(epubfile, 'w', zipfile.ZIP_DEFLATED)
             
-        zip_it(epub, 'mimetype', 'application/epub+zip', compression=zipfile.ZIP_STORED)
-        zip_it(epub, 'META-INF/container.xml', CONTAINER)
-        zip_it(epub, OPF_FILE, opf)
-        zip_it(epub, NCX_FILE, ncx)
+        outputter.add_file('mimetype', 'application/epub+zip', compression=zipfile.ZIP_STORED)
+        outputter.add_file('META-INF/container.xml', CONTAINER)
+        outputter.add_file(OPF_FILE, opf)
+        outputter.add_file(NCX_FILE, ncx)
 
         logging.info(u"  Adding content files...")
 
         count = 0
         for file in filelist:
-            zip_it(epub, os.path.join(CONTENT_DIR, file["path"]), file["content"], loglevel=logging.DEBUG)
+            logging.debug(u"    Adding {0}".format(file["path"]))
+            outputter.add_file(os.path.join(CONTENT_DIR, file["path"]), file["content"])
             count += 1
 
         logging.info(u"    Total {0} files added".format(count))
-
-        epub.close()
 
     def convert(self, outputter, bookinfo):
         identifier = unicode(uuid.uuid4())
@@ -3379,19 +3355,9 @@ class EpubConverter(Converter):
         logging.info(u"  Generating opf file ...")
         opf = self.generate_opf(bookinfo, identifier, memOutputter.files)
 
-        epubfile = StringIO()
-        self.build_epub(epubfile, opf, ncx, memOutputter.files)
+        self.build_epub(outputter, opf, ncx, memOutputter.files)
 
-        if self.options.output:
-            bookfilename = self.options.output
-        else:
-            bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
-
-        logging.info(u"Saving EPUB to {0}".format(bookfilename))
-        outputter.add_file(bookfilename, epubfile.getvalue())
-        epubfile.close()
-
-        logging.info(u"  Done.")
+        logging.info(u"  EPUB generated.")
 # }}}
 
 # }}}
@@ -3399,8 +3365,21 @@ class EpubConverter(Converter):
 # {{{ Outputters
 #   {{{ -- Outputter
 class Outputter(object):
+    def __init__(self):
+        self.is_closed = False
+
     def add_file(self, path, content, **properties):
         raise NotImplementedError()
+
+    def close(self):
+        self.is_closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
 #   }}}
 
 #   {{{ -- MemOutputter
@@ -3428,6 +3407,47 @@ class FileSysOutputter(Outputter):
             f.write(content)
 #   }}}
 
+#   {{{ -- ZipOutputter
+class ZipOutputter(Outputter):
+    def __init__(self, outputter, filename):
+        super(ZipOutputter, self).__init__()
+
+        self.outputter = outputter
+        self.filename = filename
+        self.exists_files = dict()  # 用于记录已增加到zip包中的文件
+        self.zipfile = StringIO()
+        self.zip = zipfile.ZipFile(self.zipfile, 'w', zipfile.ZIP_DEFLATED)
+
+    def add_file(self, path, content, **properties):
+        permissions = properties["permissions"] if properties.has_key("permissions") else 0644
+        compression = properties["compression"] if properties.has_key("compression") else zipfile.ZIP_DEFLATED
+
+        dirname = os.path.dirname(path)
+        # 创建上层目录
+        if dirname and not self.exists_files.has_key(dirname):
+            self.add_file(dirname, '', permissions=0700)
+
+        zipname = path
+        if permissions & 0700 == 0700:
+            zipname = os.path.join(path, "")
+
+        info = zipfile.ZipInfo(zipname)
+        info.compress_type = compression
+        info.date_time = localtime(time())[:6]
+        info.external_attr = permissions << 16L
+        self.zip.writestr(info, content)
+
+        self.exists_files[path] = True
+
+    def close(self):
+        self.zip.close()
+        # 把内容写到下一级Outputter中
+        self.outputter.add_file(self.filename, self.zipfile.getvalue())
+        self.zipfile.close()
+
+        super(ZipOutputter, self).close()
+
+#   }}}
 # }}}
 
 # {{{ convert_book
@@ -3529,8 +3549,17 @@ def convert_book(path, options):
     else:
         logging.info(u"  Cover: None")
 
+    if options.output:
+        bookfilename = options.output
+    else:
+        bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
+
     converter = EpubConverter(options)
-    converter.convert(FileSysOutputter(), bookinfo)
+    with ZipOutputter(FileSysOutputter(), bookfilename) as outputter:
+        converter.convert(outputter, bookinfo)
+
+    logging.info(u"Saved EPUB to {0}".format(bookfilename))
+
     #convert_to_html(bookinfo, style=EPUB_STYLE)
     #convert_to_epub(bookinfo, options)
     # }}}
