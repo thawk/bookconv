@@ -6,6 +6,7 @@
 import codecs
 import cookielib
 import htmlentitydefs
+import inspect
 import json
 import locale
 import logging
@@ -638,6 +639,7 @@ li {
 }
 
 .img .desc {
+    margin: 0.2em 0 0.5em 0;
     page-break-before:avoid;
     text-align: center;
 	font-family:"kt","zw";
@@ -656,6 +658,10 @@ EPUB_STYLE = HTML_STYLE
 # }}}
 
 # {{{ General Utilities
+def lineno():
+    """Returns the current line number in our program."""
+    return inspect.currentframe().f_back.f_lineno
+
 class NotParseableError(Exception):
     def __init__(self, value):
         super(NotParseableError, self).__init__()
@@ -737,12 +743,13 @@ def getfilelist(chmpath):
 # }}}
 
 # {{{ Book structures
+#   {{{ -- class Chapter
 class Chapter:
     def __init__(self):
         self.title        = u""      # title used in the TOC
         self.title_inner  = u""      # title display in the content. use title if empty
         self.author       = u""
-        self.name         = u""
+        self.id           = u""
         self.level        = 0
         self.content      = list()   # list of lines
         self.img_list     = list()   # 有些页面上都是图片
@@ -754,7 +761,9 @@ class Chapter:
         self.originated   = u""      # 发自...
         self.publish_date = u""      # 时间
         self.source       = u""      # 来源
+#   }}}
 
+#   {{{ -- class BookInfo
 class BookInfo:
     def __init__(self):
         self.title        = u""
@@ -767,57 +776,166 @@ class BookInfo:
         self.isbn         = u""
         self.publish_date = u""
         self.publist_ver  = u""
+#   }}}
 
+#   {{{ -- class Quote
 class Quote(object):
     def __init__(self, lines):
         self.lines = lines
+#   }}}
 
+#   {{{ -- class Section
 class Section(object):
     def __init__(self, title):
         self.title = title
+#   }}}
 
+#   {{{ -- Img like classes
+#     {{{ ---- class Img
 class Img(object):
+    def __init__(self, filename=u'', desc=u''):
+        self.filename_  = filename
+        self.extension_ = os.path.splitext(filename)[1].lower()
+        self.desc_      = desc
+
+    def width(self):
+        raise NotImplementedError()
+
+    def height(self):
+        raise NotImplementedError()
+
+    def content(self):
+        raise NotImplementedError()
+
+    def extension(self):
+        return self.extension_
+
+    def filename(self):
+        return self.filename_
+
+    def desc(self):
+        return self.desc_
+
+    def set_id(self, id):
+        raise NotImplementedError()
+
+    def id(self):
+        raise NotImplementedError()
+
+    def unique_key(self):
+        raise NotImplementedError()
+#     }}}
+
+#     {{{ ---- class SingleImg
+class SingleImg(Img):
     cache = dict()      # a dict of fullpath->image_data
 
     def __init__(self, filename, inputter=None, desc=u""):
+        super(SingleImg, self).__init__(filename, desc)
         self.inputter  = inputter if inputter else FileSysInputter("")
-        self.filename  = filename
-        self.extension = os.path.splitext(filename)[1].lower()
-        self.desc      = desc
         
         fullpath = inputter.fullpath(filename)
 
         if not self.cache.has_key(fullpath):
-            content = self.inputter.read_binary(filename)
-
-            f = StringIO(content)
-            width, height = Image.open(f).size
-            f.close()
-
             self.image_data = {
+                'id'       : u"",
                 'fullpath' : fullpath,
-                'content'  : self.inputter.read_binary(filename),
-                'width'    : width,
-                'height'   : height,
-                'destpath' : u'',       # 最后保存的路径
-                'id'       : u'',       # 文件的ID，用于在OPF中引用
+                'inputter' : self.inputter,
+                'filename' : filename,
             }
 
             self.cache[fullpath] = self.image_data
         else:
             self.image_data = self.cache[fullpath]
 
-    def __getattr__(self, name):
-        if self.image_data.has_key(name):
-            return self.image_data[name]
-        else:
-            raise AttributeError()
+    def unique_key(self):
+        return self.image_data['fullpath']
 
-    def __setattr__(self, name, value):
-        if hasattr(self, 'image_data') and self.image_data.has_key(name):
-            self.image_data[name] = value
-        else:
-            object.__setattr__(self, name, value)
+    def fetch_image_(self):
+        if not self.image_data.has_key('content'):
+            content = self.image_data['inputter'].read_binary(self.image_data['filename'])
+
+            f = StringIO(content)
+            width, height = Image.open(f).size
+            f.close()
+
+            self.image_data['content'] = content
+            self.image_data['width']   = width
+            self.image_data['height']  = height
+
+    def width(self):
+        self.fetch_image_()
+        return self.image_data['width']
+
+    def height(self):
+        self.fetch_image_()
+        return self.image_data['height']
+
+    def set_id(self, id):
+        assert(not self.image_data['id'])
+        self.image_data['id'] = id
+
+    def id(self):
+        return self.image_data['id']
+
+    def content(self):
+        self.fetch_image_()
+        return self.image_data['content']
+#     }}}
+
+#     {{{ -- class SuitableImg
+class SuitableImg(Img):
+    """ 从多张图片中选择最合适的一张.
+
+    可以从多张图片中选择面积最大的一张。
+    """
+    def __init__(self, img, *imgs, **properties):
+        super(SuitableImg, self).__init__(desc=properties['desc'] if properties.has_key('desc') else u'')
+        self.imgs = [img, ]
+        self.imgs.extend(imgs)
+        self.selected = None
+
+    def select_suitable_img(self):
+        if not self.selected:
+            largest_size = -1
+            for img in self.imgs:
+                if img.width() * img.height() > largest_size:
+                    self.selected = img
+
+    def width(self):
+        self.select_suitable_img()
+        return self.selected.width()
+
+    def height(self):
+        self.select_suitable_img()
+        return self.selected.height()
+
+    def content(self):
+        self.select_suitable_img()
+        return self.selected.content()
+
+    def extension(self):
+        self.select_suitable_img()
+        return self.selected.extension()
+
+    def filename(self):
+        self.select_suitable_img()
+        return self.selected.filename()
+
+    def set_id(self, id):
+        self.select_suitable_img()
+        return self.selected.set_id(id)
+
+    def id(self):
+        self.select_suitable_img()
+        return self.selected.id()
+
+    def unique_key(self):
+        self.select_suitable_img()
+        return self.selected.unique_key()
+#     }}}
+
+#   }}}
 # }}}
 
 # {{{ Book info utilities
@@ -1093,7 +1211,7 @@ def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
                 lines.extend(content_text_normalize_from_html(content[start_pos:pos["start"]]))
 
             # 加入图片
-            lines.append(Img(pos["url"], inputter, title_normalize(pos["desc"])))
+            lines.append(SingleImg(pos["url"], inputter, title_normalize(pos["desc"])))
 
             start_pos = pos["end"]
 
@@ -1368,7 +1486,7 @@ class UrlInputter(Inputter):
         if self.cache.has_key(url):
             return self.cache[url]
 
-        logging.debug(u"      Fetching url '{0}'".format(url))
+        logging.debug(u"          Fetching url '{0}'".format(url))
 
         req = Request(url)
         req.add_header('Referer', url)
@@ -1866,8 +1984,7 @@ class EasyChmParser(Parser):
             if isinstance(htmls, str) or isinstance(htmls, unicode):
                 htmls = [htmls,]
 
-            largest_cover = None
-            largest_size = -1
+            covers = list()
 
             for html in htmls:
                 m = self.re_cover.match(html)
@@ -1877,12 +1994,14 @@ class EasyChmParser(Parser):
                     cover_filename = html
 
                 if inputter.isfile(cover_filename):
-                    cover = Img(cover_filename, inputter)
-                    if cover.width * cover.height > largest_size:
-                        largest_cover = cover
-                        largest_size  = cover.width * cover.height
+                    covers.append(SingleImg(cover_filename, inputter))
 
-            return largest_cover
+            if not covers:
+                return None
+            elif len(covers) > 1:
+                return SuitableImg(*covers, desc=u'')
+            else:
+                return covers[0]
 
         # 如果有入口文件，则入口文件只能是start.htm
         if inputter.entry and inputter.entry != u"start.htm" or not inputter.isfile(os.path.join(u"js", u"page.js")):
@@ -1921,8 +2040,8 @@ class EasyChmParser(Parser):
                     cover = parse_cover([pages[idx][i] for i in rule['map']['book_cover']])
                     if cover:
                         bookinfo.cover = cover
-                        logging.debug(u"{indent}  Found book cover: {cover}".format(
-                            cover=cover.filename, indent=u"      "*inputter.nested_level))
+                        logging.debug(u"{indent}  Found book cover".format(
+                            indent=u"      "*inputter.nested_level))
         
                 if rule['map'].has_key('book_intro'):
                     # 提供了书本的简介
@@ -2084,7 +2203,7 @@ class IFengBookParser(Parser):
         bookinfo.author = title_normalize_from_html(m.group("author"))
         bookinfo.category = title_normalize_from_html(m.group("category"))
         if m.group("cover"):
-            bookinfo.cover = Img(m.group("cover"), inputter)
+            bookinfo.cover = SingleImg(m.group("cover"), inputter)
 
         bookinfo.publisher = title_normalize_from_html(m.group("publisher"))
         bookinfo.isbn = title_normalize_from_html(m.group("isbn"))
@@ -2348,7 +2467,7 @@ class InfzmParser(Parser):
         logging.debug(u"    {title}".format(title=bookinfo.title))
 
         bookinfo.sub_title = title_normalize_from_html(m.group("date"))
-        bookinfo.cover = Img(m.group("cover"), inputter)
+        bookinfo.cover = SingleImg(m.group("cover"), inputter)
         bookinfo.author = u"南方报业传媒集团"
         bookinfo.category = CATEGORY_NEWS_PAPER
 
@@ -2520,7 +2639,7 @@ class CollectionParser(Parser):
                         author = group_dict["author"] if group_dict.has_key("author") else u""
                         cover = None
                         if group_dict.has_key("cover") and inputter.isfile(group_dict["cover"]):
-                            cover = Img(group_dict["cover"], inputter) 
+                            cover = SingleImg(group_dict["cover"], inputter) 
 
                         level = chapter_stack[-1].level + 1
                         subinputter = SubInputter(inputter, root)
@@ -2698,15 +2817,18 @@ class HtmlConverter(object):
         self.options = options
         self.style   = style
 
+    def get_img_destpath_(self, files, img):
+        return files["image"][img.unique_key()]["filename"]
+
     def css_style(self, extra_css=""):
         return HTML_STYLE + extra_css
 
-    def cover_page(self, filename, bookinfo, cover):
+    def cover_page(self, files, filename, bookinfo, cover):
         html = U"""\
       <div class='cover'><img alt="{title}" src="{cover}" /></div>
 """.format(
             title = unicode(escape(bookinfo.title)),
-            cover = os.path.relpath(cover.destpath, os.path.dirname(filename)))
+            cover = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
 
         return html
 
@@ -2730,7 +2852,7 @@ class HtmlConverter(object):
 
         return html;
 
-    def title_cover_page(self, filename, bookinfo, cover, start):
+    def title_cover_page(self, files, filename, bookinfo, cover, start):
         html = u"""\
         <div class='title_page title_cover_page'>
             <div class='cover'><img alt="{title}" src="{cover}" /></div>
@@ -2746,13 +2868,13 @@ class HtmlConverter(object):
 """.format(
             title         = unicode(escape(bookinfo.title)),
             author        = unicode(escape(bookinfo.author)),
-            cover         = os.path.relpath(cover.destpath, os.path.dirname(filename)),
+            cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)),
             start         = unicode(escape(os.path.relpath(start, os.path.dirname(filename)))),
             link_to_start = u"开始阅读")
 
         return html;
 
-    def chapter_header(self, filename, chapter):
+    def chapter_header(self, files, filename, chapter):
         title = chapter.title_inner or chapter.title
 
         img = u""
@@ -2767,8 +2889,8 @@ class HtmlConverter(object):
         if chapter.cover:
             img = u"<div class='cover{extra_class}'><img alt='{title}' src='{cover}' /></div>".format(
                 title=escape(title), 
-                cover=os.path.relpath(chapter.cover.destpath, os.path.dirname(filename)),
-                extra_class = u" large_cover" if chapter.cover.height > MAX_EMBED_COVER_HEIGHT else u"")
+                cover=os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)),
+                extra_class = u" large_cover" if chapter.cover.height() > MAX_EMBED_COVER_HEIGHT else u"")
 
             extra_class += u"chapter_cover_header"
 
@@ -2778,7 +2900,7 @@ class HtmlConverter(object):
             level = chapter.level,
             hlevel = hlevel,
             extra_class = extra_class,
-            id    = chapter.name,
+            id    = chapter.id,
             img   = img)
 
         if title:
@@ -2804,7 +2926,7 @@ class HtmlConverter(object):
 
         return html
 
-    def chapter_content(self, filename, chapter):
+    def chapter_content(self, files, filename, chapter):
         def dequote_content(line):
             lines = list()
 
@@ -2812,9 +2934,9 @@ class HtmlConverter(object):
                 lines.append(u''.join((u'<p class="section_title">', escape(line.title), u'</p>')))
             elif isinstance(line, Img):
                 lines.append(u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
-                    src = os.path.relpath(line.destpath, os.path.dirname(filename)),
-                    alt = escape(line.desc) if line.desc else u"img",
-                    desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc)) if line.desc else u""
+                    src = os.path.relpath(self.get_img_destpath_(files, line), os.path.dirname(filename)),
+                    alt = escape(line.desc()) if line.desc() else u"img",
+                    desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
                     ))
             else:
                 lines.append(u"".join((u"<p>", escape(line), u"</p>")))
@@ -2872,18 +2994,15 @@ class HtmlConverter(object):
             return u''
 
         # 未保存时才保存
-        if not img.destpath:
-            img.id       = u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(files["image"])+1)
-            img.destpath = u'{path}{prefix}{idx}{ext}'.format(
-                path=IMAGE_PATH, prefix=IMAGE_PREFIX, idx=len(files["image"])+1, ext=img.extension)
+        if not files["image"].has_key(img.unique_key()):
+            img.set_id(u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(files["image"])+1))
 
-            files["image"].append({
-                "filename": img.destpath,
-                "content":  img.content,
-                "id":       img.id,
-            })
-
-        return img.destpath
+            files["image"][img.unique_key()] = {
+                "filename": u'{path}{prefix}{idx}{ext}'.format(
+                            path=IMAGE_PATH, prefix=IMAGE_PREFIX, idx=len(files["image"])+1, ext=img.extension()),
+                "content":  img.content(),
+                "id":       img.id(),
+            }
 
     # {{{ ---- create_chapter_files
     def create_chapter_files(self, files, path, bookinfo, chapters, prefix_callback=lambda filename: u''):
@@ -2892,7 +3011,7 @@ class HtmlConverter(object):
         for chapter in chapters:
             subpath = path
             if self.options.nestdir:
-                subpath = os.path.join(path, chapter.name)
+                subpath = os.path.join(path, chapter.id)
 
             if chapter.cover:
                 # 加入封面图片
@@ -2910,18 +3029,18 @@ class HtmlConverter(object):
 
             if chapter.content or not chapter.subchapters:
                 # 有内容，或没有子章节，自成一个文件
-                filename = u"{name}{ext}".format(name=os.path.join(path, chapter.name), ext=HTML_EXT)
+                filename = u"{name}{ext}".format(name=os.path.join(path, chapter.id), ext=HTML_EXT)
 
                 files["html"].append({
                     "filename": filename,
                     "content":  u"".join((
                         self.html_header(filename, chapter.title, cssfile=CSS_FILE),
                         prefix_callback(filename),  # 用当前文件名调用prefix_callback得到应插入的html
-                        self.chapter_header(filename, chapter),
-                        self.chapter_content(filename, chapter),
+                        self.chapter_header(files, filename, chapter),
+                        self.chapter_content(files, filename, chapter),
                         self.html_footer(filename, bookinfo),
                         )).encode("utf-8"),
-                    "id":       chapter.name,
+                    "id":       chapter.id,
                     })
 
                 if chapter.subchapters:
@@ -2938,11 +3057,11 @@ class HtmlConverter(object):
                     subpath,
                     bookinfo,
                     chapter.subchapters, 
-                    lambda filename: prefix_callback(filename) + self.chapter_header(filename, chapter))
+                    lambda filename: prefix_callback(filename) + self.chapter_header(files, filename, chapter))
 
             # 同一个文件中所有章节的链接都直接指向文件本身，以解决静读天下中章节会重复的问题
-            chapter.src = u"{filename}".format(filename=filename, anchor=chapter.name)
-            #chapter.src = u"{filename}#{anchor}".format(filename=filename, anchor=chapter.name)
+            chapter.src = u"{filename}".format(filename=filename, anchor=chapter.id)
+            #chapter.src = u"{filename}#{anchor}".format(filename=filename, anchor=chapter.id)
 
             if not first_chapter_page:
                 first_chapter_page = filename
@@ -2955,9 +3074,9 @@ class HtmlConverter(object):
 
     def convert(self, outputter, bookinfo):
         files = {
-            "image" : list(),   # 图片
-            "html"  : list(),   # HTML文件
-            "other" : list(),   # 其它文件
+            "image"   : dict(),     # 图片。Img.unique_key() -> 保存位置的映射
+            "html"    : list(),     # HTML文件
+            "other"   : list(),     # 其它文件
         }
 
         files["other"].append({
@@ -2984,12 +3103,12 @@ class HtmlConverter(object):
         }]
 
         if bookinfo.cover:
-            if bookinfo.cover.height <= MAX_EMBED_COVER_HEIGHT:
+            if bookinfo.cover.height() <= MAX_EMBED_COVER_HEIGHT:
                 # 封面图片较小，可与书名页合并，把原来的书名页换掉
                 filename = files["html"][0]["filename"]
                 files["html"][0]["content"] = u"".join((
                     self.html_header(filename, bookinfo.title, cssfile=CSS_FILE),
-                    self.title_cover_page(filename, bookinfo, bookinfo.cover, first_page),
+                    self.title_cover_page(files, filename, bookinfo, bookinfo.cover, first_page),
                     self.html_footer(filename, bookinfo),
                 )).encode("utf-8")
             else:
@@ -2999,13 +3118,13 @@ class HtmlConverter(object):
                     "filename": filename,
                     "content":  u"".join((
                                 self.html_header(filename, bookinfo.title, cssfile=CSS_FILE),
-                                self.cover_page(filename, bookinfo, bookinfo.cover),
+                                self.cover_page(files, filename, bookinfo, bookinfo.cover),
                                 self.html_footer(filename, bookinfo),
                                 )).encode("utf-8"),
                     "id":       COVER_PAGE,
                 }]
 
-        for f in files["html"] + files["image"] + files["other"]:
+        for f in files["html"] + files["image"].values() + files["other"]:
             outputter.add_file(f["filename"], f["content"], id=f["id"] if f.has_key("id") else "")
 #   }}}
 
@@ -3092,7 +3211,7 @@ class EpubConverter(Converter):
                 # 有title才生成目录项
                 if chapter.title:
                     src = os.path.join(CONTENT_DIR, chapter.src)
-                    navPointElem = new_navpoint_elem(chapter.name, chapter.title, src)
+                    navPointElem = new_navpoint_elem(chapter.id, chapter.title, src)
                     elems.append({"elem":navPointElem, "firstLabel":unicode(chapter.title), "lastLabel":unicode(chapter.title), "src":src})
                     self.create_navpoint(xml, navPointElem, chapter.subchapters)
             
@@ -3251,7 +3370,7 @@ class EpubConverter(Converter):
         if bookinfo.cover:
             coverElem = xml.createElement("meta")
             coverElem.setAttribute("name", "cover")
-            coverElem.setAttribute("content", unicode(bookinfo.cover.id))
+            coverElem.setAttribute("content", unicode(bookinfo.cover.id()))
             metadataElem.appendChild(coverElem)
 
         # /package/manifest
@@ -3455,114 +3574,119 @@ def convert_book(path, options):
     def chapters_normalize(chapters, level, prefix):
         i = 1
         for c in chapters:
-            c.name  = prefix + str(i)
+            c.id  = prefix + str(i)
             c.level = level
 
             if c.subchapters:
-                chapters_normalize(c.subchapters, level + 1, c.name + "_")
+                chapters_normalize(c.subchapters, level + 1, c.id + "_")
 
             i += 1
+
+    # {{{ get_suitable_inputter
+    def get_suitable_inputter(path):
+        inputter = None
+        if re.match(r"https?://", path):
+            inputter = UrlInputter(path)
+        elif os.path.isfile(path) and os.path.splitext(path)[1].lower() == ".chm":
+            try:
+                chmlib
+
+                try:
+                    inputter = ChmInputter(path)
+                except:
+                    pass
+            except NameError:
+                logging.error(u"chmlib not found")
+        elif os.path.exists(path):
+            inputter = FileSysInputter(path)
+        else:
+            logging.error(u"File not found '{0}'".format(path))
+            raise NotParseableError(u"'{0}' is not existed!".format(path))
+
+        if not inputter:
+            logging.error(u"Can't parse '{0}".format(path))
+            raise NotParseableError(u"Can't find suitable Inputter for path '{0}'!".format(path))
+
+        return inputter
+    # }}}
+
+    # {{{ Parse book
+    def parse_book(inputter):
+        bookinfo = None
+
+        logging.info(u"Parsing book '{0}'...".format(path))
+
+        try:
+            bookinfo = Parser.parse_book(inputter)
+        except NotParseableError as e:
+            logging.error(u"  Error: Don't know how to parse '{0}'".format(path))
+            logging.error(e.value)
+            raise
+
+        chapters_normalize(bookinfo.chapters, 1, u"chapter_")
+
+        (bookinfo.title, bookinfo.author) = parse_filename(
+            path, 
+            options.title if options.title else bookinfo.title, 
+            options.author if options.author else bookinfo.author)
+
+        bookinfo.category = options.category if options.category else bookinfo.category
+        bookinfo.cover = cover if cover else bookinfo.cover
+
+        # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
+        if not options.offline and bookinfo.title and (not bookinfo.author or not bookinfo.category):
+            logging.info(u"Searching book information from internet...")
+
+            (title, author, l1cat, l2cat) = get_book_category(bookinfo.title, bookinfo.author)
+
+            if not bookinfo.author:
+                bookinfo.author = author
+
+            if not bookinfo.category:
+                bookinfo.category = l1cat
+
+        return bookinfo
+    # }}}
+
+    def print_book_info(bookinfo):
+        logging.info(u"Book Info:")
+        logging.info(u"  Book Title:  '{title}'".format(title=bookinfo.title))
+        logging.info(u"  Book Author: '{author}'".format(author=bookinfo.author))
+        logging.info(u"  Book Category: '{category}'".format(category=bookinfo.category))
+
+        if bookinfo.cover:
+            logging.info(u"  Cover: Yes")
+        else:
+            logging.info(u"  Cover: None")
 
     # {{{ Environments/Options verification
     cover = None
     if options.cover:
         if os.path.exists(options.cover):
-            cover = Img(options.cover)
+            cover = SingleImg(options.cover)
         else:
             logging.error(u"  Error: Cover file '{0}' not found".format(options.cover))
             return 6
     # }}}
 
-    # {{{ Select suitable inputter
-    inputter = None
-    if re.match(r"https?://", path):
-        inputter = UrlInputter(path)
-    elif os.path.isfile(path) and os.path.splitext(path)[1].lower() == ".chm":
-        try:
-            chmlib
+    inputter = get_suitable_inputter(path)
+    with inputter:
+        bookinfo = parse_book(inputter)
 
-            try:
-                inputter = ChmInputter(path)
-            except:
-                pass
-        except NameError:
-            logging.info(u"chmlib not found")
-    elif os.path.exists(path):
-        inputter = FileSysInputter(path)
-    else:
-        logging.error(u"File not found '{0}'".format(path))
-        return 3
+        print_book_info(bookinfo)
 
-    if not inputter:
-        logging.error(u"Can't parse '{0}".format(path))
-        return 4
-    # }}}
+        # {{{ Convert book
+        if options.output: 
+            bookfilename = options.output
+        else:
+            bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
 
-    # {{{ Parse book
-    bookinfo = None
+        converter = EpubConverter(options)
+        with ZipOutputter(FileSysOutputter(), bookfilename) as outputter:
+            converter.convert(outputter, bookinfo)
 
-    logging.info(u"Parsing book '{0}'...".format(path))
-
-    try:
-        with inputter:
-            bookinfo = Parser.parse_book(inputter)
-    except NotParseableError as e:
-        logging.error(e.value)
-
-    if not bookinfo:
-        logging.error(u"  Error: Don't know how to parse '{0}'".format(path))
-        return 5
-
-    chapters_normalize(bookinfo.chapters, 1, u"chapter_")
-
-    (bookinfo.title, bookinfo.author) = parse_filename(
-        path, 
-        options.title if options.title else bookinfo.title, 
-        options.author if options.author else bookinfo.author)
-
-    bookinfo.category = options.category if options.category else bookinfo.category
-    bookinfo.cover = cover if cover else bookinfo.cover
-    # }}}
-
-    # {{{ Fetching book information from internet
-    # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
-    if not options.offline and bookinfo.title and (not bookinfo.author or not bookinfo.category):
-        logging.info(u"Searching book information from internet...")
-
-        (title, author, l1cat, l2cat) = get_book_category(bookinfo.title, bookinfo.author)
-
-        if not bookinfo.author:
-            bookinfo.author = author
-
-        if not bookinfo.category:
-            bookinfo.category = l1cat
-    # }}}
-
-    # {{{ Convert book
-    logging.info(u"Book Info:")
-    logging.info(u"  Book Title:  '{title}'".format(title=bookinfo.title))
-    logging.info(u"  Book Author: '{author}'".format(author=bookinfo.author))
-    logging.info(u"  Book Category: '{category}'".format(category=bookinfo.category))
-
-    if bookinfo.cover:
-        logging.info(u"  Cover: '{cover}'".format(cover=bookinfo.cover.filename))
-    else:
-        logging.info(u"  Cover: None")
-
-    if options.output:
-        bookfilename = options.output
-    else:
-        bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
-
-    converter = EpubConverter(options)
-    with ZipOutputter(FileSysOutputter(), bookfilename) as outputter:
-        converter.convert(outputter, bookinfo)
-
-    logging.info(u"Saved EPUB to {0}".format(bookfilename))
-
-    #convert_to_html(bookinfo, style=EPUB_STYLE)
-    #convert_to_epub(bookinfo, options)
-    # }}}
+        logging.info(u"Saved EPUB to {0}".format(bookfilename))
+        # }}}
 
     return 0
 # }}}
