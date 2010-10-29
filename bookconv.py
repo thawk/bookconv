@@ -20,7 +20,7 @@ import tempfile
 import uuid
 import zipfile
 import Image
-import StringIO
+from cStringIO import StringIO
 
 from cgi import escape
 from time import localtime, time
@@ -43,9 +43,9 @@ except:
         pass
 # }}}
 
-# {{{ Contants
-VERSION=u"20101021"
+VERSION=u"20101029"
 
+# {{{ Contants
 WEB_INFOS = [
     {
         "pattern"   : re.compile("http://book\.ifeng\.com"),
@@ -658,6 +658,7 @@ EPUB_STYLE = HTML_STYLE
 # {{{ General Utilities
 class NotParseableError(Exception):
     def __init__(self, value):
+        super(NotParseableError, self).__init__()
         self.value = value
     def __str__(self):
         return repr(self.value)
@@ -789,7 +790,7 @@ class Img(object):
         if not self.cache.has_key(fullpath):
             content = self.inputter.read_binary(filename)
 
-            f = StringIO.StringIO(content)
+            f = StringIO(content)
             width, height = Image.open(f).size
             f.close()
 
@@ -1217,7 +1218,7 @@ class Inputter(object):
 #   {{{ -- FileSysInputter
 class FileSysInputter(Inputter):
     def __init__(self, basedir=u"", encoding=""):
-        Inputter.__init__(self, encoding)
+        super(FileSysInputter, self).__init__(encoding)
 
         if os.path.isfile(basedir):
             self.basedir   = os.path.normpath(os.path.normpath(os.path.dirname(basedir)))
@@ -1259,7 +1260,7 @@ class ChmInputter(Inputter):
             lst.append(ui.path)
             return chmlib.CHM_ENUMERATOR_CONTINUE
 
-        Inputter.__init__(self, encoding)
+        super(ChmInputter, self).__init__(encoding)
 
         self.filename = filename
         self.chmfile  = chmlib.chm_open(filename.encode(sys.getfilesystemencoding()))
@@ -1304,7 +1305,7 @@ class ChmInputter(Inputter):
 #   {{{ -- UrlInputter
 class UrlInputter(Inputter):
     def __init__(self, baseurl=u"", encoding=""):
-        Inputter.__init__(self, encoding)
+        super(UrlInputter, self).__init__(encoding)
 
         m = re.match(u"(.*?://.*/)([^/]*)$", baseurl)
         if m:
@@ -1397,7 +1398,7 @@ class UrlInputter(Inputter):
 #   {{{ -- SubInputter
 class SubInputter(Inputter):
     def __init__(self, inputter, root):
-        Inputter.__init__(self, inputter.default_encoding)
+        super(SubInputter, self).__init__(inputter.default_encoding)
 
         self.inputter = inputter
         self.nested_level = inputter.nested_level + 1
@@ -2686,17 +2687,16 @@ class EasyChmCollectionParser(CollectionParser):
 
 #   {{{ -- Converter
 class Converter(object):
-    def convert(self, bookinfo, outputter):
+    def convert(self, outputter, bookinfo):
         raise NotImplementedError()
+
 #   }}}
 
-# {{{ HtmlOutputer
-class HtmlOutputer(object):
-    def __init__(self, options):
+#   {{{ -- HtmlConverter
+class HtmlConverter(object):
+    def __init__(self, options, style=HTML_STYLE):
         self.options = options
-        self.images  = list()   # 图片
-        self.htmls   = list()   # HTML文件
-        self.others  = list()   # 其它文件
+        self.style   = style
 
     def css_style(self, extra_css=""):
         return HTML_STYLE + extra_css
@@ -2867,33 +2867,17 @@ class HtmlOutputer(object):
 </html>
 """
 
-    def convert_to_single_html(self, bookinfo, style=HTML_STYLE):
-        def chapter_to_html(filename, chapter):
-            chapter.src = u"index{ext}#{anchor}".format(ext=HTML_EXT, anchor=chapter.name)
-
-            return u"".join((
-                self.chapter_header(filename, chapter), 
-                self.chapter_content(filename, chapter),
-                u"".join((chapter_to_html(filename, c) for c in chapter.subchapters)),
-                self.chapter_footer(filename, chapter)))
-
-        return u"".join((
-            self.html_header("", bookinfo.title, style=style),
-            self.title_page("", bookinfo, u"#chapter_1"),
-            u"".join((chapter_to_html(chapter) for chapter in bookinfo.chapters)),
-            self.html_footer("", bookinfo)))
-
-    def append_image(self, img):
+    def append_image(self, files, img):
         if not img:
             return u''
 
         # 未保存时才保存
         if not img.destpath:
-            img.id       = u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(self.images)+1)
+            img.id       = u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(files["image"])+1)
             img.destpath = u'{path}{prefix}{idx}{ext}'.format(
-                path=IMAGE_PATH, prefix=IMAGE_PREFIX, idx=len(self.images)+1, ext=img.extension)
+                path=IMAGE_PATH, prefix=IMAGE_PREFIX, idx=len(files["image"])+1, ext=img.extension)
 
-            self.images.append({
+            files["image"].append({
                 "filename": img.destpath,
                 "content":  img.content,
                 "id":       img.id,
@@ -2901,83 +2885,95 @@ class HtmlOutputer(object):
 
         return img.destpath
 
-    def convert_to_multiple_html(self, bookinfo, style=HTML_STYLE):
-        def create_chapter_files(path, chapters, prefix_callback=lambda filename: u''):
-            first_chapter_page = ""     # chapters中，首个chapter所在的文件名，上层章节可能会合并到这个文件
+    # {{{ ---- create_chapter_files
+    def create_chapter_files(self, files, path, bookinfo, chapters, prefix_callback=lambda filename: u''):
+        first_chapter_page = ""     # chapters中，首个chapter所在的文件名，上层章节可能会合并到这个文件
 
-            for chapter in chapters:
-                subpath = path
-                if self.options.nestdir:
-                    subpath = os.path.join(path, chapter.name)
+        for chapter in chapters:
+            subpath = path
+            if self.options.nestdir:
+                subpath = os.path.join(path, chapter.name)
 
-                if chapter.cover:
-                    # 加入封面图片
-                    self.append_image(chapter.cover)
+            if chapter.cover:
+                # 加入封面图片
+                self.append_image(files, chapter.cover)
 
-                # 生成章节中的图片
-                for line in chapter.content:
-                    if isinstance(line, Img):
-                        self.append_image(line)
-                    elif isinstance(line, Quote):
-                        # 引用中也可能有图片
-                        for l in line.lines:
-                            if isinstance(l, Img):
-                                self.append_image(l)
+            # 生成章节中的图片
+            for line in chapter.content:
+                if isinstance(line, Img):
+                    self.append_image(files, line)
+                elif isinstance(line, Quote):
+                    # 引用中也可能有图片
+                    for l in line.lines:
+                        if isinstance(l, Img):
+                            self.append_image(files, l)
 
-                if chapter.content or not chapter.subchapters:
-                    # 有内容，或没有子章节，自成一个文件
-                    filename = u"{name}{ext}".format(name=os.path.join(path, chapter.name), ext=HTML_EXT)
+            if chapter.content or not chapter.subchapters:
+                # 有内容，或没有子章节，自成一个文件
+                filename = u"{name}{ext}".format(name=os.path.join(path, chapter.name), ext=HTML_EXT)
 
-                    self.htmls.append({
-                        "filename": filename,
-                        "content":  u"".join((
-                            self.html_header(filename, chapter.title, cssfile=CSS_FILE),
-                            prefix_callback(filename),  # 用当前文件名调用prefix_callback得到应插入的html
-                            self.chapter_header(filename, chapter),
-                            self.chapter_content(filename, chapter),
-                            self.html_footer(filename, bookinfo),
-                            )).encode("utf-8"),
-                        "id":       chapter.name,
-                        })
+                files["html"].append({
+                    "filename": filename,
+                    "content":  u"".join((
+                        self.html_header(filename, chapter.title, cssfile=CSS_FILE),
+                        prefix_callback(filename),  # 用当前文件名调用prefix_callback得到应插入的html
+                        self.chapter_header(filename, chapter),
+                        self.chapter_content(filename, chapter),
+                        self.html_footer(filename, bookinfo),
+                        )).encode("utf-8"),
+                    "id":       chapter.name,
+                    })
 
-                    if chapter.subchapters:
-                        create_chapter_files(
-                            subpath,
-                            chapter.subchapters)
-
-                else:
-                    # 无内容但有子章节，章节标题合并到第一个子章节中
-                    filename = create_chapter_files(
+                if chapter.subchapters:
+                    self.create_chapter_files(
+                        files,
                         subpath,
-                        chapter.subchapters, 
-                        lambda filename: prefix_callback(filename) + self.chapter_header(filename, chapter))
+                        bookinfo,
+                        chapter.subchapters)
 
-                # 同一个文件中所有章节的链接都直接指向文件本身，以解决静读天下中章节会重复的问题
-                chapter.src = u"{filename}".format(filename=filename, anchor=chapter.name)
-                #chapter.src = u"{filename}#{anchor}".format(filename=filename, anchor=chapter.name)
+            else:
+                # 无内容但有子章节，章节标题合并到第一个子章节中
+                filename = self.create_chapter_files(
+                    files,
+                    subpath,
+                    bookinfo,
+                    chapter.subchapters, 
+                    lambda filename: prefix_callback(filename) + self.chapter_header(filename, chapter))
 
-                if not first_chapter_page:
-                    first_chapter_page = filename
+            # 同一个文件中所有章节的链接都直接指向文件本身，以解决静读天下中章节会重复的问题
+            chapter.src = u"{filename}".format(filename=filename, anchor=chapter.name)
+            #chapter.src = u"{filename}#{anchor}".format(filename=filename, anchor=chapter.name)
 
-                # prefix_callback的内容只写一次即可
-                prefix_callback = lambda filename: u''
+            if not first_chapter_page:
+                first_chapter_page = filename
 
-            return first_chapter_page
+            # prefix_callback的内容只写一次即可
+            prefix_callback = lambda filename: u''
 
-        self.others.append({
+        return first_chapter_page
+    # }}}
+
+    def convert(self, outputter, bookinfo):
+        files = {
+            "image" : list(),   # 图片
+            "html"  : list(),   # HTML文件
+            "other" : list(),   # 其它文件
+        }
+
+        files["other"].append({
             "filename":CSS_FILE, 
-            "content":style.encode("utf-8"),
+            "content":self.style.encode("utf-8"),
             "id":CSS_FILE,
         })
         
         # 先处理封面图片，使其出现在最开始的位置
         if bookinfo.cover:
-            self.append_image(bookinfo.cover)
+            self.append_image(files, bookinfo.cover)
 
-        first_page = create_chapter_files("", bookinfo.chapters)
+        first_page = self.create_chapter_files(files, "", bookinfo, bookinfo.chapters)
 
         filename = TITLE_PAGE + HTML_EXT
-        self.htmls[0:0] = [{
+        files["html"][0:0] = [{
             "filename": filename,
             "content":  u"".join((
                         self.html_header(filename, bookinfo.title, cssfile=CSS_FILE),
@@ -2990,8 +2986,8 @@ class HtmlOutputer(object):
         if bookinfo.cover:
             if bookinfo.cover.height <= MAX_EMBED_COVER_HEIGHT:
                 # 封面图片较小，可与书名页合并，把原来的书名页换掉
-                filename = self.htmls[0]["filename"]
-                self.htmls[0]["content"] = u"".join((
+                filename = files["html"][0]["filename"]
+                files["html"][0]["content"] = u"".join((
                     self.html_header(filename, bookinfo.title, cssfile=CSS_FILE),
                     self.title_cover_page(filename, bookinfo, bookinfo.cover, first_page),
                     self.html_footer(filename, bookinfo),
@@ -2999,7 +2995,7 @@ class HtmlOutputer(object):
             else:
                 # 插入封面页
                 filename = COVER_PAGE + HTML_EXT
-                self.htmls[0:0] = [{
+                files["html"][0:0] = [{
                     "filename": filename,
                     "content":  u"".join((
                                 self.html_header(filename, bookinfo.title, cssfile=CSS_FILE),
@@ -3009,22 +3005,28 @@ class HtmlOutputer(object):
                     "id":       COVER_PAGE,
                 }]
 
-        return self.htmls + self.images + self.others
-# }}}
+        for f in files["html"] + files["image"] + files["other"]:
+            outputter.add_file(f["filename"], f["content"], id=f["id"] if f.has_key("id") else "")
+#   }}}
 
-# {{{ Epub Outputter
-def convert_to_epub(bookinfo, options):
-    playOrderMap = dict()   # 用于记录各个src对应的playOrder
+# {{{ -- EpubConverter
+class EpubConverter(Converter):
+#def convert_to_epub(bookinfo, options):
+#    playOrderMap = dict()   # 用于记录各个src对应的playOrder
 
-    def get_navpoint_depth(parent):
+    def __init__(self, options):
+        super(EpubConverter, self).__init__()
+        self.options = options
+
+    def get_navpoint_depth(self, parent):
         depth = 0
         for elem in parent.childNodes:
             if elem.nodeName == 'navPoint':
-                depth = max((depth, get_navpoint_depth(elem) + 1))
+                depth = max((depth, self.get_navpoint_depth(elem) + 1))
 
         return depth
 
-    def add_playorder_to_navpoint(parent, playOrder=1):
+    def add_playorder_to_navpoint(self, parent, playOrderMap=dict(), playOrder=1):
         for elem in parent.childNodes:
             if elem.nodeName == 'navPoint':
                 # 取出src
@@ -3040,11 +3042,11 @@ def convert_to_epub(bookinfo, options):
                     playOrder += 1
 
                 # 处理elem的子节点
-                playOrder = add_playorder_to_navpoint(elem, playOrder)
+                playOrder = self.add_playorder_to_navpoint(elem, playOrderMap, playOrder)
 
         return playOrder
 
-    def create_navpoint(xml, parent, chapters):
+    def create_navpoint(self, xml, parent, chapters):
         def new_navpoint_elem(id, title, src):
             navPointElem = xml.createElement("navPoint")
             navPointElem.setAttribute("id", unicode(id))
@@ -3092,12 +3094,12 @@ def convert_to_epub(bookinfo, options):
                     src = os.path.join(CONTENT_DIR, chapter.src)
                     navPointElem = new_navpoint_elem(chapter.name, chapter.title, src)
                     elems.append({"elem":navPointElem, "firstLabel":unicode(chapter.title), "lastLabel":unicode(chapter.title), "src":src})
-                    create_navpoint(xml, navPointElem, chapter.subchapters)
+                    self.create_navpoint(xml, navPointElem, chapter.subchapters)
             
             chapter_level = chapters[0].level
 
             # 调整TOC，使每层的TOC不超过指定的数量
-            if options.rearrange_toc:
+            if self.options.rearrange_toc:
                 maxEpubSubToc = DEFAULT_MAX_EPUB_SUB_TOC
                 if MAX_EPUB_SUB_TOCS.has_key(chapter_level):
                     maxEpubSubToc = MAX_EPUB_SUB_TOCS[chapter_level]
@@ -3107,7 +3109,7 @@ def convert_to_epub(bookinfo, options):
             for e in elems:
                 parent.appendChild(e["elem"])
 
-    def generate_ncx(bookinfo, identifier):
+    def generate_ncx(self, bookinfo, identifier):
         xml = minidom.Document()
 
         # /ncx
@@ -3168,18 +3170,18 @@ def convert_to_epub(bookinfo, options):
         ncxElem.appendChild(navMapElem)
 
         # 生成各navPoint
-        create_navpoint(xml, navMapElem, bookinfo.chapters)
-        add_playorder_to_navpoint(navMapElem)
+        self.create_navpoint(xml, navMapElem, bookinfo.chapters)
+        self.add_playorder_to_navpoint(navMapElem)
 
         # /ncx/head/meta[name=depth]
         depthElem = xml.createElement("meta")
         headElem.appendChild(depthElem)
         depthElem.setAttribute("name", "dtb:depth")
-        depthElem.setAttribute("content", unicode(get_navpoint_depth(navMapElem)))
+        depthElem.setAttribute("content", unicode(self.get_navpoint_depth(navMapElem)))
 
         return pretty_xml(xml)
 
-    def generate_opf(bookinfo, identifier, filelist):
+    def generate_opf(self, bookinfo, identifier, filelist):
         def get_media_type(filename):
             for m in MEDIA_TYPES:
                 if m["pattern"].match(filename):
@@ -3263,11 +3265,11 @@ def convert_to_epub(bookinfo, options):
         tocElem.setAttribute("media-type", NCX_TYPE)
 
         for file in filelist:
-            filename = file["filename"]
+            path = file["path"]
             idxElem = xml.createElement("item")
-            idxElem.setAttribute("id",         unicode(file["id"] if file.has_key("id") and file["id"] else filename))
-            idxElem.setAttribute("href",       unicode(os.path.join(CONTENT_DIR, filename)))
-            idxElem.setAttribute("media-type", unicode(get_media_type(filename)))
+            idxElem.setAttribute("id",         unicode(file["id"] if file.has_key("id") and file["id"] else path))
+            idxElem.setAttribute("href",       unicode(os.path.join(CONTENT_DIR, path)))
+            idxElem.setAttribute("media-type", unicode(get_media_type(path)))
             manifestElem.appendChild(idxElem)
 
         # /package/spine
@@ -3276,14 +3278,14 @@ def convert_to_epub(bookinfo, options):
         spineElem.setAttribute("toc", NCX_ID)
 
         for file in filelist:
-            if re.match(u".*\.x?html?", file["filename"]):
+            if re.match(u".*\.x?html?", file["path"]):
                 itemrefElem = xml.createElement("itemref")
                 itemrefElem.setAttribute("idref", unicode(file["id"]))
                 spineElem.appendChild(itemrefElem)
 
         return pretty_xml(xml)
 
-    def build_epub(epubfile, opf, ncx, filelist):
+    def build_epub(self, epubfile, opf, ncx, filelist):
         """ 根据opf、ncx及filelist中的文件内容，构造epub文件 """
 
         exists_files = dict()   # 用于记录已增加到zip包中的文件
@@ -3331,80 +3333,99 @@ def convert_to_epub(bookinfo, options):
 
         count = 0
         for file in filelist:
-            zip_it(epub, os.path.join(CONTENT_DIR, file["filename"]), file["content"], loglevel=logging.DEBUG)
+            zip_it(epub, os.path.join(CONTENT_DIR, file["path"]), file["content"], loglevel=logging.DEBUG)
             count += 1
 
         logging.info(u"    Total {0} files added".format(count))
 
         epub.close()
 
-    identifier = unicode(uuid.uuid4())
+    def convert(self, outputter, bookinfo):
+        identifier = unicode(uuid.uuid4())
 
-    logging.info(u"Generating related files...")
+        logging.info(u"Generating related files...")
 
-    logging.info(u"  Generating content files ...")
-    filelist = HtmlOutputer(options).convert_to_multiple_html(bookinfo, EPUB_STYLE)
+        logging.info(u"  Generating content files ...")
 
-    filecount = dict()
-    othercount = 0
-    for file in filelist:
-        for media_type in MEDIA_TYPES:
-            if media_type["pattern"].match(file["filename"]):
-                if filecount.has_key(media_type["type"]):
-                    filecount[media_type["type"]] += 1
-                else:
-                    filecount[media_type["type"]] = 1
+        memOutputter = MemOutputter()
+        htmlconverter = HtmlConverter(self.options, EPUB_STYLE)
+        htmlconverter.convert(memOutputter, bookinfo)
 
-                break
-        else:
-            othercount += 1
+        filecount = dict()
+        othercount = 0
+        for file in memOutputter.files:
+            for media_type in MEDIA_TYPES:
+                if media_type["pattern"].match(file["path"]):
+                    if filecount.has_key(media_type["type"]):
+                        filecount[media_type["type"]] += 1
+                    else:
+                        filecount[media_type["type"]] = 1
 
-    for type in filecount:
-        logging.info(u"    {count:4} {type} files".format(type=type, count=filecount[type]))
+                    break
+            else:
+                othercount += 1
 
-    if othercount > 0:
-        logging.info(u"    {count:4} other files".format(count=othercount))
+        for type in filecount:
+            logging.info(u"    {count:4} {type} files".format(type=type, count=filecount[type]))
 
-    logging.info(u"    Total {0} files".format(len(filelist)))
+        if othercount > 0:
+            logging.info(u"    {count:4} other files".format(count=othercount))
 
-    logging.info(u"  Generating ncx file ...")
-    ncx = generate_ncx(bookinfo, identifier)
+        logging.info(u"    Total {0} files".format(len(memOutputter.files)))
 
-    logging.info(u"  Generating opf file ...")
-    opf = generate_opf(bookinfo, identifier, filelist)
+        logging.info(u"  Generating ncx file ...")
+        ncx = self.generate_ncx(bookinfo, identifier)
 
-    with TemporaryFile(suffix='.epub') as epubfile:
-        build_epub(epubfile, opf, ncx, filelist)
+        logging.info(u"  Generating opf file ...")
+        opf = self.generate_opf(bookinfo, identifier, memOutputter.files)
 
-        if options.output:
-            bookfilename = options.output
+        epubfile = StringIO()
+        self.build_epub(epubfile, opf, ncx, memOutputter.files)
+
+        if self.options.output:
+            bookfilename = self.options.output
         else:
             bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
 
         logging.info(u"Saving EPUB to {0}".format(bookfilename))
-        shutil.move(epubfile, bookfilename)
+        outputter.add_file(bookfilename, epubfile.getvalue())
+        epubfile.close()
+
         logging.info(u"  Done.")
+# }}}
+
 # }}}
 
 # {{{ Outputters
 #   {{{ -- Outputter
 class Outputter(object):
-    def add_file(self, path, content, properties=None):
+    def add_file(self, path, content, **properties):
         raise NotImplementedError()
 #   }}}
 
 #   {{{ -- MemOutputter
 class MemOutputter(Outputter):
     def __init__(self):
-        super().__init__()
+        super(MemOutputter, self).__init__()
         self.files = list()
 
-    def add_file(self, path, content, properties=None):
-        self.files.append({
+    def add_file(self, path, content, **properties):
+        file = {
             "path"       : path,
             "content"    : content,
-            "properties" : properties,
-        })
+        }
+
+        for k in properties.keys():
+            file[k] = properties[k]
+
+        self.files.append(file)
+#   }}}
+
+#   {{{ -- FileSysOutputter
+class FileSysOutputter(Outputter):
+    def add_file(self, path, content, **properties):
+        with open(path, 'w+b') as f:
+            f.write(content)
 #   }}}
 
 # }}}
@@ -3508,8 +3529,10 @@ def convert_book(path, options):
     else:
         logging.info(u"  Cover: None")
 
+    converter = EpubConverter(options)
+    converter.convert(FileSysOutputter(), bookinfo)
     #convert_to_html(bookinfo, style=EPUB_STYLE)
-    convert_to_epub(bookinfo, options)
+    #convert_to_epub(bookinfo, options)
     # }}}
 
     return 0
