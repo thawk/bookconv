@@ -44,7 +44,7 @@ except:
         pass
 # }}}
 
-VERSION=u"20101029"
+VERSION=u"20101102"
 
 # {{{ Contants
 WEB_INFOS = [
@@ -120,6 +120,10 @@ MEDIA_TYPES = (
 )
 
 CATEGORY_NEWS_PAPER = u'报刊'
+# }}}
+
+# {{{ Globals
+options = dict()
 # }}}
 
 # {{{ Styles
@@ -778,10 +782,17 @@ class BookInfo:
         self.publist_ver  = u""
 #   }}}
 
-#   {{{ -- class Quote
-class Quote(object):
+#   {{{ -- class LineContainer
+class LineContainer(object):
+    """ 可以包含若干行的部件 """
     def __init__(self, lines):
         self.lines = lines
+#   }}}
+
+#   {{{ -- class Quote
+class Quote(LineContainer):
+    def __init__(self, lines):
+        super(LineContainer, self).__init__(lines)
 #   }}}
 
 #   {{{ -- class Section
@@ -2813,8 +2824,7 @@ class Converter(object):
 
 #   {{{ -- HtmlConverter
 class HtmlConverter(object):
-    def __init__(self, options, style=HTML_STYLE):
-        self.options = options
+    def __init__(self, style=HTML_STYLE):
         self.style   = style
 
     def get_img_destpath_(self, files, img):
@@ -3010,7 +3020,7 @@ class HtmlConverter(object):
 
         for chapter in chapters:
             subpath = path
-            if self.options.nestdir:
+            if options.nestdir:
                 subpath = os.path.join(path, chapter.id)
 
             if chapter.cover:
@@ -3130,12 +3140,8 @@ class HtmlConverter(object):
 
 # {{{ -- EpubConverter
 class EpubConverter(Converter):
-#def convert_to_epub(bookinfo, options):
-#    playOrderMap = dict()   # 用于记录各个src对应的playOrder
-
-    def __init__(self, options):
+    def __init__(self):
         super(EpubConverter, self).__init__()
-        self.options = options
 
     def get_navpoint_depth(self, parent):
         depth = 0
@@ -3218,7 +3224,7 @@ class EpubConverter(Converter):
             chapter_level = chapters[0].level
 
             # 调整TOC，使每层的TOC不超过指定的数量
-            if self.options.rearrange_toc:
+            if options.rearrange_toc:
                 maxEpubSubToc = DEFAULT_MAX_EPUB_SUB_TOC
                 if MAX_EPUB_SUB_TOCS.has_key(chapter_level):
                     maxEpubSubToc = MAX_EPUB_SUB_TOCS[chapter_level]
@@ -3443,7 +3449,7 @@ class EpubConverter(Converter):
         logging.info(u"  Generating content files ...")
 
         memOutputter = MemOutputter()
-        htmlconverter = HtmlConverter(self.options, EPUB_STYLE)
+        htmlconverter = HtmlConverter(options, EPUB_STYLE)
         htmlconverter.convert(memOutputter, bookinfo)
 
         filecount = dict()
@@ -3478,6 +3484,53 @@ class EpubConverter(Converter):
 
         logging.info(u"  EPUB generated.")
 # }}}
+
+#   {{{ -- TxtConverter
+class TxtConverter(object):
+    def __init__(self, filename):
+        super(TxtConverter, self).__init__()
+        self.filename = filename
+
+    def convert(self, outputter, bookinfo):
+        def convert_txt(txtlines, lines):
+            if not lines:
+                return
+
+            for line in lines:
+                if isinstance(line, basestring):
+                    txtlines.append(line)
+                elif isinstance(line, Section):
+                    txtlines.append(line.title)
+                elif isinstance(line, LineContainer):
+                    convert_txt(txtlines, line.lines)
+
+        def convert_chapter(txtlines, chapter):
+            txtlines.append(u"")
+            txtlines.append(chapter.title)
+            if chapter.author:
+                txtlines.append(chapter.author)
+
+            txtlines.append(u"")
+
+            if chapter.intro:
+                convert_txt(txtlines, chapter.intro)
+                txtlines.append(u"")
+
+            convert_txt(txtlines, chapter.content)
+
+            for c in chapter.subchapters:
+                convert_chapter(txtlines, c)
+
+        txtlines = list()
+        txtlines.append(bookinfo.title)
+        txtlines.append(bookinfo.author)
+
+        for chapter in bookinfo.chapters:
+            convert_chapter(txtlines, chapter)
+
+        outputter.add_file(self.filename, u"\n".join(txtlines).encode(options.encoding))
+
+#   }}}
 
 # }}}
 
@@ -3570,7 +3623,7 @@ class ZipOutputter(Outputter):
 # }}}
 
 # {{{ convert_book
-def convert_book(path, options):
+def convert_book(path):
     def chapters_normalize(chapters, level, prefix):
         i = 1
         for c in chapters:
@@ -3681,9 +3734,14 @@ def convert_book(path, options):
         else:
             bookfilename = book_file_name(bookinfo.title, bookinfo.author, u".epub")
 
-        converter = EpubConverter(options)
-        with ZipOutputter(FileSysOutputter(), bookfilename) as outputter:
-            converter.convert(outputter, bookinfo)
+        if os.path.splitext(bookfilename)[1].lower() == u".txt":
+            with FileSysOutputter() as outputter:
+                converter = TxtConverter(bookfilename)
+                converter.convert(outputter, bookinfo)
+        else:
+            converter = EpubConverter(options)
+            with ZipOutputter(FileSysOutputter(), bookfilename) as outputter:
+                converter.convert(outputter, bookinfo)
 
         logging.info(u"Saved EPUB to {0}".format(bookfilename))
         # }}}
@@ -3706,6 +3764,7 @@ if __name__ == "__main__":
     optparser.add_option('-a', '--author',  action="store", type="string", dest="author", help="Book author. If omit, guess from filename")
     optparser.add_option('-o', '--ouput',   action="store", type="string", dest="output", help="Ouput filename. If omit, <filename>-<author>.epub")
     optparser.add_option('-C', '--category',  action="store", type="string", dest="category", help="Book category. If omit, discover from web search")
+    optparser.add_option('-e', '--encoding',  action="store", type="string", dest="encoding", default=locale.getpreferredencoding(), help="Default encoding for Txt output. Defaults to current locale (%default)")
     optparser.add_option('-p', '--parse-filename',    action="store_true", dest="parse_filename", default=False, help="Parse title/author from filename, don't convert.")
     optparser.add_option('-O', '--offline', action="store_true", dest="offline", default=False, help="Don't lookup author/category from web search.")
     optparser.add_option('-c', '--cover',   action="store", type="string", dest="cover", default="", help="Book cover image.")
@@ -3757,6 +3816,6 @@ if __name__ == "__main__":
 
         sys.exit(0)
     else:
-        sys.exit(convert_book(filename, options))
+        sys.exit(convert_book(filename))
 # }}}
     
