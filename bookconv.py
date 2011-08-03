@@ -46,7 +46,7 @@ except:
 # }}}
 
 PROGNAME=u"bookconv.py"
-VERSION=u"20110715"
+VERSION=u"20110801"
 
 COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
@@ -110,6 +110,7 @@ MAX_COVER_ASPECT_RATIO = 2.0
 # 各额外部分的文件名
 COVER_PAGE = u"cover_page"   # 封面
 TITLE_PAGE = u"title_page"   # 书名页
+TOC_PAGE   = u"toc_page"     # 目录
 
 # 存放html页面的目录名称
 CONTENT_DIR = u"content"
@@ -120,6 +121,10 @@ MAX_EMBED_COVER_HEIGHT = 300
 # 简介章节的缺省标题
 BOOK_INTRO_TITLE = u"内容简介"
 CHAPTER_INTRO_TITLE = u"内容简介"
+
+CHAPTER_COVER_PAGE_ID_FORMAT = u"{0}_cover"
+CHAPTER_TITLE_PAGE_ID_FORMAT = u"{0}_title"
+CHAPTER_TOC_PAGE_ID_FORMAT   = u"{0}_toc"
 
 # 最上层章节的级别
 CHAPTER_TOP_LEVEL = 1
@@ -293,7 +298,7 @@ body {
 	margin-bottom: 0%;
 	margin-left: 1%;
 	margin-right: 1%;
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-family:"zw";
 	font-size:100%;
@@ -301,17 +306,17 @@ body {
 div {
 	margin:0px;
 	padding:0px;
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-family:"zw";
 }
 
 p {
 	text-align: justify;
-	text-indent: 0em;
-	line-height:120%;
-    margin: 0;
-    padding: 0.5% 0;
+	text-indent: 0em!important;
+	line-height:130%;
+    margin-top: 0em;
+    margin-bottom: 0.3em;
 	/*margin-bottom:-0.9em;*/
 }
 
@@ -326,23 +331,6 @@ text-decoration:none;
 	padding:0px;
 }
 
-
-/*目录页*/
-.contents {
-	margin-left:20%;
-	padding:0px;
-	line-height:120%;
-	text-align: justify;
-	font-family:"ht","zw";
-}
-
-
-/*目录页文章作者*/
-.contentauthor {
-	padding-left: 20%;
-	text-align: right;
-	font-family:"kt","zw";
-}
 
 /*版权页*/
 .copyright {
@@ -461,7 +449,7 @@ h2 {
 
 h3 {
 	color:blue;
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
 	font-size:large;
@@ -474,7 +462,7 @@ h3 {
 }
 h4 {
 /*	color:gray;*/
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
 	font-size:medium;
@@ -482,7 +470,7 @@ h4 {
 	/*margin-bottom:-0.8em;*/
 }
 h5 {
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
 	font-size:small;
@@ -490,7 +478,7 @@ h5 {
 	margin-bottom:-0.9em;
 }
 h6 {
-	line-height:120%;
+	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
 	font-size:x-small;
@@ -536,7 +524,7 @@ li {
 
 /** 书名页 **/
 .title_page {
-	page-break-before:always;
+	/*page-break-before:always;*/
     position: relative;
 }
 
@@ -580,6 +568,84 @@ li {
 	font-family:"fs","zw";
 }
 
+.chapter_cover_page img {
+    height: 100%;
+}
+
+.chapter_title_page .cover {
+    margin-top:7%;
+    height: 50%;
+    text-align: center;
+}
+
+.chapter_title_page .title {
+	color:blue;
+	margin-top:61.8%;
+	margin-left:30%;
+	line-height:100%;
+	text-align: justify;
+	border-style: none double none solid;
+	border-width: 0px 5px 0px 20px;
+	border-color: fuchsia;
+	font-weight:bold;
+	font-size:xx-large;
+	font-family:"h1","ht","zw";
+}
+
+.chapter_title_cover_page .title {
+    margin-top: 4.8%;
+}
+
+.chapter_title_page .author {
+	color:gray;
+	margin-left:30%;
+	line-height:100%;
+	text-align: justify;
+    padding: 1em 5px 0px 20px;
+	page-break-before:avoid;
+	font-weight:bold;
+	font-size:large;
+	font-family:"fs","zw";
+}
+
+.toc_page .toc_title {
+    display: block;
+    font-size: 1.6em;
+    font-weight: bold;
+    line-height: 1.2;
+    margin: 0.83em 0;
+}
+
+.toc_page .toc_list {
+    display: block;
+    list-style-type: disc;
+    margin-bottom: 1em;
+    margin-right: 0;
+    margin-top: 1em;
+    font-size: 1em;
+    line-height: 1.2;
+}
+
+.toc_page .toc_list li {
+    padding-bottom: 0.5em;
+}
+
+.toc_page .toc_list li a {
+    color: blue;
+    cursor: pointer;
+    font-size: 1.2em;
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: left;
+    text-decoration: underline;
+}
+
+.toc_page .toc_list li .description {
+    display: block;
+    font-size: 0.7em;
+    text-indent: 0;
+}
+
 .chapter_cover_header .cover {
     margin-top:7%;
     height: 50%;
@@ -590,6 +656,44 @@ li {
     margin-top: 4.8%;
 }
 
+.chapter_navbar {
+    display: oeb-page-head;
+    font-family: monospace;
+    font-size: 0.7em;
+    text-align: center;
+    width: 100%;
+}
+
+.chapter_navbar a {
+    color: blue;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.chapter_navbar hr {
+    /*border: 1px inset;*/
+    color: gray;
+    /*display: block;*/
+    height: 1px;
+    margin: 0em 0em 0.5em 0em;
+}
+
+/*目录页*/
+.contents {
+	margin-left:20%;
+	padding:0px;
+	line-height:130%;
+	text-align: justify;
+	font-family:"ht","zw";
+}
+
+
+/*目录页文章作者*/
+.contentauthor {
+	padding-left: 20%;
+	text-align: right;
+	font-family:"kt","zw";
+}
+
 .chapter_intro {
     margin: 1em;
 	text-align: justify;
@@ -598,13 +702,13 @@ li {
     line-height: 100%;
 }
 
-.chapter_header_h1 {
-	page-break-before: always;
-    page-break-after: always;
+.chapter_content_begin_h1 {
+	/*page-break-before: always;*/
+    /*page-break-after: always;*/
 }
 
-.chapter_header_h2 {
-	page-break-before:always;
+.chapter_content_begin_h2 {
+	/*page-break-before:always;*/
 }
 
 .chapter_author {
@@ -612,7 +716,7 @@ li {
     text-align: right;
 }
 
-.chapter_header_h1 .chapter_author {
+.chapter_content_begin_h1 .chapter_author {
 	color:gray;
     border:none;
     margin: 0.5em 0 0 33%;
@@ -625,14 +729,14 @@ li {
 	font-family:"fs","zw";
 }
 
-.chapter_header_h2 {
+.chapter_content_begin_h2 {
     margin-bottom: 1em;
 }
 
-.chapter_header_h2 .chapter_author,
-.chapter_header_h2 .chapter_originated,
-.chapter_header_h2 .chapter_publish_date,
-.chapter_header_h2 .chapter_source
+.chapter_content_begin_h2 .chapter_author,
+.chapter_content_begin_h2 .chapter_originated,
+.chapter_content_begin_h2 .chapter_publish_date,
+.chapter_content_begin_h2 .chapter_source
 {
 	color:blue;
 	margin-top:0;
@@ -654,7 +758,7 @@ li {
     margin-bottom: 0.1em;
 	font-family:"ht","kt","zw";
     font-weight:bold;
-    font-size: 120%;
+    font-size: 130%;
     page-break-after:avoid;
 }
 
@@ -790,13 +894,19 @@ class Chapter:
         self.content      = list()   # list of lines
         self.img_list     = list()   # 有些页面上都是图片
         self.subchapters  = list()   # list of Chapter
-        self.src          = u""      # filename contains this chapter
         self.cover        = None     # Img instance of the cover of chapter
-        self.parent       = None     # 父章节
         self.intro        = None     # 章节概要
         self.originated   = u""      # 发自...
         self.publish_date = u""      # 时间
         self.source       = u""      # 来源
+
+        self.parent       = None     # 父章节
+        self.prev         = None     # 同层的上一章节
+        self.next         = None     # 同层的下一章节
+
+        self.entry_file   = u""      # 本章节的第一个文件的路径
+        self.toc_file     = u""      # 本章节的章节目录的路径（如果有的话）
+        self.content_file = u""      # 本章节的内容的路径（如果有的话）
 #   }}}
 
 #   {{{ -- class Book
@@ -813,6 +923,7 @@ class Book:
         self.publish_date = u""
         self.publist_ver  = u""
         self.description  = None        # 概要
+        self.text_page    = u""         # 正文第一页
 #   }}}
 
 #   {{{ -- class LineContainer
@@ -2212,6 +2323,7 @@ class EasyChmParser(Parser):
         re.compile(u"^[ \t　]*\**\.*[ \t　]*$"),
     ]
 
+    # {{{ ---- pages_rules
     pages_rules = [
         # 《三国之力挽狂澜》作者：金桫.chm.js: pages[2]=['02_02','节二：必死','1520'];
         { 'cond' : lambda idx,fields: len(fields) == 3,
@@ -2298,6 +2410,10 @@ class EasyChmParser(Parser):
         { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[10]) > 0 and fields[10] != fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 10, 'title3_cover': [6, 8] },
         },
+        # 《酒徒历史作品集》: pages[58]=['05_01','第一章 黄昏（一）','6406','第一卷 斜阳','指南录','天','涯','　　一群男人为了捍卫一个文明不被武力征服的权力，一个民族不集体沦为四等奴隶的尊严而进行的抗争。<br>　　在崖山落日前，探索历史的另一种可能，和文明的另一种出路。以文天祥空坑兵败后的抗元故事为主线，介绍那个时代的传奇……','E','书','指南录'];
+        { 'cond' : lambda idx,fields: len(fields) == 11 and len(fields[4]) > 0 and fields[4] == fields[10] and len(fields[7]) > 20,
+          'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 10, 'title3_intro': 7 },
+        },
         # 恶魔狂想曲之明日骄阳.chm.js: pages[0]=['1-1','本集简介','0','第一集','第一集','A～★航星★','<img src=../txt/1.jpg class=cover>','<br>　　疾风佣兵','<img src=../txt/1.jpg class=cover>','0','第一集','<img src=../txt/01.jpg class=cover>'];
         { 'cond' : lambda idx,fields: len(fields) == 12 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and fields[11][0:4].lower() == u"<img" and re.search(r"<br\s*>", fields[7], re.IGNORECASE) and fields[10] == fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title2_cover': [6, 8, 11], 'title2_intro': 7 },
@@ -2308,6 +2424,7 @@ class EasyChmParser(Parser):
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3 },
         },
     ]
+    # }}}
 
     def parse(self, inputter):
         def read_chapter(inputter, filename, title):
@@ -3558,7 +3675,8 @@ class HtmlConverter(object):
 
     def css_style(self, extra_css=""):
         return HTML_STYLE + extra_css
-
+    
+    # {{{ ---- func cover_page
     def cover_page(self, files, filename, book, cover):
         html = U"""\
       <div class='cover'><img alt="{title}" src="{cover}" /></div>
@@ -3567,50 +3685,164 @@ class HtmlConverter(object):
             cover = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
 
         return html
+    # }}}
 
-    def title_page(self, filename, book, start):
+    # {{{ ---- func title_page
+    def title_page(self, filename, book):
         html = u"""\
         <div class='title_page'>
             <div class='title'>{title}</div>
             <div class='author'>{author}</div>
-            <div class='link_to_toc'></div>
-            <!--
-            <div class='link_to_start'>
-            <p id='link_to_start'><a href='{start}'>{link_to_start}</a></p>
-            </div>
-            -->
         </div>
 """.format(
             title         = unicode(escape(book.title)),
-            author        = unicode(escape(book.author)),
-            start         = unicode(escape(os.path.relpath(start, os.path.dirname(filename)))),
-            link_to_start = u"开始阅读")
+            author        = unicode(escape(book.author)))
 
         return html;
+    # }}}
 
-    def title_cover_page(self, files, filename, book, cover, start):
+    # {{{ ---- func title_cover_page
+    def title_cover_page(self, files, filename, book, cover):
         html = u"""\
         <div class='title_page title_cover_page'>
             <div class='cover'><img alt="{title}" src="{cover}" /></div>
             <div class='title'>{title}</div>
             <div class='author'>{author}</div>
-            <div class='link_to_toc'></div>
-            <!--
-            <div class='link_to_start'>
-            <p id='link_to_start'><a href='{start}'>{link_to_start}</a></p>
-            </div>
-            -->
         </div>
 """.format(
             title         = unicode(escape(book.title)),
             author        = unicode(escape(book.author)),
-            cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)),
-            start         = unicode(escape(os.path.relpath(start, os.path.dirname(filename)))),
-            link_to_start = u"开始阅读")
+            cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
 
         return html;
+    # }}}
 
-    def chapter_header(self, files, filename, chapter):
+    # {{{ ---- func toc_page
+    def toc_page(self, filename, book):
+        html = u"<div class='book_toc_page toc_page'>\n"
+        html += u"<div class='toc_title'>{title}</div>".format(title=u"目  录")
+        html += u"<ul class='toc_list'>"
+
+        for c in book.chapters:
+            html += u"<li><a href='{link}'>{title}</a><span class='description'>{description}</span></li>".format(
+                link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                title = escape(c.title),
+                description = u"".join((u"<p>" + escape(line) + u"</p>\n" for line in c.intro)) if c.intro else u"")
+            
+        html += u"</ul></div>"
+
+        return html
+    # }}}
+
+    # {{{ ---- func chapter_cover_page
+    def chapter_cover_page(self, files, filename, chapter):
+        html = U"""\
+      <div class='chapter_cover_page'><div class='cover chapter_cover chapter_large_cover'><img alt="{title}" src="{cover}" /></div></div>
+""".format(
+            title = escape(chapter.title_inner or chapter.title), 
+            cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
+
+        return html
+    # }}}
+
+    # {{{ ---- func chapter_title_page
+    def chapter_title_page(self, files, filename, chapter):
+        title = chapter.title_inner or chapter.title
+
+        extra_class = u""
+        img = u""
+        if chapter.cover:
+            img = u"<div class='cover chapter_cover'><img alt='{title}' src='{cover}' /></div>".format(
+                title = escape(title), 
+                cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
+
+            extra_class += u"chapter_title_cover_page"
+
+        html = u"""\
+        <div class='chapter_title_page {extra_class}' id='{id}'>{img}
+""".format(
+            extra_class = extra_class,
+            id    = chapter.id,
+            img   = img)
+
+        if title:
+            html += u"""\
+        <h{hlevel} class='title chapter_title_{level}'>{title}</h{hlevel}>
+""".format(
+            hlevel = chapter.level,
+            level  = chapter.level,
+            title  = escape(title))
+
+        html += u"</div>"
+
+        return html
+    # }}}
+
+    # {{{ ---- func chapter_toc_page
+    def chapter_toc_page(self, files, filename, chapter):
+        title = chapter.title_inner or chapter.title or u"目录"
+
+        # 上面各层的链接
+        ancestors = u""
+        #while (ancestor = chapter.parent):
+        #    if ancestors:
+        #        ancestors = " - " + ancestors
+
+        #    ancestors = u"<a href='{link}'>{title}</a>".format(
+        #        link = os.path.relpath(ancestor.entry_file, os.path.dirname(filename)),
+        #        title = escape(ancestor.title)) + ancestors
+        
+        html = u"<div class='chapter_toc_page toc_page'>\n"
+        if ancestors:
+            html += u"<span class='toc_ancestors'>" + ancestors + "</span>\n"
+
+        html += u"<div class='toc_title'>{title}</div>".format(title=escape(title))
+        html += u"<ul class='toc_list'>"
+
+        # 如果章节本身也有内容，则生成一个目录项
+        if chapter.content:
+            html += u"<li><a href='{link}'>{title}</a></li>".format(
+                link = os.path.relpath(chapter.content_file, os.path.dirname(filename)),
+                title = u"章节正文")
+
+        for c in chapter.subchapters:
+            html += u"<li><a href='{link}'>{title}</a><span class='description'>{description}</span></li>".format(
+                link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                title = escape(c.title),
+                description = u"".join((u"<p>" + escape(line) + u"</p>\n" for line in c.intro)) if c.intro else u"")
+            
+        html += u"</ul></div>"
+
+        return html
+    # }}}
+
+    # {{{ ---- func chapter_navbar
+    def chapter_navbar(self, filename, chapter):
+        links = list()
+
+        if chapter.prev:
+            links.append(u"<a href='{link}'>上一章节</a>".format(
+                link = os.path.relpath(chapter.prev.entry_file, os.path.dirname(filename))))
+
+        if chapter.parent and chapter.parent.toc_file:
+            links.append(u"<a href='{link}'>章节菜单</a>".format(
+                link = os.path.relpath(chapter.parent.toc_file, os.path.dirname(filename))))
+
+        links.append(u"<a href='{link}'>主菜单</a>".format(
+            link = os.path.relpath(TOC_PAGE + HTML_EXT, os.path.dirname(filename))))
+
+        if chapter.next:
+            links.append(u"<a href='{link}'>下一章节</a>".format(
+                link = os.path.relpath(chapter.next.entry_file, os.path.dirname(filename))))
+        elif chapter.parent and chapter.parent.next:
+            links.append(u"<a href='{link}'>下一章节</a>".format(
+                link = os.path.relpath(chapter.parent.next.entry_file, os.path.dirname(filename))))
+
+        return u"<div class='chapter_navbar'>" + u" | ".join(links) + u"<hr/></div>"
+    # }}}
+
+    # {{{ ---- func chapter_content_begin
+    def chapter_content_begin(self, files, filename, chapter):
         title = chapter.title_inner or chapter.title
 
         img = u""
@@ -3618,20 +3850,16 @@ class HtmlConverter(object):
 
         hlevel = chapter.level if chapter.level <= 6 else 6
 
-        # 如果没有子章节，则顶层章节也使用h2而不是h1（h1把标题单独放一页）
-        if hlevel == 1 and len(chapter.subchapters) == 0:
-            hlevel = 2
-
-        if chapter.cover:
-            img = u"<div class='cover{extra_class}'><img alt='{title}' src='{cover}' /></div>".format(
+        # 更大的图片将专门生成封面页
+        if chapter.cover and chapter.cover.height() <= MAX_EMBED_COVER_HEIGHT:
+            img = u"<div class='cover chapter_cover'><img alt='{title}' src='{cover}' /></div>".format(
                 title=escape(title), 
-                cover=os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)),
-                extra_class = u" large_cover" if chapter.cover.height() > MAX_EMBED_COVER_HEIGHT else u"")
+                cover=os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
 
-            extra_class += u"chapter_cover_header"
+            extra_class = u"chapter_cover_header"
 
         html = u"""\
-        <div class='chapter_header chapter_header_{level} chapter_header_h{hlevel} {extra_class}' id='{id}'>{img}
+        <div class='chapter_content_begin chapter_content_begin_{level} chapter_content_begin_h{hlevel} {extra_class}' id='{id}'>{img}
 """.format(
             level = chapter.level,
             hlevel = hlevel,
@@ -3641,7 +3869,7 @@ class HtmlConverter(object):
 
         if title:
             html += u"""\
-        <h{hlevel} class='chapter_title chapter_title_{level}'>{title}</h{hlevel}>
+        <h{hlevel} class='title chapter_title_{level}'>{title}</h{hlevel}>
 """.format(
             hlevel = hlevel,
             level  = chapter.level,
@@ -3661,7 +3889,9 @@ class HtmlConverter(object):
         html += u"</div>"
 
         return html
+    # }}}
 
+    # {{{ ---- func chapter_content
     def chapter_content(self, files, filename, chapter):
         def dequote_content(line):
             lines = list()
@@ -3695,10 +3925,14 @@ class HtmlConverter(object):
 
         lines.append(u"</div>")
         return u"\n".join(lines)
+    # }}}
 
-    def chapter_footer(self, filename, chapter):
-        return u"<div class='chapter_footer chapter_footer_{level}'></div>".format(level=chapter.level)
+    # {{{ ---- func chapter_content_end
+    def chapter_content_end(self, filename, chapter):
+        return u"<div class='chapter_content_end chapter_content_end_{level}'></div>".format(level=chapter.level)
+    # }}}
 
+    # {{{ ---- func html_header
     def html_header(self, filename, title, style="", cssfile=""):
         styles = u""
         if cssfile:
@@ -3718,13 +3952,17 @@ class HtmlConverter(object):
 </head>
 <body>
 """.format(title=escape(title), styles=styles)
+    # }}}
 
+    # {{{ ---- func html_footer
     def html_footer(self, filename, book):
         return u"""\
 </body>
 </html>
 """
+    # }}}
 
+    # {{{ ---- func append_image
     def append_image(self, files, img, id=u""):
         if not img:
             return u''
@@ -3742,79 +3980,134 @@ class HtmlConverter(object):
                 "content":  img.content(),
                 "id":       img.id(),
             }
+    # }}} 
 
-    # {{{ ---- create_chapter_files
-    def create_chapter_files(self, files, path, book, chapters, prefix_callback=lambda filename: u''):
+    # {{{ ---- func create_chapter_files
+    def create_chapter_files(self, files, path, book, chapters):
+        """
+        如果files为空，则不生成真正的文件，而只是决定各章节的文件名，并写入chapter.entry_file属性中
+        """
         first_chapter_page = ""     # chapters中，首个chapter所在的文件名，上层章节可能会合并到这个文件
 
         for chapter in chapters:
-            subpath = path
-            if options.nestdir:
-                subpath = os.path.join(path, chapter.id)
-
             if chapter.cover:
                 # 要检查一下封面是否确实可用
-                if chapter.cover.is_valid():
-                    # 加入封面图片
-                    self.append_image(files, chapter.cover)
-                else:
+                if not chapter.cover.is_valid():
                     chapter.cover = None
+                else:
+                    # 加入封面图片
+                    if files:
+                        self.append_image(files, chapter.cover)
 
-            # 生成章节中的图片
-            for line in chapter.content:
-                if isinstance(line, Img):
-                    self.append_image(files, line)
-                elif isinstance(line, Quote):
-                    # 引用中也可能有图片
-                    for l in line.lines:
-                        if isinstance(l, Img):
-                            self.append_image(files, l)
+                    if chapter.cover.height() > MAX_EMBED_COVER_HEIGHT:
+                        # 有大封面，生成单独的封面页
+                        cover_page_filename = u"{name}{ext}".format(
+                            name=os.path.join(path, CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
 
-            if chapter.content or not chapter.subchapters:
-                # 有内容，或没有子章节，自成一个文件
+                        if not chapter.entry_file:
+                            chapter.entry_file = cover_page_filename
+
+                        if files:
+                            files["html"].append({
+                                "filename": cover_page_filename,
+                                "content":  u"".join((
+                                    self.html_header(cover_page_filename, chapter.title, cssfile=CSS_FILE),
+                                    self.chapter_cover_page(files, cover_page_filename, chapter),
+                                    self.html_footer(cover_page_filename, book),
+                                    )).encode("utf-8"),
+                                "id":       CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id),
+                                })
+
+            if chapter.level == CHAPTER_TOP_LEVEL:
+                # 顶层章节，生成标题页
+                title_page_filename = u"{name}{ext}".format(
+                    name=os.path.join(path, CHAPTER_TITLE_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
+
+                if not chapter.entry_file:
+                    chapter.entry_file = title_page_filename
+
+                if files:
+                    files["html"].append({
+                        "filename": title_page_filename,
+                        "content":  u"".join((
+                            self.html_header(title_page_filename, chapter.title, cssfile=CSS_FILE),
+                            self.chapter_navbar(title_page_filename, chapter),
+                            self.chapter_title_page(files, title_page_filename, chapter),
+                            self.html_footer(title_page_filename, book),
+                            )).encode("utf-8"),
+                        "id":       CHAPTER_TITLE_PAGE_ID_FORMAT.format(chapter.id),
+                        })
+
+
+            if files:
+                # 生成章节中的图片
+                for line in chapter.content:
+                    if isinstance(line, Img):
+                        self.append_image(files, line)
+                    elif isinstance(line, Quote):
+                        # 引用中也可能有图片
+                        for l in line.lines:
+                            if isinstance(l, Img):
+                                self.append_image(files, l)
+
+            if chapter.subchapters:
+                # 有子章节，生成章节目录
+                toc_page_filename = u"{name}{ext}".format(
+                    name=os.path.join(path, CHAPTER_TOC_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
+
+                chapter.toc_file = toc_page_filename
+
+                if not chapter.entry_file:
+                    chapter.entry_file = toc_page_filename
+
+                if files:
+                    files["html"].append({
+                        "filename": toc_page_filename,
+                        "content":  u"".join((
+                            self.html_header(toc_page_filename, chapter.title, cssfile=CSS_FILE),
+                            self.chapter_navbar(toc_page_filename, chapter),
+                            self.chapter_toc_page(files, toc_page_filename, chapter),
+                            self.html_footer(toc_page_filename, book),
+                            )).encode("utf-8"),
+                        "id":       CHAPTER_TOC_PAGE_ID_FORMAT.format(chapter.id),
+                        })
+                
+            if chapter.content or not chapter.entry_file:
+                # 有内容，或本章节没有生成任何文件，则需要生成一个内容文件
                 filename = u"{name}{ext}".format(name=os.path.join(path, chapter.id), ext=HTML_EXT)
+                chapter.content_file = filename
 
-                files["html"].append({
-                    "filename": filename,
-                    "content":  u"".join((
-                        self.html_header(filename, chapter.title, cssfile=CSS_FILE),
-                        prefix_callback(filename),  # 用当前文件名调用prefix_callback得到应插入的html
-                        self.chapter_header(files, filename, chapter),
-                        self.chapter_content(files, filename, chapter),
-                        self.html_footer(filename, book),
-                        )).encode("utf-8"),
-                    "id":       chapter.id,
-                    })
+                if not chapter.entry_file:
+                    chapter.entry_file = filename
 
-                if chapter.subchapters:
-                    self.create_chapter_files(
-                        files,
-                        subpath,
-                        book,
-                        chapter.subchapters)
+                if files:
+                    files["html"].append({
+                        "filename": filename,
+                        "content":  u"".join((
+                            self.html_header(filename, chapter.title, cssfile=CSS_FILE),
+                            self.chapter_navbar(filename, chapter),
+                            self.chapter_content_begin(files, filename, chapter),
+                            self.chapter_content(files, filename, chapter),
+                            self.html_footer(filename, book),
+                            )).encode("utf-8"),
+                        "id":       chapter.id,
+                        })
 
-            else:
-                # 无内容但有子章节，章节标题合并到第一个子章节中
-                filename = self.create_chapter_files(
+            if chapter.subchapters:
+                subpath = os.path.join(path, chapter.id) if options.nestdir else path
+                self.create_chapter_files(
                     files,
                     subpath,
                     book,
-                    chapter.subchapters, 
-                    lambda filename: prefix_callback(filename) + self.chapter_header(files, filename, chapter))
-
-            # 同一个文件中所有章节的链接都直接指向文件本身，以解决静读天下中章节会重复的问题
-            chapter.src = u"{filename}".format(filename=filename, anchor=chapter.id)
-            #chapter.src = u"{filename}#{anchor}".format(filename=filename, anchor=chapter.id)
+                    chapter.subchapters)
 
             if not first_chapter_page:
-                first_chapter_page = filename
-
-            # prefix_callback的内容只写一次即可
-            prefix_callback = lambda filename: u''
+                first_chapter_page = chapter.entry_file
 
         return first_chapter_page
     # }}}
 
+    # {{{ ---- func convert
     def convert(self, outputter, book):
         files = {
             "image"   : dict(),     # 图片。Img.unique_key() -> 保存位置的映射
@@ -3836,17 +4129,34 @@ class HtmlConverter(object):
             else:
                 book.cover = None
 
-        first_page = self.create_chapter_files(files, "", book, book.chapters)
+        # 先决定各章节中用到的文件名（保存到chapter中）
+        self.create_chapter_files(None, "", book, book.chapters)
+        # 再真正生成文件
+        self.create_chapter_files(files, "", book, book.chapters)
+
+        # 记录下正文第一页的位置
+        book.text_page = files["html"][0]["filename"]
 
         filename = TITLE_PAGE + HTML_EXT
         files["html"][0:0] = [{
             "filename": filename,
             "content":  u"".join((
                         self.html_header(filename, book.title, cssfile=CSS_FILE),
-                        self.title_page(filename, book, first_page),
+                        self.title_page(filename, book),
                         self.html_footer(filename, book),
                         )).encode("utf-8"),
             "id":       TITLE_PAGE,
+        }]
+
+        filename = TOC_PAGE + HTML_EXT
+        files["html"][1:0] = [{
+            "filename": filename,
+            "content":  u"".join((
+                        self.html_header(filename, book.title, cssfile=CSS_FILE),
+                        self.toc_page(filename, book),
+                        self.html_footer(filename, book),
+                        )).encode("utf-8"),
+            "id":       TOC_PAGE,
         }]
 
         if book.cover:
@@ -3855,7 +4165,7 @@ class HtmlConverter(object):
                 filename = files["html"][0]["filename"]
                 files["html"][0]["content"] = u"".join((
                     self.html_header(filename, book.title, cssfile=CSS_FILE),
-                    self.title_cover_page(files, filename, book, book.cover, first_page),
+                    self.title_cover_page(files, filename, book, book.cover),
                     self.html_footer(filename, book),
                 )).encode("utf-8")
             else:
@@ -3873,6 +4183,7 @@ class HtmlConverter(object):
 
         for f in files["html"] + files["image"].values() + files["other"]:
             outputter.add_file(f["filename"], f["content"], id=f["id"] if f.has_key("id") else "")
+    # }}}
 #   }}}
 
 # {{{ -- EpubConverter
@@ -3953,7 +4264,7 @@ class EpubConverter(Converter):
             for chapter in chapters:
                 # 有title才生成目录项
                 if chapter.title:
-                    src = os.path.join(CONTENT_DIR, chapter.src)
+                    src = os.path.join(CONTENT_DIR, chapter.entry_file)
 
                     title = TOC_INDENT_CHAR * options.toc_indent * (chapter.level - CHAPTER_TOP_LEVEL) + chapter.title
 
@@ -4175,15 +4486,33 @@ class EpubConverter(Converter):
                     
                 spineElem.appendChild(itemrefElem)
 
-        if coverPage:
-            guideElem = xml.createElement("guide")
-            packageElem.appendChild(guideElem)
+        guideElem = xml.createElement("guide")
+        packageElem.appendChild(guideElem)
 
+        if coverPage:
             coverReferenceElem = xml.createElement("reference")
             coverReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, coverPage))
             coverReferenceElem.setAttribute("type", "cover")
-            coverReferenceElem.setAttribute("title", "Cover")
+            coverReferenceElem.setAttribute("title", u"Cover")
             guideElem.appendChild(coverReferenceElem)
+
+        tocReferenceElem = xml.createElement("reference")
+        tocReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, TOC_PAGE + HTML_EXT))
+        tocReferenceElem.setAttribute("type", "toc")
+        tocReferenceElem.setAttribute("title", u"目录")
+        guideElem.appendChild(tocReferenceElem)
+
+        titleReferenceElem = xml.createElement("reference")
+        titleReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, TITLE_PAGE + HTML_EXT))
+        titleReferenceElem.setAttribute("type", "title")
+        titleReferenceElem.setAttribute("title", u"Title")
+        guideElem.appendChild(titleReferenceElem)
+
+        textReferenceElem = xml.createElement("reference")
+        textReferenceElem.setAttribute("href", unicode(os.path.join(CONTENT_DIR, book.text_page)))
+        textReferenceElem.setAttribute("type", "text")
+        textReferenceElem.setAttribute("title", u"正文")
+        guideElem.appendChild(textReferenceElem)
 
         return pretty_xml(xml)
 
@@ -4401,17 +4730,27 @@ class ZipOutputter(Outputter):
 
 # {{{ convert_book
 def convert_book(path):
-    def chapters_normalize(chapters, level, prefix):
+    def chapters_normalize(chapters, level, prefix, parent=None):
         i = 1
+        prev = None
         for c in chapters:
-            c.id  = prefix + str(i)
-            c.level = level
+            c.id     = prefix + str(i)
+            c.level  = level
+
+            # 建立章节间的导航关系
+            c.parent = parent
+            c.prev   = prev
+            
+            if prev:
+                prev.next = c
+
+            prev = c
 
             if isinstance(c.intro, basestring):
                 c.intro = [ c.intro ]
 
             if c.subchapters:
-                chapters_normalize(c.subchapters, level + 1, c.id + "_")
+                chapters_normalize(c.subchapters, level + 1, c.id + "_", c)
 
             i += 1
 
