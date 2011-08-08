@@ -46,7 +46,7 @@ except:
 # }}}
 
 PROGNAME=u"bookconv.py"
-VERSION=u"20110801"
+VERSION=u"20110808"
 
 COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
@@ -3817,12 +3817,14 @@ class HtmlConverter(object):
     # }}}
 
     # {{{ ---- func chapter_navbar
-    def chapter_navbar(self, filename, chapter):
+    def chapter_navbar(self, filename, chapter, link_to_toc=False):
         links = list()
 
         if chapter.prev:
             links.append(u"<a href='{link}'>上一章节</a>".format(
-                link = os.path.relpath(chapter.prev.entry_file, os.path.dirname(filename))))
+                link = os.path.relpath(
+                    chapter.prev.toc_file if link_to_toc and chapter.prev.toc_file else chapter.prev.entry_file,
+                    os.path.dirname(filename))))
 
         if chapter.parent and chapter.parent.toc_file:
             links.append(u"<a href='{link}'>章节菜单</a>".format(
@@ -3833,7 +3835,9 @@ class HtmlConverter(object):
 
         if chapter.next:
             links.append(u"<a href='{link}'>下一章节</a>".format(
-                link = os.path.relpath(chapter.next.entry_file, os.path.dirname(filename))))
+                link = os.path.relpath(
+                    chapter.next.toc_file if link_to_toc and chapter.next.toc_file else chapter.next.entry_file,
+                    os.path.dirname(filename))))
         elif chapter.parent and chapter.parent.next:
             links.append(u"<a href='{link}'>下一章节</a>".format(
                 link = os.path.relpath(chapter.parent.next.entry_file, os.path.dirname(filename))))
@@ -4065,7 +4069,7 @@ class HtmlConverter(object):
                         "filename": toc_page_filename,
                         "content":  u"".join((
                             self.html_header(toc_page_filename, chapter.title, cssfile=CSS_FILE),
-                            self.chapter_navbar(toc_page_filename, chapter),
+                            self.chapter_navbar(toc_page_filename, chapter, link_to_toc=True),
                             self.chapter_toc_page(files, toc_page_filename, chapter),
                             self.html_footer(toc_page_filename, book),
                             )).encode("utf-8"),
