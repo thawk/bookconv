@@ -46,7 +46,7 @@ except:
 # }}}
 
 PROGNAME=u"bookconv.py"
-VERSION=u"20110808"
+VERSION=u"20110809"
 
 COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
@@ -1605,14 +1605,17 @@ def content_text_normalize(lines):
         lines = [ lines ]
 
     for line in lines:
-        for l in line.splitlines():
-            for r in re_content_cleanups:
-                l = r[0].sub(r[1], l)
+        if isinstance(line, basestring):
+            for l in line.splitlines():
+                for r in re_content_cleanups:
+                    l = r[0].sub(r[1], l)
 
-            if re_content_skip_lines.match(l):
-                continue
+                if re_content_skip_lines.match(l):
+                    continue
 
-            content.append(l)
+                content.append(l)
+        else:
+            content.append(line)
 
     return content
 
@@ -3303,14 +3306,16 @@ class TxtParser(Parser):
                 # 标题行
                 level = len(m.group(1))
 
-                if level > chapter_stack[-1].level:
-                    # 进入子标题，子标题之前的内容都作为上层标题的简介
-                    chapter_stack[-1].intro = content_text_normalize(content)
-                else:
-                    chapter_stack[-1].content = content_text_normalize(content)
+                # 有些书，大标题下面也可以有内容
+                #if level > chapter_stack[-1].level:
+                #    # 进入子标题，子标题之前的内容都作为上层标题的简介
+                #    chapter_stack[-1].intro = content_text_normalize(content)
+                #else:
+                #    chapter_stack[-1].content = content_text_normalize(content)
+                chapter_stack[-1].content = content_text_normalize(content)
 
-                    while level <= chapter_stack[-1].level:
-                        chapter_stack.pop()
+                while level <= chapter_stack[-1].level:
+                    chapter_stack.pop()
                         
                 content = list()
 
@@ -3330,7 +3335,12 @@ class TxtParser(Parser):
 
                 chapter_stack.append(chapter)
             else:   # 非标题行
-                content.append(line)
+                m = re.match("^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)", line)
+                if m:
+                    # 图片
+                    content.append(InputterImg(m.group("src"), inputter, m.group("title")))
+                else:
+                    content.append(line)
 
         chapter_stack[-1].content = content_text_normalize(content)
 
