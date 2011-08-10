@@ -46,7 +46,7 @@ except:
 # }}}
 
 PROGNAME=u"bookconv.py"
-VERSION=u"20110809"
+VERSION=u"20110810"
 
 COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
@@ -106,6 +106,10 @@ MAX_EPUB_SUB_TOCS = {       # max epub sub tocs for each level. If not in this l
 
 # 封面图片，长边与短边之比的最大值
 MAX_COVER_ASPECT_RATIO = 2.0
+
+# 输出图片的最大宽度和高度
+MAX_IMAGE_WIDTH  = 600
+MAX_IMAGE_HEIGHT = 800
 
 # 各额外部分的文件名
 COVER_PAGE = u"cover_page"   # 封面
@@ -412,6 +416,19 @@ h1 {
 	border-style: none double none solid;
 	border-width: 0px 5px 0px 20px;
 	border-color: purple;
+	font-weight:bold;
+	font-size:xx-large;
+	font-family:"h1","ht","zw";
+}
+.chapter_content_begin h1 {
+	color:blue;
+    margin: 0 5px 0.2em 20px;
+	line-height:100%;
+	text-align: justify;
+	border-style: none;
+	border-width: 0px;
+	background: none;
+	padding: 100px 5px 0.5em 5px;
 	font-weight:bold;
 	font-size:xx-large;
 	font-family:"h1","ht","zw";
@@ -986,6 +1003,25 @@ class ImgImpl(object):
 
     def unique_key(self):
         return self.unique_key_
+
+    def resize(self, maxWidth, maxHeight):
+        if self.width_ > maxWidth or self.height_ > maxHeight:
+            img = Image.open(StringIO(self.content_))
+
+            if self.width_ * maxHeight > self.height_ * maxWidth:
+                # 宽度更大，按宽度进行缩小
+                resized = img.resize((maxWidth, self.height_ * maxWidth / self.width_), Image.ANTIALIAS)
+            else:
+                # 高度更大，按高度进行缩小
+                resized = img.resize((self.width_ * maxHeight / self.height_, maxHeight), Image.ANTIALIAS)
+
+            if resized:
+                o = len(self.content_)
+                f = StringIO()
+                resized.save(f, "JPEG")
+                self.content_ = f.getvalue()
+                self.width_, self.height_ = resized.size
+                f.close()
 #   }}}
 
 #   {{{ -- class Img
@@ -1024,6 +1060,10 @@ class Img(object):
 
     def is_valid(self):
         raise NotImplementedError()
+
+    def resize(self, maxWidth, maxHeight):
+        raise NotImplementedError()
+
 #   }}}
 
 #   {{{ -- class CachedImg
@@ -1064,6 +1104,10 @@ class CachedImg(Img):
 
     def is_valid(self):
         return self.impl_.is_valid()
+
+    def resize(self, maxWidth, maxHeight):
+        return self.impl_.resize(maxWidth, maxHeight);
+
 #   }}}
 
 #   {{{ -- class InputterImg
@@ -3987,6 +4031,7 @@ class HtmlConverter(object):
                 id = u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(files["image"])+1)
 
             img.set_id(id)
+            img.resize(MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)       
 
             files["image"][img.unique_key()] = {
                 "filename": u'{path}{id}{ext}'.format(
