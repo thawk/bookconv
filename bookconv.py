@@ -29,6 +29,11 @@ from cgi import escape
 from urllib import urlencode, quote, basejoin, splittag, splitquery
 from urllib2 import build_opener, urlopen, Request, HTTPCookieProcessor
 from xml.dom import minidom
+from chm.chm import CHMFile
+
+from chm.chmlib import (
+    chm_enumerate, CHM_ENUMERATE_ALL, CHM_ENUMERATOR_CONTINUE, CHM_RESOLVE_SUCCESS
+)
 
 try:
     # 大部分情况下都不需要使用chardet，因此没有也行，真正用的时候才报错
@@ -36,22 +41,19 @@ try:
 except:
     pass
 
-try:
-    from pychm import chmlib
-except:
-    try:
-        from chm import chmlib
-    except:
-        pass
 # }}}
 
 PROGNAME=u"bookconv.py"
-VERSION=u"20110810"
+VERSION=u"20111011"
 
 COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
 
 # {{{ Contants
+SHORT_CUTS = {
+    "nfzm" : "http://www.infzm.com/enews/infzm",
+};
+
 WEB_INFOS = [
     {
         "pattern"   : re.compile("http://book\.ifeng\.com"),
@@ -417,20 +419,21 @@ h1 {
 	border-width: 0px 5px 0px 20px;
 	border-color: purple;
 	font-weight:bold;
-	font-size:xx-large;
+	font-size:173%;
 	font-family:"h1","ht","zw";
 }
 .chapter_content_begin h1 {
 	color:blue;
-    margin: 0 5px 0.2em 20px;
+    margin: 0px 0px 0.5em 1.16em;
 	line-height:100%;
 	text-align: justify;
-	border-style: none;
-	border-width: 0px;
+    border-style: none none solid none;
+	border-width: 0px 0px 1px 0px;
+    border-color: gray;
 	background: none;
-	padding: 100px 5px 0.5em 5px;
+	padding: 1em 0px 0.2em 0px;
 	font-weight:bold;
-	font-size:xx-large;
+	font-size:173%;
 	font-family:"h1","ht","zw";
 }
 h2 {
@@ -445,7 +448,7 @@ h2 {
 	background-color: gray;
 	padding: 100px 5px 0.5em 5px;
 	font-weight:bold;
-	font-size:x-large;
+	font-size:144%;
 	font-family:"h2","ht","zw";
 }
 
@@ -469,7 +472,7 @@ h3 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
-	font-size:large;
+	font-size:120%;
 	font-family:"fs","kt","ht","zw";
 	/*margin-bottom:-0.9em;*/
     margin-botton: 0.5em;
@@ -565,7 +568,7 @@ li {
 	border-width: 0px 5px 0px 20px;
 	border-color: fuchsia;
 	font-weight:bold;
-	font-size:xx-large;
+	font-size:173%;
 	font-family:"h1","ht","zw";
 }
 
@@ -581,7 +584,7 @@ li {
     padding: 1em 5px 0px 20px;
 	page-break-before:avoid;
 	font-weight:bold;
-	font-size:large;
+	font-size:120%;
 	font-family:"fs","zw";
 }
 
@@ -605,7 +608,7 @@ li {
 	border-width: 0px 5px 0px 20px;
 	border-color: fuchsia;
 	font-weight:bold;
-	font-size:xx-large;
+	font-size:173%;
 	font-family:"h1","ht","zw";
 }
 
@@ -621,16 +624,27 @@ li {
     padding: 1em 5px 0px 20px;
 	page-break-before:avoid;
 	font-weight:bold;
-	font-size:large;
+	font-size:120%;
 	font-family:"fs","zw";
 }
 
 .toc_page .toc_title {
     display: block;
+    text-align: center;
     font-size: 1.6em;
     font-weight: bold;
     line-height: 1.2;
-    margin: 0.83em 0;
+    margin: 0 0;
+}
+
+.toc_page .toc_author {
+    display: block;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: normal;
+    line-height: 1.2;
+    margin: 0 0;
+	font-family:"fs","zw";
 }
 
 .toc_page .toc_list {
@@ -677,8 +691,6 @@ li {
     display: oeb-page-head;
     font-family: monospace;
     font-size: 0.7em;
-    text-align: center;
-    width: 100%;
 }
 
 .chapter_navbar a {
@@ -686,6 +698,7 @@ li {
     cursor: pointer;
     text-decoration: underline;
 }
+
 .chapter_navbar hr {
     /*border: 1px inset;*/
     color: gray;
@@ -742,7 +755,7 @@ li {
     padding: 0px 5px 0px 20px;
 	page-break-before:avoid;
 	font-weight:bold;
-	font-size:large;
+	font-size:120%;
 	font-family:"fs","zw";
 }
 
@@ -878,25 +891,6 @@ def pretty_xml(dom):
     xml = re.sub(r">\s*\n\s*([^\s<])", r">\1", xml)
     return xml
 
-def getfilelist(chmpath):
-    '''
-    get filelist of the given path chm file
-    return (bool,fileurllist)
-    '''
-    def callback(cf,ui,lst):
-        '''
-        innermethod
-        '''
-        lst.append(ui.path)
-        return chmlib.CHM_ENUMERATOR_CONTINUE
-
-    assert isinstance(chmpath,unicode)
-    chmfile=chmlib.chm_open(chmpath.encode(sys.getfilesystemencoding()))
-    lst=[]
-    ok=chmlib.chm_enumerate(chmfile,chmlib.CHM_ENUMERATE_ALL,callback,lst)
-    chmlib.chm_close(chmfile)
-    return (ok,lst)
-
 # }}}
 
 # {{{ Book structures
@@ -909,7 +903,6 @@ class Chapter:
         self.id           = u""
         self.level        = CHAPTER_TOP_LEVEL - 1   # 设为比最小有效值小一
         self.content      = list()   # list of lines
-        self.img_list     = list()   # 有些页面上都是图片
         self.subchapters  = list()   # list of Chapter
         self.cover        = None     # Img instance of the cover of chapter
         self.intro        = None     # 章节概要
@@ -1193,6 +1186,10 @@ class SuitableImg(Img):
     def is_valid(self):
         self.select_suitable_img()
         return self.selected.is_valid()
+
+    def resize(self, maxWidth, maxHeight):
+        self.select_suitable_img()
+        return self.selected.resize(maxWidth, maxHeight)
 #   }}}
 # }}}
 
@@ -1521,6 +1518,7 @@ def search_book_info(title, author):
 
 # {{{ Code cleaner/normalizer
 
+#   {{{ -- func unescape
 ##
 # Removes HTML or XML character references and entities from a text string.
 #
@@ -1546,7 +1544,11 @@ def unescape(text):
                 pass
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
+#   }}}
 
+#   {{{ -- func content_normalize_from_html
+
+#       {{{ -- 正式表达式常量
 re_content_line_sep = re.compile(r"(<\s*br\s*\/?>|(?:</?p(?:\s[^>]*|\s*)>)|\r|\n)+", re.IGNORECASE)
 re_content_cleanup_html = re.compile(r"<[^>]*>|\n|\r", re.IGNORECASE)
 re_content_img = re.compile(
@@ -1558,9 +1560,11 @@ re_content_img = re.compile(
 re_quote = re.compile(
     ur"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
     re.IGNORECASE | re.DOTALL)
+#       }}}
 
 # 从<img>的alt属性中提取图片的标题
 def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
+#       {{{ -- func content_normalize_img
     def content_normalize_img(content, inputter, re_imgs):
         lines = list()
 
@@ -1601,6 +1605,7 @@ def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
             lines.extend(content_text_normalize_from_html(content[start_pos:]))
 
         return lines
+#       }}}
 
     lines = list()
 
@@ -1624,7 +1629,9 @@ def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
         lines.extend(content_normalize_img(content[start_pos:], inputter, re_imgs))
 
     return lines
+#   }}}
 
+#   {{{ -- func content_text_normalize_from_html
 # 忽略图片
 def content_text_normalize_from_html(content):
     lines = list()
@@ -1635,12 +1642,16 @@ def content_text_normalize_from_html(content):
     lines = (re_content_cleanup_html.sub(u"", l) for l in re_content_line_sep.split(content))
 
     return content_text_normalize((unescape(l) for l in lines))
+#   }}}
 
+#   {{{ -- func content_text_normalize
+#       {{{ -- 正式表达式常量
 re_content_skip_lines = re.compile(u"^[　 \t]*$")
 re_content_cleanups = [
     [ re.compile(u"^[ ]{1,6}([^　 \ta-zA-Z])"), u"　　\\1" ],   # 行首的1到6个半角空格规范为两个全角空格
     [ re.compile(u"^[　]{0,3}([^　 \t])"), u"　　\\1" ],        # 行首的0到3个全角空格规范为两个全角空格
 ]
+#       }}}
 
 def content_text_normalize(lines):
     content = list()
@@ -1662,21 +1673,31 @@ def content_text_normalize(lines):
             content.append(line)
 
     return content
+#   }}}
 
+#   {{{ -- func trim
 def trim(line):
     return re.sub(u"^[ \t　]+|[ \t　]+$", u"", line)
+#   }}}
 
+#   {{{ -- func title_normalize
 def title_normalize(title):
     if not title:
         return u""
 
     return re.sub(u"^(·|○)+|(·|○)+$|^[ 　]+|[ 　]$", u"", title, re.IGNORECASE)
+#   }}}
 
+#   {{{ -- func title_normalize_from_html
 def title_normalize_from_html(title):
     if not title:
         return u""
 
-    return re.sub(u"(?i)^(·|○)+|(·|○)+$|^[ 　]+|[ 　]$", u"", unescape(re.sub(u"<[^>]*>", u"", title)))
+    if isinstance(title, basestring):
+        return re.sub(u"(?i)^(·|○)+|(·|○)+$|^[ 　]+|[ 　]$", u"", unescape(re.sub(u"<[^>]*>", u"", title)))
+    
+    return [ title_normalize_from_html(t) for t in title ]
+#   }}}
 # }}}
 
 # {{{ Inputters
@@ -1767,14 +1788,17 @@ class ChmInputter(Inputter):
     def __init__(self, filename, encoding=""):
         def callback(cf,ui,lst):
             lst.append(ui.path)
-            return chmlib.CHM_ENUMERATOR_CONTINUE
+            return CHM_ENUMERATOR_CONTINUE
 
         super(ChmInputter, self).__init__(encoding)
 
         self.filename = filename
-        self.chmfile  = chmlib.chm_open(filename.encode(sys.getfilesystemencoding()))
+        self.chmfile = CHMFile()
+        self.chmfile.LoadCHM(filename.encode(sys.getfilesystemencoding()))
+        self.entry = self.chmfile.home if self.chmfile.home != "/" else ""
+
         filelist = list()
-        ok=chmlib.chm_enumerate(self.chmfile,chmlib.CHM_ENUMERATE_ALL,callback,filelist)
+        ok=chm_enumerate(self.chmfile.file, CHM_ENUMERATE_ALL, callback, filelist)
         if not ok:
             raise Exception("chmlib.chm_enumerate failed")
 
@@ -1784,15 +1808,16 @@ class ChmInputter(Inputter):
         return self
 
     def __exit__(self, *args):
-        chmlib.chm_close(self.chmfile)
+        if self.chmfile:
+            self.chmfile.CloseCHM()
 
     def read_binary(self, filename):
         filename = os.path.normpath(filename)
-        result, ui = chmlib.chm_resolve_object(self.chmfile, os.path.join(u"/", filename).encode("utf-8"))
-        if (result != chmlib.CHM_RESOLVE_SUCCESS):
+        result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename).encode("utf-8"))
+        if (result != CHM_RESOLVE_SUCCESS):
             raise Exception(u"Failed to resolve {0}: {1}".format(filename, result))
 
-        size, content = chmlib.chm_retrieve_object(self.chmfile, ui, 0L, ui.length)
+        size, content = self.chmfile.RetrieveObject(ui)
         if (size != ui.length):
             raise Exception(u"Failed to retrieve {0}: filesize is {1}, only got {2}".format(filename, ui.length, size))
 
@@ -1801,19 +1826,19 @@ class ChmInputter(Inputter):
     def exists(self, filename):
         filename = os.path.normpath(filename)
 
-        result, ui = chmlib.chm_resolve_object(self.chmfile, os.path.join(u"/", filename).encode("utf-8"))
-        if result == chmlib.CHM_RESOLVE_SUCCESS:
+        result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename).encode("utf-8"))
+        if result == CHM_RESOLVE_SUCCESS:
             return True
 
         # 看看是不是目录
         if not filename.endswith("/"):
-            result, ui = chmlib.chm_resolve_object(self.chmfile, os.path.join(u"/", filename + "/").encode("utf-8"))
-            return result == chmlib.CHM_RESOLVE_SUCCESS
+            result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename + "/").encode("utf-8"))
+            return result == CHM_RESOLVE_SUCCESS
 
     def isfile(self, filename):
         filename = os.path.normpath(filename)
-        result, ui = chmlib.chm_resolve_object(self.chmfile, os.path.join(u"/", filename).encode("utf-8"))
-        return result == chmlib.CHM_RESOLVE_SUCCESS
+        result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename).encode("utf-8"))
+        return result == CHM_RESOLVE_SUCCESS
 
     def fullpath(self, filename=None):
         if filename == None:
@@ -1969,7 +1994,7 @@ class Parser(object):
 
     # 如果有多张封面，使用最大的一张
     def parse_cover(self, htmls, inputter):
-        if isinstance(htmls, str) or isinstance(htmls, unicode):
+        if isinstance(htmls, basestring):
             htmls = [htmls,]
 
         covers = list()
@@ -1995,7 +2020,7 @@ class Parser(object):
             return covers[0]
 
     @classmethod
-    def parse_book(cls, inputter):
+    def parse_book(cls, inputter, title=u"", author=u"", cover=None):
         logging.debug(u"{indent}Searching suitable parse for {path}".format(
                 indent=u"      "*inputter.nested_level, path=inputter.fullpath()))
 
@@ -2010,7 +2035,9 @@ class Parser(object):
                         path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
                     try:
-                        return parser.parse(inputter)
+                        book = parser.parse(inputter)
+                        if book:
+                            return book
                     except NotParseableError as e:
                         # try next parser
                         logging.error(u"{indent}    {path} should be parsed with {parser}, but failed: {error}!".format(
@@ -2018,12 +2045,23 @@ class Parser(object):
 
                         raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
                     
-        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), TxtParser(), EasyChmParser(), HtmlBuilderParser()):
+        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), TxtParser(), EasyChmParser(), HtmlBuilderParser(), RedirectParser()):
             logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
                 path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
             try:
-                return parser.parse(inputter)
+                book = parser.parse(inputter)
+                if book:
+                    if title:
+                        book.title = title
+
+                    if author:
+                        book.author = author
+
+                    if cover:
+                        book.cover = cover
+
+                    return book
             except NotParseableError as e:
                 # try next parser
                 pass
@@ -2043,19 +2081,22 @@ class HtmlBuilderParser(Parser):
 
     re_idx_levels  = (
         ( re.compile(u".*<td[^>]*class=m6[^>]*>(?P<title>[^<]+)</td>", re.IGNORECASE), 
-          re.compile(u".*<table[^>]*>\s*<tr[^>]*>\s*<td[^>]*>\s*<p[^>]*>(?P<title>.+?)</td>\s*</tr>\s*</table>", re.IGNORECASE),
+          re.compile(u".*<table[^>]*>\s*<tr[^>]*>\s*<td[^>]*>\s*<p[^>]*>(?P<title>(.|\s)+?)</td>\s*</tr>\s*</table>", re.IGNORECASE),
           #<p align="center"><font size="3"><font color="#915788">↘</font><span class=f1><font face="楷体_GB2312" color="#915788">悬疑卷</font></span><font color="#915788">↙</font></font></td>
           #<font color="#915788" size="3">↘</font><font size="3" face="楷体_GB2312" color="#915788">灵异小故事集</font><font color="#915788" size="3">↙</font></span></td>
           re.compile(u".*<font[^>]*>↘(?:</?(?:font|span)[^>]*>)+(?P<title>[^<\s][^<]+)(?:</?(?:font|span)[^>]*>)+↙<", re.IGNORECASE),
         ),
         ( re.compile(u".*<td[^>]*class=m2[^>]*>(?P<title>[^<]+)</td>", re.IGNORECASE), ),
     )
-    re_idx_detail  = (
-        re.compile(u".*?<td[^>]*>(?:&nbsp;|[ \t　])*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>(?P<title>[^<]+)</A>.*?</td>", re.IGNORECASE),
+    re_idx_details  = (
+        re.compile(u".*?<td[^>]*>(?:&nbsp;|　|\s)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>\S[^<]+)</A>.*?</td>", re.IGNORECASE),
         # <td><font size="2"> <A HREF="刘慈欣003.htm" > <font color="#800000">【1】远航！远航！</font></A></font></td>
         # <td width="217"><font size="2"> <A HREF="刘慈欣004.htm" > <font color="#800000">【2】<span style="letter-spacing: -1pt">《东京圣战》和《冷酷的方程式》</span></font></A></font></td>
         # <td><font color="#0000FF">&nbsp;</font><A HREF="刘慈欣000.htm" ><font color="#0000FF">★刘慈欣资料</font></A></td>
-        re.compile(u".*<td[^>]*>\s*(?:</?font[^>]*>(?:&nbsp;|\s)*)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>(?P<title>.+?)</A>(?:&nbsp;|[ \t　…])*(?:\d*\s*</?font[^>]*>\s*)*</td>", re.IGNORECASE),
+        re.compile(u".*?<td[^>]*>\s*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>.+?)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>", re.IGNORECASE),
+        re.compile(u".*?<td[^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>.+?)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?(?:</font[^>]*>(?:&nbsp;|　|\s)*)</td>", re.IGNORECASE),
+        re.compile(u".*?<td[^>]*>\s*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)(?P<title>.+?)(?:</font[^>]*>(?:&nbsp;|　|\s)*)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>", re.IGNORECASE),
+        #re.compile(u"<td[^>]*>\s*(?:</?font[^>]*>(?:&nbsp;|　|\s)*)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:</?font[^>]*>\s*)*(?P<title>.+?)(?:</?font[^>]*>\s*)*</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?(?:</?font[^>]*>\s*)*</td>", re.IGNORECASE | re.DOTALL),
     )
 
     re_title = re.compile(r"\s*<title>\s*([^<]+)\s*", re.IGNORECASE)
@@ -2065,7 +2106,10 @@ class HtmlBuilderParser(Parser):
     re_subbook_url  = re.compile(u".*/index\.html", re.IGNORECASE)
 
     #<html><head><title></title></head><BODY leftMargin=0 topMargin=0 marginheight=0 marginwidth=0 style="overflow:hidden"><iframe frameborder=0 style="width:100%;height:100%" src="chm/000015/List.htm"><a href="chm/000015/List.htm">点此进入</a></iframe></body></html>
-    re_redirect = re.compile(r".*<iframe\b[^>]*\bsrc=\"(?P<url>[^\"]+)\"[^>]*>\s*<a href=\"\1\">", re.IGNORECASE | re.MULTILINE)
+    re_redirects = (
+        re.compile(r"<iframe\b[^>]*\bsrc=\"(?P<url>[^\"]+)\"[^>]*>\s*<a href=\"\1\">", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"<center[^>]*>\s*<a[^>]+href=\"(?P<url>[^\"]+)\"[^>]*>\s*<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*>\s*</a>\s*</center>", re.IGNORECASE | re.DOTALL),
+    )
 
     # <td align=center><img src=../image4/nkts.jpg class=p1 alt=南柯太守></td>
     #re_img_list = re.compile(u".*<td[^>]*><img src=(?P<src>[^'\" \t]+) class=[^>]* alt=(?P<desc>[^> ]+)></td>")
@@ -2074,11 +2118,11 @@ class HtmlBuilderParser(Parser):
         index_filenames = list()
         
         if inputter.entry:
-            return [inputter.entry]
+            return [{"url":inputter.entry, "cover":None}]
         else:
             for i in (u"cover.html", u"cover.htm", u"index.html", u"index.htm", u"tempbook.htm", ):
                 if inputter.isfile(i):
-                    index_filenames.append(i)
+                    index_filenames.append({"url":i, "cover":None})
 
         if inputter.isfile(u"index1.html"):
             i = 1
@@ -2087,7 +2131,7 @@ class HtmlBuilderParser(Parser):
                 if not inputter.isfile(filename):
                     break;
                 
-                index_filenames.append(filename)
+                index_filenames.append({"url":filename, "cover":None})
                 i += 1
 
         return index_filenames
@@ -2159,37 +2203,54 @@ class HtmlBuilderParser(Parser):
 
         i = 0
         while i < len(index_filenames):
-            file_content = inputter.read_all(index_filenames[i])
-            m = self.re_redirect.match(file_content)
-            if m:   # 这个文件是重定向文件，以重定向后的文件为准
-                logging.info(u"{indent}    {src} is redirected to {dest}".format(
-                    indent=u"      "*inputter.nested_level, src=index_filenames[i], dest=m.group("url")))
+            file_content = inputter.read_all(index_filenames[i]["url"])
+            for re_redirect in self.re_redirects:
+                m = re_redirect.search(file_content)
+                if m:   # 这个文件是重定向文件，以重定向后的文件为准
+                    url = m.group("url")
+                    try:
+                        cover = m.group("cover")
+                        if cover:
+                            cover = InputterImg(cover, inputter)
+                        else:
+                            cover = None
+                    except:
+                        cover = None
 
-                for f in index_filenames:
-                    if f == m.group("url"):
-                        break
-                else:
-                    index_filenames.append(m.group("url"))
+                    logging.info(u"{indent}    {src} is redirected to {dest}".format(
+                        indent=u"      "*inputter.nested_level, src=index_filenames[i]["url"], dest=url))
 
-                del index_filenames[i]
-                continue
+                    for f in index_filenames:
+                        if f["url"] == url:
+                            if not f["cover"] and cover:
+                                f["cover"] = cover
+                            break
+                    else:
+                        index_filenames.append({"url":url, "cover":cover})
 
-            i += 1
+                    del index_filenames[i]
+                    break
+            else:
+                i += 1
 
         intro = None
         root_chapter = Chapter()
+        cover = None
 
         for index_filename in index_filenames:
-            logging.info(u"{indent}    Parsing index file: {filename}...".format(filename=index_filename, indent=u"      "*inputter.nested_level))
+            logging.info(u"{indent}    Parsing index file: {filename}...".format(filename=index_filename["url"], indent=u"      "*inputter.nested_level))
+
+            if index_filename["cover"] and not cover:
+                cover = index_filename["cover"]
 
             chapter_stack = [root_chapter]
 
             status = 0
 
-            file_content = inputter.read_all(index_filename)
+            file_content = inputter.read_all(index_filename["url"])
 
             chapter_inputter = inputter
-            dirname = os.path.dirname(index_filename)
+            dirname = os.path.dirname(index_filename["url"])
             if dirname:
                 chapter_inputter = SubInputter(inputter, dirname)
                 # 不需要缩进
@@ -2232,7 +2293,7 @@ class HtmlBuilderParser(Parser):
                         continue
 
                 process_next_line = False
-                for r in self.re_idx_detail:
+                for r in self.re_idx_details:
                     m = r.match(file_content)
                     if m:
                         chapter_filename = m.group("url")
@@ -2243,7 +2304,7 @@ class HtmlBuilderParser(Parser):
 
                         if len(chapter_title) == 0:
                             logging.warning(u"{indent}      No title found, ignoring url '{url}' in file '{filename}'".format(
-                                url=chapter_filename, filename=index_filename, indent=u"      "*inputter.nested_level))
+                                url=chapter_filename, filename=index_filename["url"], indent=u"      "*inputter.nested_level))
 
                             continue
 
@@ -2261,7 +2322,7 @@ class HtmlBuilderParser(Parser):
                                     title=chapter_title, filename=chapter_filename, indent=u"      "*inputter.nested_level))
 
                         except NotParseableError as e:
-                            # 有些书使用re_idx_detail来作为子书的链接，因此也要试一下
+                            # 有些书使用re_idx_details来作为子书的链接，因此也要试一下
                             try:
                                 subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename))
                                 assert(subbookinfo)
@@ -2333,6 +2394,7 @@ class HtmlBuilderParser(Parser):
                 file=inputter.fullpath(), parser=self.__class__.__name__))
 
         book = Book()
+        book.cover = cover
         book.chapters = root_chapter.subchapters
         for subchapter in book.chapters:
             subchapter.parent = None
@@ -2521,14 +2583,14 @@ class EasyChmParser(Parser):
 
             return title, content
 
-        # 如果有入口文件，则入口文件只能是start.htm
-        if inputter.entry and inputter.entry != u"start.htm":
-            logging.debug(u"{indent}    {file} is not parseable by {parser}".format(
-                file=inputter.fullpath(), parser=self.__class__.__name__,
-                indent=u"      "*inputter.nested_level))
-
-            raise NotParseableError(u"{file} is not parseable by {parser}".format(
-                file=inputter.fullpath(), parser=self.__class__.__name__))
+#        # 如果有入口文件，则入口文件只能是start.htm
+#        if inputter.entry and inputter.entry != u"start.htm":
+#            logging.debug(u"{indent}    {file} is not parseable by {parser}".format(
+#                file=inputter.fullpath(), parser=self.__class__.__name__,
+#                indent=u"      "*inputter.nested_level))
+#
+#            raise NotParseableError(u"{file} is not parseable by {parser}".format(
+#                file=inputter.fullpath(), parser=self.__class__.__name__))
 
         # 把pages.js的内容解释到pages列表中
         pages = list()
@@ -2670,9 +2732,9 @@ class EasyChmParser(Parser):
 #   {{{ -- IFengBookParser
 class IFengBookParser(Parser):
     re_info = re.compile(
-        u"<div class=\"infoTab\">\s*" +
+        u"<div [^>]*\"infoTab\d*\"[^>]*>\s*" +
         u"<table[^>]*>\s*" +
-        u"<tr[^>]*>\s*" +
+        u"(?:<tbody>\s*)?<tr[^>]*>\s*" +
         u".*?<img src=\"(?P<cover>[^\"]+)\".*?</td>\s*" +
         u"<td[^>]*>\s*" +
         u"<span[^>]*><a\s[^>]*>(?P<title>.+?)</a></span>\s*" +
@@ -2680,17 +2742,17 @@ class IFengBookParser(Parser):
         u".*?" +
         u"<td[^>]*id=\"authors\"[^>]*>\s*<a[^>]*>(?P<author>[^<]*)</a>" +
         u".*?" +
-        u"<td[^>]*id=\"publisher\"[^>]*>\s*<a[^>]*>(?P<publisher>[^<]*)</a>" +
-        u".*?" +
-        u"(?:<td[^>]*>ISBN： </td>\s*<td>(?P<isbn>[^<]*)</td>)?" +
-        u".*?" +
-        u"(?:<td[^>]*>出版日期：\s*</td>\s*<td>(?P<publish_date>[^<]*)</td>)?" +
-        u".*?" +
-        u"(?:<td[^>]*>版 次：\s*</td>\s*<td>(?P<publish_ver>[^<]*)</td>)?" +
-        u".*?" +
-        u"(?:<td[^>]*>所属分类：\s*</td>\s*<td>\s*<a[^>]*>(?P<category>[^<]*)</a>)?" +
+        u"(?P<attrs>(?:<tr[^>]*>\s*<td[^>]*>[^<]+：\s*</td>\s*<td[^>]*>.*?</td>\s*</tr>\s*)+)" +
+        u".*?" + 
+        u"</t(?:body|able)>" +
         u"", re.IGNORECASE | re.DOTALL)
         
+    re_attr = re.compile(
+        u"<td[^>]*>\s*(?P<name>[^<]+)\s*：\s*</td>\s*<td[^>]*>\s*(?P<value>.*?)</td>", re.IGNORECASE | re.DOTALL)
+
+    re_multival = re.compile(
+        u"<a[^>]*>(?P<val>.*?)</a>", re.IGNORECASE | re.DOTALL)
+
     re_preliminaries = (
         re.compile(
             u"<div class=\"(?P<type>[^\"]\+Intro)\">\s*" +
@@ -2740,14 +2802,28 @@ class IFengBookParser(Parser):
             book.sub_title = title_normalize_from_html(m.group("sub_title"))
 
         book.author = title_normalize_from_html(m.group("author"))
-        book.category = title_normalize_from_html(m.group("category"))
+
+        attrs = dict()
+        for match_attr in self.re_attr.finditer(m.group("attrs")):
+            value = list()
+            for match_val in self.re_multival.finditer(match_attr.group("value")):
+                value.append(match_val.group("val"))
+
+            if not value:
+                value = match_attr.group("value")
+            elif len(value) == 1:
+                value = value[0]
+
+            attrs[match_attr.group("name")] = value
+
         if m.group("cover"):
             book.cover = self.parse_cover(m.group("cover"), inputter)
 
-        book.publisher = title_normalize_from_html(m.group("publisher"))
-        book.isbn = title_normalize_from_html(m.group("isbn"))
-        book.publish_date = title_normalize_from_html(m.group("publish_date"))
-        book.publish_ver = title_normalize_from_html(m.group("publish_ver"))
+        book.publisher = title_normalize_from_html(attrs.get(u"出 版"))
+        book.isbn = title_normalize_from_html(attrs.get(u"ISBN"))
+        book.publish_date = title_normalize_from_html(attrs.get(u"出版日期"))
+        book.publish_ver = title_normalize_from_html(attrs.get(u"版 次"))
+        book.category = title_normalize_from_html(attrs.get(u"所属分类"))
 
         logging.debug(u"    Book info:")
         logging.debug(u"      BookName: {title}".format(title=book.title))
@@ -3004,7 +3080,8 @@ class InfzmParser(Parser):
 
         book.title = u"{title}-{version}".format(
             title=title_normalize_from_html(m.group("title")),
-            version=title_normalize_from_html(m.group("version")))
+            version=title_normalize_from_html(m.group("date")))
+            #version=title_normalize_from_html(m.group("version")))
 
         logging.debug(u"    {title}".format(title=book.title))
 
@@ -3020,7 +3097,11 @@ class InfzmParser(Parser):
 
         logging.debug(u"      TopNews: {title} ({url})".format(title=title_normalize_from_html(m.group("title")), url=m.group("url")))
 
-        chapter = self.parse_chapter(m.group("url"), inputter)
+        chapter = Chapter()
+        chapter.title = u"本期头条"
+        topnews = self.parse_chapter(m.group("url"), inputter)
+        topnews.intro = content_normalize_from_html(m.group("summary"), inputter)
+        chapter.subchapters.append(topnews)
         book.chapters.append(chapter)
 
         news_lists = list()
@@ -3500,8 +3581,9 @@ class CollectionParser(Parser):
                         if parsed_files.has_key(subpath):
                             continue;
 
-                        logging.info(u"{indent}    Found sub book: {path}: {title}{cover_info}".format(
+                        logging.info(u"{indent}    Found sub book: {path}: {title}{author_info}{cover_info}".format(
                             indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title,
+                            author_info=u"/" + author if author else u"",
                             cover_info=u" with cover" if cover else u""))
 
                         for link in links:
@@ -3690,6 +3772,10 @@ class EasyChmCollectionParser(CollectionParser):
         re.compile(u"\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
 		# <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
         re.compile(u"\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        # <span class="STYLE27">1. <a href="魔法学徒/start.htm" target="main_r">《魔法学徒》（封面全本）作者：蓝晶</a><br>
+        # 2. <a href="魔盗/start.htm" target="main_r">《魔盗》（珍藏全本）作者：血珊瑚</a></span><span class="STYLE27"><br>
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
     )
 
 #     }}}
@@ -3707,6 +3793,67 @@ class EasyChmCollectionParser2(CollectionParser):
     root_base = ( u"/txt/", )
 
 #     }}}
+#   }}}
+
+#   {{{ -- RedirectParser
+class RedirectParser(Parser):
+    re_redirects = (
+        re.compile(
+            u"<frameset\srows=\"\d+,\*\"[^>]*>\s*" +
+            u"<frame\s[^>]*>\s*" +
+            u"<frame\s[^>]*\\bsrc=\"(?P<url>[^\"]+)\"[^>]*>\s*" +
+            u"</frameset>", re.IGNORECASE),
+            
+        re.compile(
+            u"<table[^>]*>\s*" +
+            u"<tr[^>]*>\s*" +
+            u"<td[^>]*>\s*" +
+            u"<iframe[^>]*>\s*(?:</iframe>)?\s*" +
+            u"</td>\s*" +
+            u"<td[^>]*>.*?</td>\s*" +
+            u"<td[^>]*>\s*" + 
+            u"<iframe\s[^>]*\\bsrc=\"(?P<url>[^\"]+)\"[^>]*>\s*(?:</iframe>)?\s*" +
+            u"</td>\s*" +
+            u"</tr>\s*" +
+            u"</table>", re.IGNORECASE | re.DOTALL),
+    )
+
+
+    def parse(self, inputter):
+        file_content = inputter.read_all(inputter.entry)
+        for re_redirect in self.re_redirects:
+            m = re_redirect.search(file_content)
+            if m:   # 这个文件是重定向文件，以重定向后的文件为准
+                url = m.group("url")
+
+                cover = None
+                try:
+                    cover_file = m.group("cover")
+                    if cover_file:
+                        cover = InputterImg(cover_file, inputter)
+                except:
+                    pass
+
+                title = u""
+                try:
+                    title = m.group("title")
+                except:
+                    pass
+
+                author = u""
+                try:
+                    author = m.group("author")
+                except:
+                    pass
+
+                logging.info(u"{indent}    {src} is redirected to {dest}".format(
+                    indent=u"      "*inputter.nested_level, src=inputter.fullpath(), dest=url))
+
+                book = Parser.parse_book(SubInputter(inputter, url), title=title, author=author, cover=cover)
+                if book:
+                    return book
+
+        return None
 #   }}}
 # }}}
 
@@ -3827,6 +3974,14 @@ class HtmlConverter(object):
             level  = chapter.level,
             title  = escape(title))
 
+        if chapter.author:
+            html += u"""\
+        <p class='author chapter_author_{level}'>{author}</p>
+""".format(
+            hlevel = chapter.level,
+            level  = chapter.level,
+            author  = escape(chapter.author))
+
         html += u"</div>"
 
         return html
@@ -3851,6 +4006,10 @@ class HtmlConverter(object):
             html += u"<span class='toc_ancestors'>" + ancestors + "</span>\n"
 
         html += u"<div class='toc_title'>{title}</div>".format(title=escape(title))
+
+        if chapter.author:
+            html += u"<div class='toc_author'>{author}</div>".format(author=escape(chapter.author))
+
         html += u"<ul class='toc_list'>"
 
         # 如果章节本身也有内容，则生成一个目录项
@@ -3881,22 +4040,25 @@ class HtmlConverter(object):
                     os.path.dirname(filename))))
 
         if chapter.parent and chapter.parent.toc_file:
-            links.append(u"<a href='{link}'>章节菜单</a>".format(
+            links.append(u"<a href='{link}'>上层菜单</a>".format(
                 link = os.path.relpath(chapter.parent.toc_file, os.path.dirname(filename))))
 
         links.append(u"<a href='{link}'>主菜单</a>".format(
             link = os.path.relpath(TOC_PAGE + HTML_EXT, os.path.dirname(filename))))
 
-        if chapter.next:
+        next = chapter.next
+        # 如果本层没有下个章节，则跳到父章节的下一个章节
+        if not next and chapter.parent and chapter.parent.next:
+            next = chapter.parent.next
+
+        if next:
             links.append(u"<a href='{link}'>下一章节</a>".format(
                 link = os.path.relpath(
-                    chapter.next.toc_file if link_to_toc and chapter.next.toc_file else chapter.next.entry_file,
+                    next.toc_file if link_to_toc and next.toc_file else next.entry_file,
                     os.path.dirname(filename))))
-        elif chapter.parent and chapter.parent.next:
-            links.append(u"<a href='{link}'>下一章节</a>".format(
-                link = os.path.relpath(chapter.parent.next.entry_file, os.path.dirname(filename))))
 
-        return u"<div class='chapter_navbar'>" + u" | ".join(links) + u"<hr/></div>"
+        return u"<div class='chapter_navbar'><table border='0' width='100%'><tr><td align='center'>{links}</td></tr></table><hr/></div>\n".format(
+                links = u" | ".join(links))
     # }}}
 
     # {{{ ---- func chapter_content_begin
@@ -4077,8 +4239,8 @@ class HtmlConverter(object):
                                 "id":       CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id),
                                 })
 
-            if chapter.level == CHAPTER_TOP_LEVEL:
-                # 顶层章节，生成标题页
+            if chapter.level == CHAPTER_TOP_LEVEL and chapter.subchapters:
+                # 顶层章节，且有子章节，生成标题页。无子章节的顶层章节也不需要生成标题页
                 title_page_filename = u"{name}{ext}".format(
                     name=os.path.join(path, CHAPTER_TITLE_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
 
@@ -4120,6 +4282,12 @@ class HtmlConverter(object):
                     chapter.entry_file = toc_page_filename
 
                 if files:
+#                    # 打印本章节的前、后章节
+#                    print u"{0} -> {1} -> {2}".format(
+#                        chapter.prev.title if chapter.prev else u"None",
+#                        chapter.title,
+#                        chapter.next.title if chapter.next else u"None")
+
                     files["html"].append({
                         "filename": toc_page_filename,
                         "content":  u"".join((
@@ -4453,9 +4621,15 @@ class EpubConverter(Converter):
 
         # /package/metadata/subject
         if book.category:
-            subjectElem = xml.createElement("dc:subject")
-            metadataElem.appendChild(subjectElem)
-            subjectElem.appendChild(xml.createTextNode(unicode(book.category)))
+            if isinstance(book.category, basestring):
+                subjectElem = xml.createElement("dc:subject")
+                metadataElem.appendChild(subjectElem)
+                subjectElem.appendChild(xml.createTextNode(unicode(book.category)))
+            else:
+                for cat in book.category:
+                    subjectElem = xml.createElement("dc:subject")
+                    metadataElem.appendChild(subjectElem)
+                    subjectElem.appendChild(xml.createTextNode(unicode(cat)))
 
         # /package/metadata/description
         if book.description:
@@ -4790,37 +4964,59 @@ class ZipOutputter(Outputter):
 # {{{ convert_book
 def convert_book(path):
     def chapters_normalize(chapters, level, prefix, parent=None):
-        i = 1
-        prev = None
-        for c in chapters:
-            c.id     = prefix + str(i)
+        for i in xrange(0, len(chapters)):
+            c = chapters[i]
+            c.id     = prefix + str(i + 1)
             c.level  = level
 
             # 建立章节间的导航关系
             c.parent = parent
-            c.prev   = prev
+
+            c.prev = chapters[i - 1] if i > 0 else None
+
+            if i < len(chapters) - 1:   # 同级还有下一章节
+                c.next = chapters[i + 1]
+            elif parent:                # 有父章节，指向父章节的下一章节
+                c.next = parent.next
+            else:
+                c.next = None
             
-            if prev:
-                prev.next = c
-
-            prev = c
-
             if isinstance(c.intro, basestring):
                 c.intro = [ c.intro ]
 
             if c.subchapters:
-                chapters_normalize(c.subchapters, level + 1, c.id + "_", c)
+                # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
+                if not c.content and len(c.subchapters) == 1 and c.title == c.subchapters[0].title:
+                    # 把子章节的内容合并到父章节中。如果父章节已经有相应的项目，则使用父章节中的内容
+                    c.title_inner  = c.subchapters[0].title_inner  if not c.title_inner  else c.title_inner
+                    c.author       = c.subchapters[0].author       if not c.author       else c.author
+                    c.id           = c.subchapters[0].id           if not c.id           else c.id
+                    c.cover        = c.subchapters[0].cover        if not c.cover        else c.cover
+                    c.intro        = c.subchapters[0].intro        if not c.intro        else c.intro
+                    c.originated   = c.subchapters[0].originated   if not c.originated   else c.originated
+                    c.publish_date = c.subchapters[0].publish_date if not c.publish_date else c.publish_date
+                    c.source       = c.subchapters[0].source       if not c.source       else c.source
+                    c.content      = c.subchapters[0].content
+                    c.subchapters  = c.subchapters[0].subchapters
+
+                # 如果发生了章节合并，有可能会没有了子章节
+                if c.subchapters:
+                    chapters_normalize(c.subchapters, level + 1, c.id + "_", c)
 
             i += 1
 
     # {{{ get_suitable_inputter
     def get_suitable_inputter(path):
         inputter = None
+
+        if SHORT_CUTS.has_key(path):
+            path = SHORT_CUTS[path]
+
         if re.match(r"https?://", path):
             inputter = UrlInputter(path)
         elif os.path.isfile(path) and os.path.splitext(path)[1].lower() == ".chm":
             try:
-                chmlib
+                f=CHMFile()
 
                 try:
                     inputter = ChmInputter(path)
