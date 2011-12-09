@@ -45,8 +45,9 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111206"
+VERSION=u"20111208"
 
+# {{{ Contants
 COVER_PATHS = [
     os.path.join(os.getenv("HOME"), "ebooks", "covers"),
     os.path.join(os.getenv("HOME"), "my", "book", "covers"),
@@ -64,7 +65,6 @@ COVER_EXTENSIONS = [ u".jpg", u".png", u".gif", u".jpeg", u".JPG", u".PNG", u".G
 
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
 
-# {{{ Contants
 SHORT_CUTS = {
     "nfzm" : "http://www.infzm.com/enews/infzm",
 };
@@ -296,8 +296,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/zw.ttf),
 	url(res:///media/fonts/zw.ttf),
 	url(res:///sdcard/fonts/zw.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/zw.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -312,8 +313,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/fs.ttf),
 	url(res:///media/fonts/fs.ttf),
 	url(res:///sdcard/fonts/fs.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/fs.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -328,8 +330,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/kt.ttf),
 	url(res:///media/fonts/kt.ttf),
 	url(res:///sdcard/fonts/kt.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/kt.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 
@@ -346,8 +349,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/ht.ttf),
 	url(res:///media/fonts/ht.ttf),
 	url(res:///sdcard/fonts/ht.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/ht.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 
@@ -363,8 +367,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h1.ttf),
 	url(res:///media/fonts/h1.ttf),
 	url(res:///sdcard/fonts/h1.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/h1.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 
@@ -380,12 +385,13 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h2.ttf),
 	url(res:///media/fonts/h2.ttf),
 	url(res:///sdcard/fonts/h2.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/h2.ttf);
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
 }
 
 
-/*@font-face {
+@font-face {
 	font-family:"h3";
 	src:url(res:///opt/sony/ebook/FONT/h3.ttf),
 	url(res:///Data/FONT/h3.ttf),
@@ -397,9 +403,10 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h3.ttf),
 	url(res:///media/fonts/h3.ttf),
 	url(res:///sdcard/fonts/h3.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
 	url(fonts/h3.ttf);
-}*/
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+}
 
 
 body {
@@ -1045,6 +1052,8 @@ class ChapterInfo:
 
         self.series       = u""
         self.category     = u""
+        self.source       = u""      # 来源
+        self.originated   = u""      # 发自...
         self.publisher    = u""
         self.isbn         = u""
         self.publish_date = u""
@@ -1059,9 +1068,6 @@ class Chapter(ChapterInfo):
         self.id           = u""
         self.level        = CHAPTER_TOP_LEVEL - 1   # 设为比最小有效值小一
         self.content      = list()   # list of lines
-        self.originated   = u""      # 发自...
-        self.publish_date = u""      # 时间
-        self.source       = u""      # 来源
 
         self.parent       = None     # 父章节
         self.prev         = None     # 同层的上一章节
@@ -1077,7 +1083,6 @@ class Book(ChapterInfo):
     def __init__(self):
         ChapterInfo.__init__(self)
 
-        self.id           = u""
         self.text_page    = u""         # 正文第一页
 #   }}}
 
@@ -3852,7 +3857,7 @@ class CollectionParser(Parser):
     entrys = ()
     re_comment = re.compile(u"<!--.*?-->")
     re_remove_querys = re.compile(u"[#\?].*$")
-    re_levels  = ()
+    re_auto_levels  = ()    # 多个表达式，初始不区分级别，按遇到的先后定顺序
     re_links   = ()
     re_extra     = None
     re_extra_end = None
@@ -3893,6 +3898,8 @@ class CollectionParser(Parser):
 
             links = list()
             alt_entry_links = set()
+
+            level_map = dict()  # 把re_auto_levels中的级别根据出现先后确定的级别
 
             try:
                 # 扫描整个文件，找出所有链接，保存到links中
@@ -4008,9 +4015,15 @@ class CollectionParser(Parser):
                         # 匹配成功，不再检查后续的re_links
                         break
 
-                    for level in range(1, len(self.re_levels) + 1):
-                        m = self.re_levels[level-1].match(line)
+                    for i in range(0, len(self.re_auto_levels)):
+                        m = self.re_auto_levels[i].match(line)
                         if m:
+                            if level_map.has_key(i):
+                                level = level_map[i]
+                            else:
+                                level = CHAPTER_TOP_LEVEL + len(level_map)
+                                level_map[i] = level
+
                             while level <= chapter_stack[-1].level:
                                 chapter_stack.pop()
                         
@@ -4109,7 +4122,7 @@ class CollectionParser(Parser):
 class HtmlBuilderCollectionParser(CollectionParser):
     entrys = ( u"cover.html", u"cover.htm" )
 
-    re_levels  = (
+    re_auto_levels  = (
         re.compile(u".*<td[^>]*class=m6[^>]*>([^<]+)</td>.*", re.IGNORECASE),
         re.compile(u".*<td[^>]*class=m2[^>]*>([^<]+)</td>.*", re.IGNORECASE),
         )
@@ -5408,61 +5421,66 @@ class ZipOutputter(Outputter):
 
 # {{{ convert_book
 def convert_book(path):
-    def chapters_normalize(chapters, level, prefix, parent):
-        for i in xrange(0, len(chapters)):
-            c = chapters[i]
-            c.id     = prefix + str(i + 1)
-            c.level  = level
+    def chapters_normalize(chapter, level, prefix):
+        if hasattr(chapter, "id"):
+            chapter.id = prefix
+
+        if hasattr(chapter, "level"):
+            chapter.level = level
+
+        if chapter.subchapters:
+            # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
+            if len(chapter.subchapters) == 1 and (
+                        (isinstance(chapter, Chapter) and not chapter.content) or                   # 本章节没有内容
+                        (not isinstance(chapter, Chapter) and not chapter.subchapters[0].content)   # 子章节没有内容
+                    ) and chapter.title == chapter.subchapters[0].title:
+                # 把子章节的内容合并到父章节中。如果父章节已经有相应的项目，则使用父章节中的内容
+                chapter.title_inner  = chapter.subchapters[0].title_inner  if not chapter.title_inner  else chapter.title_inner
+                chapter.author       = chapter.subchapters[0].author       if not chapter.author       else chapter.author
+                chapter.cover        = chapter.subchapters[0].cover        if not chapter.cover        else chapter.cover
+                chapter.intro        = chapter.subchapters[0].intro        if not chapter.intro        else chapter.intro
+                chapter.originated   = chapter.subchapters[0].originated   if not chapter.originated   else chapter.originated
+                chapter.publish_date = chapter.subchapters[0].publish_date if not chapter.publish_date else chapter.publish_date
+                chapter.source       = chapter.subchapters[0].source       if not chapter.source       else chapter.source
+                chapter.subchapters  = chapter.subchapters[0].subchapters
+                if chapter.subchapters[0].content:
+                    chapter.content      = chapter.subchapters[0].content
+
+        if isinstance(chapter.intro, basestring):
+            chapter.intro = [ chapter.intro ]
+
+        # 建立章节间的导航关系
+        #
+        for i in xrange(0, len(chapter.subchapters)):
+            c = chapter.subchapters[i]
 
             # 建立章节间的导航关系
-            if isinstance(parent, Chapter):
-                c.parent = parent
+            if isinstance(chapter, Chapter):
+                c.parent = chapter
 
-            c.prev = chapters[i - 1] if i > 0 else None
+            c.prev = chapter.subchapters[i - 1] if i > 0 else None
 
-            if i < len(chapters) - 1:                   # 同级还有下一章节
-                c.next = chapters[i + 1]
-            elif parent and hasattr(parent, "next"):    # 有父章节，指向父章节的下一章节
-                c.next = parent.next
+            if i < len(chapter.subchapters) - 1:    # 同级还有下一章节
+                c.next = chapter.subchapters[i + 1]
+            elif hasattr(chapter, "next"):          # 指向父章节的下一章节
+                c.next = chapter.next
             else:
                 c.next = None
             
-            if isinstance(c.intro, basestring):
-                c.intro = [ c.intro ]
-
             # 检查本章节是否是父章节的简介
-            if parent and not parent.intro:
+            if not chapter.intro:
                 for re_intro in RE_INTRO_TITLES:
                     if re_intro.match(c.title):
                         # 章节标题符合内容简介标题，作为内容简介
                         logging.debug(u"{indent}    Found Intro '{intro_title}' for {title}".format(
                             indent="  "*(level - 1),
                             intro_title=c.title,
-                            title=parent.title if parent.title else u"the book"))
+                            title=chapter.title if chapter.title else u"the book"))
                                 
-                        parent.intro = c.content
+                        chapter.intro = c.content
                         break
 
-            if c.subchapters:
-                # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
-                if not c.content and len(c.subchapters) == 1 and c.title == c.subchapters[0].title:
-                    # 把子章节的内容合并到父章节中。如果父章节已经有相应的项目，则使用父章节中的内容
-                    c.title_inner  = c.subchapters[0].title_inner  if not c.title_inner  else c.title_inner
-                    c.author       = c.subchapters[0].author       if not c.author       else c.author
-                    c.id           = c.subchapters[0].id           if not c.id           else c.id
-                    c.cover        = c.subchapters[0].cover        if not c.cover        else c.cover
-                    c.intro        = c.subchapters[0].intro        if not c.intro        else c.intro
-                    c.originated   = c.subchapters[0].originated   if not c.originated   else c.originated
-                    c.publish_date = c.subchapters[0].publish_date if not c.publish_date else c.publish_date
-                    c.source       = c.subchapters[0].source       if not c.source       else c.source
-                    c.content      = c.subchapters[0].content
-                    c.subchapters  = c.subchapters[0].subchapters
-
-                # 如果发生了章节合并，有可能会没有了子章节
-                if c.subchapters:
-                    chapters_normalize(c.subchapters, level + 1, c.id + "_", c)
-
-            i += 1
+            chapters_normalize(c, level + 1, prefix + "_" + str(i + 1))
 
     # {{{ get_suitable_inputter
     def get_suitable_inputter(path):
@@ -5520,7 +5538,7 @@ def convert_book(path):
             logging.error(e.value)
             raise
 
-        chapters_normalize(book.subchapters, CHAPTER_TOP_LEVEL, u"chapter_", book)
+        chapters_normalize(book, CHAPTER_TOP_LEVEL, u"chapter")
 
         book.title  = fileinfo["title"] + fileinfo["extra_info"]
         book.author = fileinfo["author"]
