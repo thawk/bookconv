@@ -45,7 +45,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111208"
+VERSION=u"20111210"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2326,13 +2326,7 @@ class Parser(object):
             try:
                 book = parser.parse(inputter, title, author)
                 if book:
-                    if title:
-                        book.title = title
-
-                    if author:
-                        book.author = author
-
-                    if cover:
+                    if cover and not book.cover:
                         book.cover = cover
                     elif not book.cover:
                         book.cover = lookup_cover(book.title, book.author)
@@ -5540,8 +5534,15 @@ def convert_book(path):
 
         chapters_normalize(book, CHAPTER_TOP_LEVEL, u"chapter")
 
-        book.title  = fileinfo["title"] + fileinfo["extra_info"]
-        book.author = fileinfo["author"]
+        # 仅当保留了当初的标题时，才使用从书名中猜测的信息
+        if not book.title or book.title == fileinfo["title"]:
+            book.title  = fileinfo["title"] + fileinfo["extra_info"]
+            title = fileinfo["title"]
+        else:
+            title = book.title
+
+        if not book.author:
+            book.author = fileinfo["author"]
 
         book.category = options.category if options.category else book.category
         if not book.category and fileinfo["category"]:
@@ -5554,8 +5555,8 @@ def convert_book(path):
             logging.info(u"Searching book information from internet...")
 
             bookinfo = {
-                "title"  : fileinfo["title"],
-                "author" : fileinfo["author"],
+                "title"  : title,
+                "author" : book.author,
                 "l1cat"  : book.category,
                 "cover"  : cover,
             }
