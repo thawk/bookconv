@@ -24,6 +24,7 @@ import zipfile
 import Image
 import time
 from cStringIO import StringIO
+from exceptions import TypeError
 
 from cgi import escape
 from urllib import urlencode, quote, basejoin, splittag, splitquery
@@ -45,7 +46,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111210"
+VERSION=u"20111216"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -949,6 +950,18 @@ li {
     text-align: right;
 }
 
+.strong {
+    font-weight: bold;
+}
+
+.emphasized {
+    font-style: italic;
+}
+
+.monospaced {
+    font-family: "monospace", "zw";
+}
+
 .img {
     text-align: center;
 }
@@ -1086,10 +1099,24 @@ class Book(ChapterInfo):
         self.text_page    = u""         # 正文第一页
 #   }}}
 
-#   {{{ -- class LineContainer
-class LineContainer(object):
+#   {{{ -- class ContentElement
+class ContentElement(object):
+    def __init__(self):
+        pass
+
+    def to_html(self, img_resolver):
+        raise NotImplementedError()
+
+    def to_text(self):
+        raise NotImplementedError()
+#   }}}
+
+#   {{{ -- class BlockElement
+class BlockElement(ContentElement):
     """ 可以包含若干行的部件 """
     def __init__(self, style_class=None):
+        ContentElement.__init__(self)
+
         if not style_class:
             style_class = self.__class__.__name__
 
@@ -1108,7 +1135,7 @@ class LineContainer(object):
         html = u""
 
         if self.style_class:
-            html += u'<div class="{0}">\n'.format(self.style_class)
+            html += u'<div class="{0}">'.format(self.style_class)
 
         html += to_html(self.lines, img_resolver)
 
@@ -1116,21 +1143,34 @@ class LineContainer(object):
             html += u'</div>'
 
         return html
+
+    def to_text(self):
+        return to_text(self.lines)
+#   }}}
+
+#   {{{ -- class Section
+class Section(BlockElement):
+    def __init__(self, title):
+        BlockElement.__init__(self, u"section_title")
+        self.title = title
+
+    def to_html(self, img_resolver):
+        return u''.join((u'<p class="section_title">', escape(self.title), u'</p>'))
 #   }}}
 
 #   {{{ -- class Literal
-class Literal(LineContainer):
+class Literal(BlockElement):
     """ 需要缩进的内容，类似于引用 """
     def __init__(self, lines=None):
-        super(Literal, self).__init__(u"literal")
+        BlockElement.__init__(self, u"literal")
         self.append_lines(lines)
 #   }}}
 
 #   {{{ -- class Quote
-class Quote(LineContainer):
+class Quote(BlockElement):
     """ 引用 """
     def __init__(self, lines=None, attribution="", citetitle=""):
-        super(Quote, self).__init__()
+        BlockElement.__init__(self)
         self.attribution = attribution
         self.citetitle   = citetitle
         self.append_lines(lines)
@@ -1150,10 +1190,99 @@ class Quote(LineContainer):
         return html
 #   }}}
 
-#   {{{ -- class Section
-class Section(object):
-    def __init__(self, title):
-        self.title = title
+#   {{{ -- class InlineElement
+class InlineElement(ContentElement):
+    """ 行内元素 """
+    def __init__(self, style_class=None):
+        ContentElement.__init__(self)
+
+        if not style_class:
+            style_class = self.__class__.__name__
+
+        self.style_class = style_class
+
+        self.sub_elements = list()
+
+    def append_elements(self, sub_elements):
+        def do_append(element):
+            if isinstance(element, basestring):
+                self.sub_elements.append(element)
+            elif isinstance(element, InlineElement):
+                self.sub_elements.append(element)
+            else:
+                raise TypeError("Need string or InlineElement type, not {0} type".format(type(element)))
+
+        if sub_elements:
+            if isinstance(sub_elements, list):
+                for e in sub_elements:
+                    do_append(e)
+            else:
+                do_append(sub_elements)
+
+    def to_html(self, img_resolver):
+        html = u""
+
+        if self.style_class:
+            html += u'<span class="{0}">'.format(self.style_class)
+
+        for e in self.sub_elements:
+            if isinstance(e, basestring):
+                html += escape(e)
+            elif isinstance(e, InlineElement):
+                html += e.to_html(img_resolver)
+            else:
+                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+
+        if self.style_class:
+            html += u'</span>'
+
+        return html
+
+    def to_text(self):
+        text = u""
+        for e in self.sub_elements:
+            if isinstance(e, basestring):
+                text += escape(e)
+            elif isinstance(e, InlineElement):
+                text += e.to_text()
+            else:
+                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+
+        return text
+#   }}}
+
+#   {{{ -- class Line
+class Line(InlineElement):
+    def __init__(self, elements):
+        InlineElement.__init__(self, u"")
+        self.append_elements(elements)
+
+    def to_html(self, img_resolver):
+        return u'<p>' + InlineElement.to_html(self, img_resolver) + u'</p>\n';
+#   }}}
+
+#   {{{ -- class Strong
+class Strong(InlineElement):
+    """ 加粗 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"strong")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Emphasized
+class Emphasized(InlineElement):
+    """ 强调 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"emphasized")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Monospaced
+class Monospaced(InlineElement):
+    """ 等宽 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"monospaced")
+        self.append_elements(sub_elements)
 #   }}}
 
 # }}}
@@ -3704,6 +3833,8 @@ class TxtParser(Parser):
 
     re_block_sep = re.compile(r"^[ \t　]*$")
 
+    re_quoted_text = re.compile(r"(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
+    
     # 在文件header中的属性名与ChapterInfo中字段的对应关系
     attributes = {
         "title":       "title",
@@ -3818,7 +3949,32 @@ class TxtParser(Parser):
                             curr_chapter.content.append(Section(title_normalize_from_html(m.group("title"))))
                             break
                     else:
-                        curr_chapter.content.extend(content_text_normalize(line))
+                        def parse_quoted_text(text):
+                            elements = list()
+                            start = 0
+                            for me in self.re_quoted_text.finditer(text):
+                                if me.start() != start: # 匹配前的部分
+                                    elements.append(text[start:me.start()])
+
+                                quote_char = me.group("quote_char")
+                                if quote_char == "__":
+                                    elements.append(Emphasized(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "**":
+                                    elements.append(Strong(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "++":
+                                    elements.append(Monospaced(parse_quoted_text(me.group("text"))))
+                                else:
+                                    elements.append(me.group("text"))
+
+                                start = me.end()
+
+                            if start != len(text):
+                                elements.append(text[start:])
+
+                            return elements
+                            
+                        for l in content_text_normalize(line):
+                            curr_chapter.content.append(Line(parse_quoted_text(l)))
 
         if curr_block:
             curr_chapter.content.append(curr_block)
@@ -4255,10 +4411,10 @@ def to_html(content, img_resolver):
     html = u""
 
     for line in content:
-        if isinstance(line, LineContainer):
+        if isinstance(line, basestring):
+            html += u"".join((u"<p>", escape(line), u"</p>"))
+        elif isinstance(line, ContentElement):
             html += line.to_html(img_resolver)
-        elif isinstance(line, Section):
-            html += u''.join((u'<p class="section_title">', escape(line.title), u'</p>'))
         elif isinstance(line, Img):
             html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
                 src = img_resolver(line) if img_resolver else line.filename(),
@@ -4266,7 +4422,7 @@ def to_html(content, img_resolver):
                 desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
                 )
         else:
-            html += u"".join((u"<p>", escape(line), u"</p>"))
+            raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
     return html
 #   }}}
@@ -4282,11 +4438,10 @@ def to_text(content):
         if isinstance(line, basestring):
             text += line
             text += "\n"
-        elif isinstance(line, Section):
-            text += line.title
-            text += "\n"
-        elif isinstance(line, LineContainer):
+        elif isinstance(line, ContentElement):
             text += to_text(line.lines)
+        else:
+            raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
     return text
 #   }}}
@@ -4301,7 +4456,7 @@ def get_images(content):
     for line in content:
         if isinstance(line, Img):
             yield line
-        elif isinstance(line, LineContainer):
+        elif isinstance(line, BlockElement):
             # 引用中也可能有图片
             for img in get_images(line.lines):
                 yield img
