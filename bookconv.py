@@ -24,6 +24,7 @@ import zipfile
 import Image
 import time
 from cStringIO import StringIO
+from exceptions import TypeError
 
 from cgi import escape
 from urllib import urlencode, quote, basejoin, splittag, splitquery
@@ -45,12 +46,26 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111122"
-
-COVER_PATH = os.path.join(os.getenv("HOME"), "ebooks", "covers")
-BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
+VERSION=u"20111220"
 
 # {{{ Contants
+COVER_PATHS = [
+    os.path.join(os.getenv("HOME"), "ebooks", "covers"),
+    os.path.join(os.getenv("HOME"), "my", "book", "covers"),
+]
+
+COVER_PATTERNS = [
+    u"{title}-{author}",
+]
+
+TITLE_ONLY_COVER_PATTERNS = [
+    u"{title}",
+]
+
+COVER_EXTENSIONS = [ u".jpg", u".png", u".gif", u".jpeg", u".JPG", u".PNG", u".GIF", u".JPEG" ]
+
+BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
+
 SHORT_CUTS = {
     "nfzm" : "http://www.infzm.com/enews/infzm",
 };
@@ -240,6 +255,7 @@ BOOK_DB = (
     { "l1cat": u"武侠", "l2cat": u"", "title": u"网络武侠经典合集", "author": u"多人" },
     { "l1cat": u"社会", "l2cat": u"", "title": u"江城", "author": u"何伟" },
     { "l1cat": u"儿童文学", "l2cat": u"", "title": u"舒克和贝塔全传", "author": u"郑渊洁" },
+    { "l1cat": u"悬疑", "l2cat": u"", "title": u"心理罪系列", "author": u"雷米" },
 )
 # }}}
 
@@ -281,8 +297,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/zw.ttf),
 	url(res:///media/fonts/zw.ttf),
 	url(res:///sdcard/fonts/zw.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/zw.ttf);
+	url(fonts/zw.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -297,8 +314,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/fs.ttf),
 	url(res:///media/fonts/fs.ttf),
 	url(res:///sdcard/fonts/fs.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/fs.ttf);
+	url(fonts/fs.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -313,8 +331,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/kt.ttf),
 	url(res:///media/fonts/kt.ttf),
 	url(res:///sdcard/fonts/kt.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/kt.ttf);
+	url(fonts/kt.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -331,8 +350,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/ht.ttf),
 	url(res:///media/fonts/ht.ttf),
 	url(res:///sdcard/fonts/ht.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/ht.ttf);
+	url(fonts/ht.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -348,8 +368,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h1.ttf),
 	url(res:///media/fonts/h1.ttf),
 	url(res:///sdcard/fonts/h1.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/h1.ttf);
+	url(fonts/h1.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -365,12 +386,13 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h2.ttf),
 	url(res:///media/fonts/h2.ttf),
 	url(res:///sdcard/fonts/h2.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/h2.ttf);
+	url(fonts/h2.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
-/*@font-face {
+@font-face {
 	font-family:"h3";
 	src:url(res:///opt/sony/ebook/FONT/h3.ttf),
 	url(res:///Data/FONT/h3.ttf),
@@ -382,9 +404,10 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h3.ttf),
 	url(res:///media/fonts/h3.ttf),
 	url(res:///sdcard/fonts/h3.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf),
-	url(fonts/h3.ttf);
-}*/
+	url(fonts/h3.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+}
 
 
 body {
@@ -927,6 +950,19 @@ li {
     text-align: right;
 }
 
+.strong {
+    /*font-weight: bold;*/
+	font-family:"ht","zw";
+}
+
+.emphasized {
+    font-style: italic;
+}
+
+.monospaced {
+    font-family: "monospace", "zw";
+}
+
 .img {
     text-align: center;
 }
@@ -1030,6 +1066,8 @@ class ChapterInfo:
 
         self.series       = u""
         self.category     = u""
+        self.source       = u""      # 来源
+        self.originated   = u""      # 发自...
         self.publisher    = u""
         self.isbn         = u""
         self.publish_date = u""
@@ -1044,9 +1082,6 @@ class Chapter(ChapterInfo):
         self.id           = u""
         self.level        = CHAPTER_TOP_LEVEL - 1   # 设为比最小有效值小一
         self.content      = list()   # list of lines
-        self.originated   = u""      # 发自...
-        self.publish_date = u""      # 时间
-        self.source       = u""      # 来源
 
         self.parent       = None     # 父章节
         self.prev         = None     # 同层的上一章节
@@ -1062,14 +1097,27 @@ class Book(ChapterInfo):
     def __init__(self):
         ChapterInfo.__init__(self)
 
-        self.id           = u""
         self.text_page    = u""         # 正文第一页
 #   }}}
 
-#   {{{ -- class LineContainer
-class LineContainer(object):
+#   {{{ -- class ContentElement
+class ContentElement(object):
+    def __init__(self):
+        pass
+
+    def to_html(self, img_resolver):
+        raise NotImplementedError()
+
+    def to_text(self):
+        raise NotImplementedError()
+#   }}}
+
+#   {{{ -- class BlockElement
+class BlockElement(ContentElement):
     """ 可以包含若干行的部件 """
     def __init__(self, style_class=None):
+        ContentElement.__init__(self)
+
         if not style_class:
             style_class = self.__class__.__name__
 
@@ -1088,7 +1136,7 @@ class LineContainer(object):
         html = u""
 
         if self.style_class:
-            html += u'<div class="{0}">\n'.format(self.style_class)
+            html += u'<div class="{0}">'.format(self.style_class)
 
         html += to_html(self.lines, img_resolver)
 
@@ -1096,21 +1144,34 @@ class LineContainer(object):
             html += u'</div>'
 
         return html
+
+    def to_text(self):
+        return to_text(self.lines)
+#   }}}
+
+#   {{{ -- class Section
+class Section(BlockElement):
+    def __init__(self, title):
+        BlockElement.__init__(self, u"section_title")
+        self.title = title
+
+    def to_html(self, img_resolver):
+        return u''.join((u'<p class="section_title">', escape(self.title), u'</p>'))
 #   }}}
 
 #   {{{ -- class Literal
-class Literal(LineContainer):
+class Literal(BlockElement):
     """ 需要缩进的内容，类似于引用 """
     def __init__(self, lines=None):
-        super(Literal, self).__init__(u"literal")
+        BlockElement.__init__(self, u"literal")
         self.append_lines(lines)
 #   }}}
 
 #   {{{ -- class Quote
-class Quote(LineContainer):
+class Quote(BlockElement):
     """ 引用 """
     def __init__(self, lines=None, attribution="", citetitle=""):
-        super(Quote, self).__init__()
+        BlockElement.__init__(self)
         self.attribution = attribution
         self.citetitle   = citetitle
         self.append_lines(lines)
@@ -1130,10 +1191,121 @@ class Quote(LineContainer):
         return html
 #   }}}
 
-#   {{{ -- class Section
-class Section(object):
-    def __init__(self, title):
-        self.title = title
+#   {{{ -- class InlineElement
+class InlineElement(ContentElement):
+    """ 行内元素 """
+    def __init__(self, style_class=None):
+        ContentElement.__init__(self)
+
+        if not style_class:
+            style_class = self.__class__.__name__
+
+        self.style_class = style_class
+
+        self.sub_elements = list()
+
+    def append_elements(self, sub_elements):
+        def do_append(element):
+            if isinstance(element, basestring):
+                self.sub_elements.append(element)
+            elif isinstance(element, InlineElement):
+                self.sub_elements.append(element)
+            else:
+                raise TypeError("Need string or InlineElement type, not {0} type".format(type(element)))
+
+        if sub_elements:
+            if isinstance(sub_elements, list):
+                for e in sub_elements:
+                    do_append(e)
+            else:
+                do_append(sub_elements)
+
+    def to_html(self, img_resolver):
+        html = u""
+
+        if self.style_class:
+            html += u'<span class="{0}">'.format(self.style_class)
+
+        for e in self.sub_elements:
+            if isinstance(e, basestring):
+                html += escape(e)
+            elif isinstance(e, InlineElement):
+                html += e.to_html(img_resolver)
+            else:
+                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+
+        if self.style_class:
+            html += u'</span>'
+
+        return html
+
+    def to_text(self):
+        text = u""
+        for e in self.sub_elements:
+            if isinstance(e, basestring):
+                text += escape(e)
+            elif isinstance(e, InlineElement):
+                text += e.to_text()
+            else:
+                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+
+        return text
+#   }}}
+
+#   {{{ -- class Line
+class Line(InlineElement):
+    def __init__(self, elements):
+        InlineElement.__init__(self, u"")
+        self.append_elements(elements)
+
+    def to_html(self, img_resolver):
+        return u'<p>' + InlineElement.to_html(self, img_resolver) + u'</p>\n';
+#   }}}
+
+#   {{{ -- class Strong
+class Strong(InlineElement):
+    """ 加粗 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"strong")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Emphasized
+class Emphasized(InlineElement):
+    """ 强调 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"emphasized")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Monospaced
+class Monospaced(InlineElement):
+    """ 等宽 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"monospaced")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Superscript
+class Superscript(InlineElement):
+    """ 等宽 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"")
+        self.append_elements(sub_elements)
+
+    def to_html(self, img_resolver):
+        return u'<sup>' + InlineElement.to_html(self, img_resolver) + u'</sup>\n';
+#   }}}
+
+#   {{{ -- class Subscript
+class Subscript(InlineElement):
+    """ 等宽 """
+    def __init__(self, sub_elements=None):
+        InlineElement.__init__(self, u"monospaced")
+        self.append_elements(sub_elements)
+
+    def to_html(self, img_resolver):
+        return u'<sub>' + InlineElement.to_html(self, img_resolver) + u'</sub>\n';
 #   }}}
 
 # }}}
@@ -1497,8 +1669,36 @@ def guess_title_author(filename):
     return {"title": title, "author": author, "extra_info": extra_info, "category": ""}
 #   }}}
 
-#   {{{ -- func search_book_info
-def search_book_info(title, author):
+#   {{{ -- func lookup_cover
+def lookup_cover(title, author):
+    def do_lookup_cover(title, author):
+        for cover_path in COVER_PATHS:
+            patterns = COVER_PATTERNS if author else TITLE_ONLY_COVER_PATTERNS
+            for pattern in patterns:
+                filename = pattern.format(title=title, author=author)
+                for ext in COVER_EXTENSIONS:
+                    p = os.path.join(cover_path, filename + ext)
+                    if os.path.exists(p):
+                        return InputterImg(p)
+
+        return None
+
+    # 既考虑标题，又考虑作者
+    if author:
+        cover = do_lookup_cover(title, author)
+        if cover:
+            return cover
+
+    # 只考虑标题
+    cover = do_lookup_cover(title, u"")
+    if cover:
+        return cover
+
+    return None
+#   }}}
+
+#   {{{ -- func complete_book_info
+def complete_book_info(book_info):
     re_title_cleanups = (
         re.compile(u'(?P<title>.+)(?:合集|全集|系列)', re.IGNORECASE),
     )
@@ -1690,8 +1890,8 @@ def search_book_info(title, author):
         return None
 #     }}}
 
-    try:
-        r = local_lookup(title, author)
+    def fuzzy_lookup(title, author, func):
+        r = func(title, author)
         if r:
             return r
 
@@ -1699,25 +1899,27 @@ def search_book_info(title, author):
         for re_title_cleanup in re_title_cleanups:
             m = re_title_cleanup.match(title)
             if m:
-                r = local_lookup(m.group('title'), author)
+                r = func(m.group('title'), author)
                 if r:
                     return r
-    except:
-        pass
 
-    r = lookup_book_info(title, author)
-    if r:
-        return r
+        return None
 
-    # 对于合集之类，把合集字样去掉再试一下
-    for re_title_cleanup in re_title_cleanups:
-        m = re_title_cleanup.match(title)
-        if m:
-            r = lookup_book_info(m.group('title'), author)
-            if r:
-                return r
+    title = book_info["title"]
+    author = book_info["author"] if book_info.has_key("author") else u""
 
-    return None
+    cover = fuzzy_lookup(title, author, lookup_cover)
+    if cover:
+        book_info["cover"] = cover
+
+    newinfo = fuzzy_lookup(title, author, local_lookup)
+    if not newinfo:
+        newinfo = fuzzy_lookup(title, author, lookup_book_info)
+    
+    # 把原来没有的项目拷贝过去
+    for k in [ "author", "l1cat", "l2cat", "cover" ]:
+        if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
+            book_info[k] = newinfo[k]
 #   }}}
 # }}}
 
@@ -2213,7 +2415,7 @@ class SubInputter(Inputter):
 class Parser(object):
     re_cover = re.compile(u"<img\s*src=(?P<quote1>['\"])?(?P<src>.*?)(?(quote1)(?P=quote1)|(?=\s|>))", re.IGNORECASE)
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title=u"", book_author=u""):
         raise NotImplementedError(u"Parser::parse() is not implemented!")
 
     # 如果有多张封面，使用最大的一张
@@ -2259,7 +2461,7 @@ class Parser(object):
                         path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
                     try:
-                        book = parser.parse(inputter)
+                        book = parser.parse(inputter, title, author)
                         if book:
                             return book
                     except NotParseableError as e:
@@ -2274,16 +2476,12 @@ class Parser(object):
                 path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
             try:
-                book = parser.parse(inputter)
+                book = parser.parse(inputter, title, author)
                 if book:
-                    if title:
-                        book.title = title
-
-                    if author:
-                        book.author = author
-
-                    if cover:
+                    if cover and not book.cover:
                         book.cover = cover
+                    elif not book.cover:
+                        book.cover = lookup_cover(book.title, book.author)
 
                     return book
             except NotParseableError as e:
@@ -2360,7 +2558,7 @@ class HtmlBuilderParser(Parser):
 
         return index_filenames
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         def read_chapter(inputter, filename, indent):
             logging.debug(u"{indent}    Parsing file {filename}...".format(filename=filename, indent=u" "*indent));
 
@@ -2548,7 +2746,7 @@ class HtmlBuilderParser(Parser):
                         except NotParseableError as e:
                             # 有些书使用re_idx_details来作为子书的链接，因此也要试一下
                             try:
-                                subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename))
+                                subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename), u"", author)
                                 assert(subbookinfo)
 
                                 chapter = Chapter()
@@ -2618,7 +2816,9 @@ class HtmlBuilderParser(Parser):
                 file=inputter.fullpath(), parser=self.__class__.__name__))
 
         book = Book()
-        book.cover = cover
+        book.title  = book_title
+        book.author = book_author
+        book.cover  = cover
         book.subchapters = root_chapter.subchapters
         for subchapter in book.subchapters:
             subchapter.parent = None
@@ -2759,7 +2959,7 @@ class EasyChmParser(Parser):
     ]
     # }}}
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         def read_chapter(inputter, filename, title):
             chapter = Chapter()
             content = u"".join(inputter.read_lines(filename))
@@ -2845,6 +3045,9 @@ class EasyChmParser(Parser):
         next_cover = None
 
         book = Book()
+        book.title  = book_title
+        book.author = book_author
+
         intro = None
         root_chapter = Chapter()
         root_chapter.level = sys.maxint
@@ -3007,7 +3210,7 @@ class IFengBookParser(Parser):
         u"<div[^>]*\\bid=\"artical_real\"[^>]*>(?P<content>.+?)</div>",
         re.IGNORECASE | re.DOTALL)
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         if not inputter.entry:
             raise NotParseableError(u"{file} is not parseable by {parser}".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
@@ -3288,7 +3491,7 @@ class InfzmParser(Parser):
 
         return chapter
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         if not inputter.entry:
             raise notparseableerror(u"{file} is not parseable by {parser}".format( file=inputter.fullpath(), parser=self.__class__.__name__))
 
@@ -3585,7 +3788,7 @@ class NbweeklyParser(Parser):
             if chapter and (chapter.subchapters or chapter.content):
                 parent.subchapters.append(chapter)
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         if not inputter.entry:
             raise notparseableerror(u"{file} is not parseable by {parser}".format( file=inputter.fullpath(), parser=self.__class__.__name__))
 
@@ -3653,6 +3856,8 @@ class TxtParser(Parser):
 
     re_block_sep = re.compile(r"^[ \t　]*$")
 
+    re_quoted_text = re.compile(r"(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
+    
     # 在文件header中的属性名与ChapterInfo中字段的对应关系
     attributes = {
         "title":       "title",
@@ -3667,7 +3872,7 @@ class TxtParser(Parser):
         "description": "intro",
     }
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         if not inputter.entry or inputter.entry[-4:].lower() != ".txt":
             raise NotParseableError(u"{file} is not parseable by {parser}. Not .txt file!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
@@ -3767,7 +3972,36 @@ class TxtParser(Parser):
                             curr_chapter.content.append(Section(title_normalize_from_html(m.group("title"))))
                             break
                     else:
-                        curr_chapter.content.extend(content_text_normalize(line))
+                        def parse_quoted_text(text):
+                            elements = list()
+                            start = 0
+                            for me in self.re_quoted_text.finditer(text):
+                                if me.start() != start: # 匹配前的部分
+                                    elements.append(text[start:me.start()])
+
+                                quote_char = me.group("quote_char")
+                                if quote_char == "__":
+                                    elements.append(Emphasized(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "**":
+                                    elements.append(Strong(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "++":
+                                    elements.append(Monospaced(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "^":
+                                    elements.append(Superscript(parse_quoted_text(me.group("text"))))
+                                elif quote_char == "~":
+                                    elements.append(Subscript(parse_quoted_text(me.group("text"))))
+                                else:
+                                    elements.append(me.group("text"))
+
+                                start = me.end()
+
+                            if start != len(text):
+                                elements.append(text[start:])
+
+                            return elements
+                            
+                        for l in content_text_normalize(line):
+                            curr_chapter.content.append(Line(parse_quoted_text(l)))
 
         if curr_block:
             curr_chapter.content.append(curr_block)
@@ -3785,6 +4019,12 @@ class TxtParser(Parser):
             if hasattr(book, n):
                 setattr(book, n, chapter_attrs[n])
 
+        if not book.title:
+            book.title = book_title
+
+        if not book.author:
+            book.author = book_author
+
         return book
 #   }}}
 
@@ -3794,7 +4034,7 @@ class CollectionParser(Parser):
     entrys = ()
     re_comment = re.compile(u"<!--.*?-->")
     re_remove_querys = re.compile(u"[#\?].*$")
-    re_levels  = ()
+    re_auto_levels  = ()    # 多个表达式，初始不区分级别，按遇到的先后定顺序
     re_links   = ()
     re_extra     = None
     re_extra_end = None
@@ -3804,8 +4044,10 @@ class CollectionParser(Parser):
     # 在找不到links的情况下，可以跟随这里的链接去尝试一下
     re_alt_entry_links = ()
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         book = Book()
+        book.title  = book_title
+        book.author = book_author
         extra_chapters = list()
         subbook_count = 0
         first_subbook_cover = None
@@ -3834,6 +4076,8 @@ class CollectionParser(Parser):
             links = list()
             alt_entry_links = set()
 
+            level_map = dict()  # 把re_auto_levels中的级别根据出现先后确定的级别
+
             try:
                 # 扫描整个文件，找出所有链接，保存到links中
                 while True:
@@ -3859,7 +4103,7 @@ class CollectionParser(Parser):
                         title = title_normalize_from_html(m.group("title"))
 
                         group_dict = m.groupdict()
-                        author = group_dict["author"] if group_dict.has_key("author") else u""
+                        author = group_dict["author"] if group_dict.has_key("author") else book_author
                         cover = None
                         if group_dict.has_key("cover"):
                             if inputter.isfile(group_dict["cover"]):
@@ -3919,14 +4163,14 @@ class CollectionParser(Parser):
                                 break
                         else:
                             # 该链接未出现过
-                            subbookinfo = Parser.parse_book(subinputter)
+                            subbookinfo = Parser.parse_book(subinputter, title, author, cover)
                             assert(subbookinfo)
 
                             chapter = Chapter()
-                            chapter.title  = title
-                            chapter.author = author
+                            chapter.title  = title if title else subbookinfo.title
+                            chapter.author = author if author else subbookinfo.author
                             chapter.level  = level
-                            chapter.cover  = cover
+                            chapter.cover  = cover if cover else subbookinfo.cover
                             chapter.subchapters = subbookinfo.subchapters
 
                             for subchapter in chapter.subchapters:
@@ -3948,9 +4192,15 @@ class CollectionParser(Parser):
                         # 匹配成功，不再检查后续的re_links
                         break
 
-                    for level in range(1, len(self.re_levels) + 1):
-                        m = self.re_levels[level-1].match(line)
+                    for i in range(0, len(self.re_auto_levels)):
+                        m = self.re_auto_levels[i].match(line)
                         if m:
+                            if level_map.has_key(i):
+                                level = level_map[i]
+                            else:
+                                level = CHAPTER_TOP_LEVEL + len(level_map)
+                                level_map[i] = level
+
                             while level <= chapter_stack[-1].level:
                                 chapter_stack.pop()
                         
@@ -4002,7 +4252,7 @@ class CollectionParser(Parser):
                         if parsed_files.has_key(subpath):
                             continue;
 
-                        subbookinfo = Parser.parse_book(subinputter)
+                        subbookinfo = Parser.parse_book(subinputter, u"", book_author)
 
                         root_chapter.cover  = subbookinfo.cover
                         root_chapter.subchapters = subbookinfo.subchapters
@@ -4049,7 +4299,7 @@ class CollectionParser(Parser):
 class HtmlBuilderCollectionParser(CollectionParser):
     entrys = ( u"cover.html", u"cover.htm" )
 
-    re_levels  = (
+    re_auto_levels  = (
         re.compile(u".*<td[^>]*class=m6[^>]*>([^<]+)</td>.*", re.IGNORECASE),
         re.compile(u".*<td[^>]*class=m2[^>]*>([^<]+)</td>.*", re.IGNORECASE),
         )
@@ -4140,7 +4390,7 @@ class RedirectParser(Parser):
     )
 
 
-    def parse(self, inputter):
+    def parse(self, inputter, book_title, book_author):
         file_content = inputter.read_all(inputter.entry)
         for re_redirect in self.re_redirects:
             m = re_redirect.search(file_content)
@@ -4155,13 +4405,13 @@ class RedirectParser(Parser):
                 except:
                     pass
 
-                title = u""
+                title = book_title
                 try:
                     title = m.group("title")
                 except:
                     pass
 
-                author = u""
+                author = book_author
                 try:
                     author = m.group("author")
                 except:
@@ -4188,10 +4438,10 @@ def to_html(content, img_resolver):
     html = u""
 
     for line in content:
-        if isinstance(line, LineContainer):
+        if isinstance(line, basestring):
+            html += u"".join((u"<p>", escape(line), u"</p>"))
+        elif isinstance(line, ContentElement):
             html += line.to_html(img_resolver)
-        elif isinstance(line, Section):
-            html += u''.join((u'<p class="section_title">', escape(line.title), u'</p>'))
         elif isinstance(line, Img):
             html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
                 src = img_resolver(line) if img_resolver else line.filename(),
@@ -4199,7 +4449,7 @@ def to_html(content, img_resolver):
                 desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
                 )
         else:
-            html += u"".join((u"<p>", escape(line), u"</p>"))
+            raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
     return html
 #   }}}
@@ -4215,11 +4465,10 @@ def to_text(content):
         if isinstance(line, basestring):
             text += line
             text += "\n"
-        elif isinstance(line, Section):
-            text += line.title
-            text += "\n"
-        elif isinstance(line, LineContainer):
-            text += to_text(line.lines)
+        elif isinstance(line, ContentElement):
+            text += line.to_text()
+        else:
+            raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
     return text
 #   }}}
@@ -4234,7 +4483,7 @@ def get_images(content):
     for line in content:
         if isinstance(line, Img):
             yield line
-        elif isinstance(line, LineContainer):
+        elif isinstance(line, BlockElement):
             # 引用中也可能有图片
             for img in get_images(line.lines):
                 yield img
@@ -5348,61 +5597,66 @@ class ZipOutputter(Outputter):
 
 # {{{ convert_book
 def convert_book(path):
-    def chapters_normalize(chapters, level, prefix, parent):
-        for i in xrange(0, len(chapters)):
-            c = chapters[i]
-            c.id     = prefix + str(i + 1)
-            c.level  = level
+    def chapters_normalize(chapter, level, prefix):
+        if hasattr(chapter, "id"):
+            chapter.id = prefix
+
+        if hasattr(chapter, "level"):
+            chapter.level = level
+
+        if chapter.subchapters:
+            # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
+            if len(chapter.subchapters) == 1 and (
+                        (isinstance(chapter, Chapter) and not chapter.content) or                   # 本章节没有内容
+                        (not isinstance(chapter, Chapter) and not chapter.subchapters[0].content)   # 子章节没有内容
+                    ) and chapter.title == chapter.subchapters[0].title:
+                # 把子章节的内容合并到父章节中。如果父章节已经有相应的项目，则使用父章节中的内容
+                chapter.title_inner  = chapter.subchapters[0].title_inner  if not chapter.title_inner  else chapter.title_inner
+                chapter.author       = chapter.subchapters[0].author       if not chapter.author       else chapter.author
+                chapter.cover        = chapter.subchapters[0].cover        if not chapter.cover        else chapter.cover
+                chapter.intro        = chapter.subchapters[0].intro        if not chapter.intro        else chapter.intro
+                chapter.originated   = chapter.subchapters[0].originated   if not chapter.originated   else chapter.originated
+                chapter.publish_date = chapter.subchapters[0].publish_date if not chapter.publish_date else chapter.publish_date
+                chapter.source       = chapter.subchapters[0].source       if not chapter.source       else chapter.source
+                chapter.subchapters  = chapter.subchapters[0].subchapters
+                if chapter.subchapters[0].content:
+                    chapter.content      = chapter.subchapters[0].content
+
+        if isinstance(chapter.intro, basestring):
+            chapter.intro = [ chapter.intro ]
+
+        # 建立章节间的导航关系
+        #
+        for i in xrange(0, len(chapter.subchapters)):
+            c = chapter.subchapters[i]
 
             # 建立章节间的导航关系
-            if isinstance(parent, Chapter):
-                c.parent = parent
+            if isinstance(chapter, Chapter):
+                c.parent = chapter
 
-            c.prev = chapters[i - 1] if i > 0 else None
+            c.prev = chapter.subchapters[i - 1] if i > 0 else None
 
-            if i < len(chapters) - 1:                   # 同级还有下一章节
-                c.next = chapters[i + 1]
-            elif parent and hasattr(parent, "next"):    # 有父章节，指向父章节的下一章节
-                c.next = parent.next
+            if i < len(chapter.subchapters) - 1:    # 同级还有下一章节
+                c.next = chapter.subchapters[i + 1]
+            elif hasattr(chapter, "next"):          # 指向父章节的下一章节
+                c.next = chapter.next
             else:
                 c.next = None
             
-            if isinstance(c.intro, basestring):
-                c.intro = [ c.intro ]
-
             # 检查本章节是否是父章节的简介
-            if parent and not parent.intro:
+            if not chapter.intro:
                 for re_intro in RE_INTRO_TITLES:
                     if re_intro.match(c.title):
                         # 章节标题符合内容简介标题，作为内容简介
                         logging.debug(u"{indent}    Found Intro '{intro_title}' for {title}".format(
                             indent="  "*(level - 1),
                             intro_title=c.title,
-                            title=parent.title if parent.title else u"the book"))
+                            title=chapter.title if chapter.title else u"the book"))
                                 
-                        parent.intro = c.content
+                        chapter.intro = c.content
                         break
 
-            if c.subchapters:
-                # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
-                if not c.content and len(c.subchapters) == 1 and c.title == c.subchapters[0].title:
-                    # 把子章节的内容合并到父章节中。如果父章节已经有相应的项目，则使用父章节中的内容
-                    c.title_inner  = c.subchapters[0].title_inner  if not c.title_inner  else c.title_inner
-                    c.author       = c.subchapters[0].author       if not c.author       else c.author
-                    c.id           = c.subchapters[0].id           if not c.id           else c.id
-                    c.cover        = c.subchapters[0].cover        if not c.cover        else c.cover
-                    c.intro        = c.subchapters[0].intro        if not c.intro        else c.intro
-                    c.originated   = c.subchapters[0].originated   if not c.originated   else c.originated
-                    c.publish_date = c.subchapters[0].publish_date if not c.publish_date else c.publish_date
-                    c.source       = c.subchapters[0].source       if not c.source       else c.source
-                    c.content      = c.subchapters[0].content
-                    c.subchapters  = c.subchapters[0].subchapters
-
-                # 如果发生了章节合并，有可能会没有了子章节
-                if c.subchapters:
-                    chapters_normalize(c.subchapters, level + 1, c.id + "_", c)
-
-            i += 1
+            chapters_normalize(c, level + 1, prefix + "_" + str(i + 1))
 
     # {{{ get_suitable_inputter
     def get_suitable_inputter(path):
@@ -5442,23 +5696,6 @@ def convert_book(path):
 
         logging.info(u"Parsing book '{0}'...".format(path))
 
-        try:
-            book = Parser.parse_book(inputter)
-        except NotParseableError as e:
-            logging.error(u"  Error: Don't know how to parse '{0}'".format(path))
-            logging.error(e.value)
-            raise
-
-        chapters_normalize(book.subchapters, CHAPTER_TOP_LEVEL, u"chapter_", book)
-
-        fileinfo = parse_filename(
-            path, 
-            options.title if options.title else book.title, 
-            options.author if options.author else book.author)
-
-        book.title  = fileinfo["title"] + fileinfo["extra_info"]
-        book.author = fileinfo["author"]
-
         cover = None
         if options.cover:
             if os.path.exists(options.cover):
@@ -5466,6 +5703,28 @@ def convert_book(path):
             else:
                 logging.error(u"  Error: Cover file '{0}' not found".format(options.cover))
                 return Book()
+
+        # 先猜测一下标题和作者
+        fileinfo = parse_filename(path, options.title, options.author)
+
+        try:
+            book = Parser.parse_book(inputter, title=fileinfo["title"], author=fileinfo["author"], cover=cover)
+        except NotParseableError as e:
+            logging.error(u"  Error: Don't know how to parse '{0}'".format(path))
+            logging.error(e.value)
+            raise
+
+        chapters_normalize(book, CHAPTER_TOP_LEVEL, u"chapter")
+
+        # 仅当保留了当初的标题时，才使用从书名中猜测的信息
+        if not book.title or book.title == fileinfo["title"]:
+            book.title  = fileinfo["title"] + fileinfo["extra_info"]
+            title = fileinfo["title"]
+        else:
+            title = book.title
+
+        if not book.author:
+            book.author = fileinfo["author"]
 
         book.category = options.category if options.category else book.category
         if not book.category and fileinfo["category"]:
@@ -5477,17 +5736,17 @@ def convert_book(path):
         if not options.offline and book.title and (not book.author or not book.category or not book.cover):
             logging.info(u"Searching book information from internet...")
 
-            bookinfo = search_book_info(fileinfo["title"], fileinfo["author"])
+            bookinfo = {
+                "title"  : title,
+                "author" : book.author,
+                "l1cat"  : book.category,
+                "cover"  : cover,
+            }
+            complete_book_info(bookinfo)
 
-            if bookinfo:
-                if not book.author:
-                    book.author = bookinfo["author"]
-
-                if not book.category:
-                    book.category = bookinfo["l1cat"]
-
-                if not book.cover and bookinfo["cover"]:
-                    book.cover = bookinfo["cover"]
+            book.author = bookinfo["author"]
+            book.category = bookinfo["l1cat"]
+            book.cover = bookinfo["cover"]
 
         if not book.category:
             book.category = DEFAULT_CATEGORY
@@ -5609,9 +5868,7 @@ if __name__ == "__main__":
         }
 
         if not options.offline and title and (not author or not l1cat):
-            bi = search_book_info(title, author)
-            if bi:
-                bookinfo = bi
+            complete_book_info(bookinfo)
 
         print u"{l1cat}\t{l2cat}\t{title}\t{author}".format(
             title=bookinfo["title"], author=bookinfo["author"], l1cat=bookinfo["l1cat"], l2cat=bookinfo["l2cat"])
