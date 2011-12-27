@@ -431,11 +431,15 @@ div {
 
 p {
 	text-align: justify;
-	text-indent: 0em!important;
+	text-indent: 2em!important;
 	line-height:130%;
     margin-top: 0em;
     margin-bottom: 0.3em;
 	/*margin-bottom:-0.9em;*/
+}
+
+table p, li p, .literal p, .quote p {
+	text-indent: 0em!important; /* no indent inside table/literal/quote*/
 }
 
 a{
@@ -2175,8 +2179,9 @@ def content_text_normalize_from_html(content):
 re_content_skip_lines = re.compile(u"^[　 \t]*$")
 re_indent_cleanups = [
     #[ re.compile(u"^[ ]{1,6}([^　 \ta-zA-Z])"), u"　　\\1" ],   # 行首的1到6个半角空格规范为两个全角空格
-    [ re.compile(u"^[ ]{1,6}([^　 \t])"), u"　　\\1" ],   # 行首的1到6个半角空格规范为两个全角空格
-    [ re.compile(u"^[　]{0,3}([^　 \t])"), u"　　\\1" ],        # 行首的0到3个全角空格规范为两个全角空格
+    #[ re.compile(u"^[ ]{1,6}([^　 \t])"), u"　　\\1" ],   # 行首的1到6个半角空格规范为两个全角空格
+    #[ re.compile(u"^[　]{0,3}([^　 \t])"), u"　　\\1" ],        # 行首的0到3个全角空格规范为两个全角空格
+    [ re.compile(u"^[　 \t]+"), u"" ], # 去掉前面的缩进，使用CSS控制缩进
 ]
 #       }}}
 
