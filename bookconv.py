@@ -46,7 +46,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111216"
+VERSION=u"20111227"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -297,9 +297,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/zw.ttf),
 	url(res:///media/fonts/zw.ttf),
 	url(res:///sdcard/fonts/zw.ttf),
-	url(fonts/zw.ttf);
+	url(fonts/zw.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -314,9 +314,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/fs.ttf),
 	url(res:///media/fonts/fs.ttf),
 	url(res:///sdcard/fonts/fs.ttf),
-	url(fonts/fs.ttf);
+	url(fonts/fs.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 @font-face {
@@ -331,9 +331,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/kt.ttf),
 	url(res:///media/fonts/kt.ttf),
 	url(res:///sdcard/fonts/kt.ttf),
-	url(fonts/kt.ttf);
+	url(fonts/kt.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -350,9 +350,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/ht.ttf),
 	url(res:///media/fonts/ht.ttf),
 	url(res:///sdcard/fonts/ht.ttf),
-	url(fonts/ht.ttf);
+	url(fonts/ht.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -368,9 +368,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h1.ttf),
 	url(res:///media/fonts/h1.ttf),
 	url(res:///sdcard/fonts/h1.ttf),
-	url(fonts/h1.ttf);
+	url(fonts/h1.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -386,9 +386,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h2.ttf),
 	url(res:///media/fonts/h2.ttf),
 	url(res:///sdcard/fonts/h2.ttf),
-	url(fonts/h2.ttf);
+	url(fonts/h2.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -404,9 +404,9 @@ HTML_STYLE = u"""\
 	url(res:///system/media/sdcard/fonts/h3.ttf),
 	url(res:///media/fonts/h3.ttf),
 	url(res:///sdcard/fonts/h3.ttf),
-	url(fonts/h3.ttf);
+	url(fonts/h3.ttf),
 	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf),  /* Sony PRS-T1 */
+    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
 }
 
 
@@ -828,6 +828,16 @@ li {
     margin: 0em 0em 0.5em 0em;
 }
 
+.chapter_navbar table {
+    width: 100%;
+    border: none;
+}
+
+.chapter_navbar td {
+    text-align: center;
+    border: none;
+}
+
 /*目录页*/
 .contents {
 	margin-left:20%;
@@ -951,7 +961,8 @@ li {
 }
 
 .strong {
-    font-weight: bold;
+    /*font-weight: bold;*/
+	font-family:"ht","zw";
 }
 
 .emphasized {
@@ -960,6 +971,18 @@ li {
 
 .monospaced {
     font-family: "monospace", "zw";
+}
+
+.underline {
+    text-decoration: underline;
+}
+
+.overline {
+    text-decoration: overline;
+}
+
+.line-through {
+    text-decoration: line-through;
 }
 
 .img {
@@ -980,6 +1003,15 @@ li {
     max-height: 85%;
 }
 
+table.normal {
+    border: 3px solid #527BBD;
+    border-collapse: collapse;
+}
+
+table.normal td {
+    padding: 4px;
+    border: 1px solid black;
+}
 """
 
 EPUB_STYLE = HTML_STYLE
@@ -1049,6 +1081,22 @@ def pretty_xml(dom):
     xml = re.sub(r">\s*\n\s*([^\s<])", r">\1", xml)
     return xml
 
+class LineHolder(object):
+    def __init__(self, container):
+        self.iter = container.__iter__()
+        self.stacks = list()
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.stacks:
+            return self.stacks.pop()
+
+        return self.iter.next()
+
+    def push_back(self, v):
+        self.stacks.append(v)
 # }}}
 
 # {{{ Book structures
@@ -1107,12 +1155,16 @@ class ContentElement(object):
     def to_html(self, img_resolver):
         raise NotImplementedError()
 
-    def to_text(self):
+    def to_asciidoc(self):
         raise NotImplementedError()
+
+    def get_images(self):
+        return list()
 #   }}}
 
-#   {{{ -- class BlockElement
-class BlockElement(ContentElement):
+#  {{{ BlockContainer and subclasses
+#   {{{ -- class BlockContainer
+class BlockContainer(ContentElement):
     """ 可以包含若干行的部件 """
     def __init__(self, style_class=None):
         ContentElement.__init__(self)
@@ -1144,33 +1196,27 @@ class BlockElement(ContentElement):
 
         return html
 
-    def to_text(self):
-        return to_text(self.lines)
-#   }}}
+    def to_asciidoc(self):
+        return to_asciidoc(self.lines)
 
-#   {{{ -- class Section
-class Section(BlockElement):
-    def __init__(self, title):
-        BlockElement.__init__(self, u"section_title")
-        self.title = title
-
-    def to_html(self, img_resolver):
-        return u''.join((u'<p class="section_title">', escape(self.title), u'</p>'))
+    def get_images(self):
+        for img in get_images(self.lines):
+            yield img
 #   }}}
 
 #   {{{ -- class Literal
-class Literal(BlockElement):
+class Literal(BlockContainer):
     """ 需要缩进的内容，类似于引用 """
     def __init__(self, lines=None):
-        BlockElement.__init__(self, u"literal")
+        BlockContainer.__init__(self, u"literal")
         self.append_lines(lines)
 #   }}}
 
 #   {{{ -- class Quote
-class Quote(BlockElement):
+class Quote(BlockContainer):
     """ 引用 """
     def __init__(self, lines=None, attribution="", citetitle=""):
-        BlockElement.__init__(self)
+        BlockContainer.__init__(self)
         self.attribution = attribution
         self.citetitle   = citetitle
         self.append_lines(lines)
@@ -1188,29 +1234,41 @@ class Quote(BlockElement):
         html += u'</div>'
 
         return html
-#   }}}
 
-#   {{{ -- class InlineElement
-class InlineElement(ContentElement):
-    """ 行内元素 """
+    def to_asciidoc(self):
+        text = u'[quote'
+
+        if self.attribution:
+            text += ','
+            text += self.attribution
+
+        if self.citetitle:
+            text += ','
+            text += self.citetitle
+
+        text += u']\n'
+        text += BlockContainer.to_asciidoc(self)
+#   }}}
+#  }}}
+
+#  {{{ InlineContainer and subclasses
+#   {{{ -- class InlineContainer
+class InlineContainer(ContentElement):
+    """ 行内元素容器，所包含的元素会连接在一起 """
     def __init__(self, style_class=None):
         ContentElement.__init__(self)
 
-        if not style_class:
-            style_class = self.__class__.__name__
-
         self.style_class = style_class
-
         self.sub_elements = list()
 
     def append_elements(self, sub_elements):
         def do_append(element):
             if isinstance(element, basestring):
                 self.sub_elements.append(element)
-            elif isinstance(element, InlineElement):
+            elif isinstance(element, InlineContainer):
                 self.sub_elements.append(element)
             else:
-                raise TypeError("Need string or InlineElement type, not {0} type".format(type(element)))
+                raise TypeError("Need string or InlineContainer type, not {0} type".format(type(element)))
 
         if sub_elements:
             if isinstance(sub_elements, list):
@@ -1228,63 +1286,163 @@ class InlineElement(ContentElement):
         for e in self.sub_elements:
             if isinstance(e, basestring):
                 html += escape(e)
-            elif isinstance(e, InlineElement):
+            elif isinstance(e, InlineContainer):
                 html += e.to_html(img_resolver)
             else:
-                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+                raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
 
         if self.style_class:
             html += u'</span>'
 
         return html
 
-    def to_text(self):
+    def to_asciidoc(self):
         text = u""
         for e in self.sub_elements:
             if isinstance(e, basestring):
                 text += escape(e)
-            elif isinstance(e, InlineElement):
-                text += e.to_text()
+            elif isinstance(e, InlineContainer):
+                text += e.to_asciidoc()
             else:
-                raise TypeError("Need string or InlineElement type, no {0} type".format(type(e)))
+                raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
 
         return text
+
+    def get_images(self):
+        for img in get_images(self.sub_elements):
+            yield img
 #   }}}
 
 #   {{{ -- class Line
-class Line(InlineElement):
+class Line(InlineContainer):
     def __init__(self, elements):
-        InlineElement.__init__(self, u"")
+        InlineContainer.__init__(self, u"")
         self.append_elements(elements)
 
     def to_html(self, img_resolver):
-        return u'<p>' + InlineElement.to_html(self, img_resolver) + u'</p>\n';
+        return u'<p>' + InlineContainer.to_html(self, img_resolver) + u'</p>\n';
+#   }}}
+
+#   {{{ -- class SectionTitle
+class SectionTitle(InlineContainer):
+    def __init__(self, title):
+        InlineContainer.__init__(self, u"section_title")
+
+    def to_html(self, img_resolver):
+        return u''.join((u'<p class="section_title">', InlineContainer.to_html(self, img_resolver), u'</p>'))
 #   }}}
 
 #   {{{ -- class Strong
-class Strong(InlineElement):
+class Strong(InlineContainer):
     """ 加粗 """
     def __init__(self, sub_elements=None):
-        InlineElement.__init__(self, u"strong")
+        InlineContainer.__init__(self, u"strong")
         self.append_elements(sub_elements)
 #   }}}
 
 #   {{{ -- class Emphasized
-class Emphasized(InlineElement):
+class Emphasized(InlineContainer):
     """ 强调 """
     def __init__(self, sub_elements=None):
-        InlineElement.__init__(self, u"emphasized")
+        InlineContainer.__init__(self, u"emphasized")
         self.append_elements(sub_elements)
 #   }}}
 
 #   {{{ -- class Monospaced
-class Monospaced(InlineElement):
+class Monospaced(InlineContainer):
     """ 等宽 """
     def __init__(self, sub_elements=None):
-        InlineElement.__init__(self, u"monospaced")
+        InlineContainer.__init__(self, u"monospaced")
         self.append_elements(sub_elements)
 #   }}}
 
+#   {{{ -- class Superscript
+class Superscript(InlineContainer):
+    """ 上标 """
+    def __init__(self, sub_elements=None):
+        InlineContainer.__init__(self, u"")
+        self.append_elements(sub_elements)
+
+    def to_html(self, img_resolver):
+        return u'<sup>' + InlineContainer.to_html(self, img_resolver) + u'</sup>\n';
+#   }}}
+
+#   {{{ -- class Subscript
+class Subscript(InlineContainer):
+    """ 下标 """
+    def __init__(self, sub_elements=None):
+        InlineContainer.__init__(self, u"")
+        self.append_elements(sub_elements)
+
+    def to_html(self, img_resolver):
+        return u'<sub>' + InlineContainer.to_html(self, img_resolver) + u'</sub>\n';
+#   }}}
+
+#   {{{ -- class Underline
+class Underline(InlineContainer):
+    """ 下划线 """
+    def __init__(self, sub_elements=None):
+        InlineContainer.__init__(self, u"underline")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class Overline
+class Overline(InlineContainer):
+    """ 上划线 """
+    def __init__(self, sub_elements=None):
+        InlineContainer.__init__(self, u"overline")
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class LineThrough
+class LineThrough(InlineContainer):
+    """ 上划线 """
+    def __init__(self, sub_elements=None):
+        InlineContainer.__init__(self, u"line-through")
+        self.append_elements(sub_elements)
+#   }}}
+#  }}}
+
+#   {{{ -- class Table
+class Table(ContentElement):
+    """ 表格 """
+    def __init__(self):
+        ContentElement.__init__(self)
+        self.rows = list()
+
+    def append_row(self, cells):
+        self.rows.append(cells)
+
+    def to_html(self, img_resolver):
+        html = u"<table class='normal'>\n"
+        for row in self.rows:
+            html += u"  <tr>\n"
+            for cell in row:
+                html += u"    <td>"
+                html += to_html(cell, img_resolver) if cell else u"&nbsp;"
+                html += u"</td>\n"
+
+            html += u"  </tr>\n"
+
+        html += u"</table>\n"
+        return html
+
+    def to_asciidoc(self):
+        text = "\n"
+
+        for row in self.rows:
+            text += " | ".join(row)
+            text += "\n"
+
+        text += "\n"
+        return text
+
+    def get_images(self):
+        for row in self.rows:
+            for cell in row:
+                for img in get_images(cell):
+                    yield img
+#   }}}
 # }}}
 
 # {{{ Img like classes
@@ -2081,6 +2239,11 @@ def literal_text_normalize(lines):
 #   {{{ -- func trim
 def trim(line):
     return re.sub(u"^[ \t　]+|[ \t　]+$", u"", line)
+#   }}}
+
+#   {{{ -- func is_alphanum
+def is_alphanum(char):
+    return char >= 'a' and char <= 'z' or char >= 'A' and char <= 'Z' or char >= '0' and char <= '9'
 #   }}}
 
 #   {{{ -- func title_normalize
@@ -3459,7 +3622,7 @@ class InfzmParser(Parser):
             if m.start() > start_pos:
                 chapter.content.extend(content_normalize_from_html(content[start_pos:m.start()], inputter, self.re_news_content_img))
 
-            chapter.content.append(Section(title_normalize_from_html(m.group("title"))))
+            chapter.content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
 
             start_pos = m.end()
 
@@ -3710,7 +3873,7 @@ class NbweeklyParser(Parser):
                     else:
                         chapter.content.extend(content_normalize_from_html(content[start_pos:m.start()], inputter))
 
-                chapter.content.append(Section(title_normalize_from_html(m.group("title"))))
+                chapter.content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
 
                 start_pos = m.end()
 
@@ -3829,12 +3992,21 @@ class TxtParser(Parser):
 
     re_literal = re.compile(r"^[ \t　]{1,6}(?P<content>.*)")
 
-    re_quote = re.compile(r"^\[quote*(?:,\s*(?P<attribution>[^,]+?)\s*(?:,\s*(?P<citetitle>[^]]+?)\s*)?)?]")
+    re_quote = re.compile(r"^\[(?P<style>quote|verse)(?:,\s*(?P<attribution>[^,]+?)\s*(?:,\s*(?P<citetitle>[^]]+?)\s*)?)?]")
 
-    re_block_sep = re.compile(r"^[ \t　]*$")
+    re_paragraph_end = re.compile(r"^[ \t　]*$|^\|==+")
 
-    re_quoted_text = re.compile(r"(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
+    re_quoted_text = re.compile(r"(?:\[(?P<attrs>[^]]*)\])?(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
     
+    re_head_attribute = re.compile(r"^:(?P<name>[^:]+):\s*(?P<value>.*?)\s*$")
+
+    re_table_begin = re.compile(r"^\|===+\s*$")
+    re_table_end = re_table_begin
+
+    re_empty_line = re.compile(r"^[ \t　]*$")
+
+    re_title = re.compile("^(?P<leading_char>=+)\s+(?P<title>.*?)(?:\s+(?P=leading_char))?\s*$")
+
     # 在文件header中的属性名与ChapterInfo中字段的对应关系
     attributes = {
         "title":       "title",
@@ -3850,6 +4022,225 @@ class TxtParser(Parser):
     }
 
     def parse(self, inputter, book_title, book_author):
+        def concat_lines(lines):
+            """ 把多行按asciidoc规则合并。连续的非空行将连接为一行。返回合并后的行 """
+            result = list()
+            last_line = u""
+
+            for line in lines:
+                if self.re_empty_line.match(line):
+                    if last_line:
+                        result.append(last_line)
+                        last_line = u""
+                        
+                    continue
+
+                # 非空行
+                trimed = trim(line)
+                if last_line and is_alphanum(last_line[-1]) and is_alphanum(line[0]):
+                    last_line += u" "
+
+                last_line += line
+
+            if last_line:
+                result.append(last_line)
+
+            return result
+                
+        def parse_paragraph(line_holder):
+            lines = list()
+            for line in line_holder:
+                if not self.re_paragraph_end.match(line):
+                    lines.extend([trim(l) for l in line.splitlines()])
+                else:
+                    line_holder.push_back(line)
+                    break
+
+            return lines
+
+        def parse_special_paragraph(line_holder, content, block, retain_line_break=True):
+            lines = parse_paragraph(line_holder)
+
+            if lines:
+                if not retain_line_break:
+                    lines = concat_lines(lines)
+
+                if lines:
+                    block.append_lines(lines)
+                    content.append(block)
+
+        def parse_quoted_text(text):
+            elements = list()
+            start = 0
+            for me in self.re_quoted_text.finditer(text):
+                if me.start() != start: # 匹配前的部分
+                    elements.append(text[start:me.start()])
+
+                quote_char = me.group("quote_char")
+                if quote_char == "__":
+                    elements.append(Emphasized(parse_quoted_text(me.group("text"))))
+                elif quote_char == "**":
+                    elements.append(Strong(parse_quoted_text(me.group("text"))))
+                elif quote_char == "++":
+                    elements.append(Monospaced(parse_quoted_text(me.group("text"))))
+                elif quote_char == "^":
+                    elements.append(Superscript(parse_quoted_text(me.group("text"))))
+                elif quote_char == "~":
+                    elements.append(Subscript(parse_quoted_text(me.group("text"))))
+                else:
+                    attrs = me.group("attrs")
+                    if attrs == "underline":
+                        elements.append(Underline(parse_quoted_text(me.group("text"))))
+                    elif attrs == "overline":
+                        elements.append(Overline(parse_quoted_text(me.group("text"))))
+                    elif attrs == "line-through":
+                        elements.append(LineThrough(parse_quoted_text(me.group("text"))))
+                    else:
+                        elements.append(parse_quoted_text(me.group("text")))
+
+                start = me.end()
+
+            if start != len(text):
+                elements.append(text[start:])
+
+            return elements
+                            
+        def parse_chapter_attributes(line_holder, chapter):
+            for line in line_holder:
+                m = self.re_head_attribute.match(line)
+                if m:   # 是属性行
+                    attr_name = m.group("name")
+                    attr_value = m.group("value")
+
+                    # 对属性值进行处理
+                    if not attr_name.endswith("!"): # 如果以!结束，表示跳过此项
+                        # attr_name lower case, alphanumeric, dash and
+                        # underscore characters only — all other characters deleted
+                        attr_name = re.sub(r"[^0-9a-zA-Z_-]", "", attr_name.lower())
+
+                        if attr_name in self.attributes and not getattr(chapter, self.attributes[attr_name]):
+                            setattr(chapter, self.attributes[attr_name], attr_value)
+                        elif attr_name == "cover" and inputter.exists(attr_value):
+                            chapter.cover = InputterImg(attr_value, inputter)
+                else:
+                    line_holder.push_back(line)
+                    break
+
+        def handle_table(line, line_holder, content):
+            def append_row(table, row_text, sep="|"):
+                row = list()
+                for cell in row_text.split(sep):
+                    try:
+                        row.append(list())
+                        parse_texts(LineHolder(cell.splitlines()), row[-1])
+                    except StopIteration:
+                        pass
+
+                table.append_row(row)
+
+            # 识别是否开始一个表格
+            m = self.re_table_begin.match(line)
+            if not m:
+                return False
+
+            table = Table()
+            try:
+                row = u""
+                for line in line_holder:
+                    if self.re_table_end.match(line):
+                        break
+
+                    if line and line[0] == "|":
+                        if row:
+                            append_row(table, row)
+                            row = u""
+
+                        row = line[1:]
+                    else:
+                        row = row + "\n" + line
+            finally:
+                if row:
+                    append_row(table, row)
+
+                content.append(table)
+
+            return True
+            
+        def handle_quote(line, line_holder, content):
+            m = self.re_quote.match(line)
+            if not m:
+                return False
+
+            # 开始一个引用块
+            parse_special_paragraph(
+                line_holder, content,
+                Quote(attribution=m.group("attribution"), citetitle=m.group("citetitle")),
+                retain_line_break=(m.group("style")=="verse"))
+            return True
+
+        def handle_image(line, content):
+            # 处理图片
+            for re_image in self.re_images:
+                m = re_image.match(line)
+                if m:
+                    # 图片
+                    content.append(InputterImg(m.group("src"), inputter, m.group("title")))
+                    return True
+
+            return False
+
+        def handle_section_title(line, content):
+            for re_section in self.re_sections:
+                m = re_section.match(line)
+                if m:
+                    # 节标题
+                    content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
+                    return True
+
+            return False
+
+        def handle_literal(line, line_holder, content):
+            # 识别是否开始一个literal block（由缩进引起）
+            m = self.re_literal.match(line)
+            if not m:
+                return False
+
+            # 有缩进的行，是Literal
+            line_holder.push_back(line)
+            parse_special_paragraph(
+                line_holder, content, 
+                Literal(),
+                retain_line_break=True)
+            return True
+
+        def parse_texts(line_holder, content):
+            """ 解释除了标题、表格以外的内容 """
+            for line in line_holder:
+                if self.re_empty_line.match(line):
+                    continue
+
+                if self.re_title.match(line) or self.re_table_begin.match(line):
+                    line_holder.push_back(line)
+                    return
+
+                if handle_quote(line, line_holder, content):
+                    continue
+
+                if handle_literal(line, line_holder, content):
+                    continue
+
+                if handle_image(line, content):
+                    continue
+
+                if handle_section_title(line, content):
+                    continue
+
+                line_holder.push_back(line)
+
+                # 正文内容
+                for l in concat_lines(parse_paragraph(line_holder)):
+                    content.append(Line(parse_quoted_text(l)))
+
         if not inputter.entry or inputter.entry[-4:].lower() != ".txt":
             raise NotParseableError(u"{file} is not parseable by {parser}. Not .txt file!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
@@ -3858,127 +4249,40 @@ class TxtParser(Parser):
         chapter_stack = [root_chapter]
         curr_chapter = chapter_stack[-1]
 
-        content = list()
-        in_header = False
+        line_holder = LineHolder(inputter.read_lines(inputter.entry))
+        try:
+            while True:
+                line = line_holder.next()
 
-        curr_block = None
-        literals = list()
+                # 处理title
+                m = self.re_title.match(line)
+                if m:   
+                    level = len(m.group("leading_char"))
 
-        for line in inputter.read_lines(inputter.entry):
-            if curr_block:
-                # 在一个block中，空行以前的内容都算在这个block中
-                if self.re_block_sep.match(line):
-                    # 一个block结束
-                    curr_chapter.content.append(curr_block)
-                    curr_block = None
-                else:
-                    curr_block.append_lines(content_text_normalize(line))
+                    curr_chapter = Chapter()
+                    curr_chapter.title = title_normalize(m.group("title"))
+                    curr_chapter.level = level
+                    logging.debug(u"{indent}  Level {level} toc: {title}".format(
+                        indent=u"  "*(curr_chapter.level+3*inputter.nested_level), level=curr_chapter.level, title=curr_chapter.title))
+
+                    # 标题行
+                    while level <= chapter_stack[-1].level:
+                        chapter_stack.pop()
+                            
+                    curr_chapter.parent = chapter_stack[-1]
+                    curr_chapter.parent.subchapters.append(curr_chapter)
+
+                    chapter_stack.append(curr_chapter)
+                    parse_chapter_attributes(line_holder, curr_chapter)
                     continue
 
-            # 识别是否要开始一个新的block
-            m = self.re_quote.match(line)
-            if m:
-                # 开始一个引用块
-                curr_block = Quote(None, m.group("attribution"), m.group("citetitle"))
-                continue
+                if handle_table(line, line_holder, curr_chapter.content):
+                    continue
 
-            # 识别是否开始一个literal block（由缩进引起）
-            m = self.re_literal.match(line)
-            if m:
-                # 有缩进的行，是Literal
-                curr_block = Literal(content_text_normalize(line))
-                continue
-
-            # 不在block中
-            m = re.match("^(=+|#+)\s(\S.*$)", line)
-            if m:
-                # 标题行
-                level = len(m.group(1))
-
-                while level <= chapter_stack[-1].level:
-                    chapter_stack.pop()
-                        
-                in_header = True    # 在标题行之后，可以出现一些属性
-
-                curr_chapter = Chapter()
-                curr_chapter.title = title_normalize(m.group(2))
-                curr_chapter.level = level
-                logging.debug(u"{indent}  Level {level} toc: {title}".format(
-                    indent=u"  "*(curr_chapter.level+3*inputter.nested_level), level=curr_chapter.level, title=curr_chapter.title))
-
-                curr_chapter.parent = chapter_stack[-1]
-                curr_chapter.parent.subchapters.append(curr_chapter)
-
-                chapter_stack.append(curr_chapter)
-            else:   # 非标题行
-                if in_header:
-                    m = re.match(r"^:(?P<name>[^:]+):\s*(?P<value>.*?)\s*$", line)
-                    if m:   # 是属性行
-                        attr_name = m.group("name")
-                        attr_value = m.group("value")
-
-                        curr_chapter = chapter_stack[-1]
-
-                        # 对属性值进行处理
-                        if not attr_name.endswith("!"): # 如果以!结束，表示跳过此项
-                            # attr_name lower case, alphanumeric, dash and
-                            # underscore characters only — all other characters deleted
-                            attr_name = re.sub(r"[^0-9a-zA-Z_-]", "", attr_name.lower())
-
-                            if attr_name in self.attributes and not getattr(curr_chapter, self.attributes[attr_name]):
-                                setattr(curr_chapter, self.attributes[attr_name], attr_value)
-                            elif attr_name == "cover" and inputter.exists(attr_value):
-                                curr_chapter.cover = InputterImg(attr_value, inputter)
-
-                        # 继续处理下一行
-                        continue
-                    else:   # 只能在标题后面的连续行中出现属性
-                        in_header = False
-
-                for re_image in self.re_images:
-                    m = re_image.match(line)
-                    if m:
-                        # 图片
-                        curr_chapter.content.append(InputterImg(m.group("src"), inputter, m.group("title")))
-                        break
-                else:   # 不是图片
-                    for re_section in self.re_sections:
-                        m = re_section.match(line)
-                        if m:
-                            # 节标题
-                            curr_chapter.content.append(Section(title_normalize_from_html(m.group("title"))))
-                            break
-                    else:
-                        def parse_quoted_text(text):
-                            elements = list()
-                            start = 0
-                            for me in self.re_quoted_text.finditer(text):
-                                if me.start() != start: # 匹配前的部分
-                                    elements.append(text[start:me.start()])
-
-                                quote_char = me.group("quote_char")
-                                if quote_char == "__":
-                                    elements.append(Emphasized(parse_quoted_text(me.group("text"))))
-                                elif quote_char == "**":
-                                    elements.append(Strong(parse_quoted_text(me.group("text"))))
-                                elif quote_char == "++":
-                                    elements.append(Monospaced(parse_quoted_text(me.group("text"))))
-                                else:
-                                    elements.append(me.group("text"))
-
-                                start = me.end()
-
-                            if start != len(text):
-                                elements.append(text[start:])
-
-                            return elements
-                            
-                        for l in content_text_normalize(line):
-                            curr_chapter.content.append(Line(parse_quoted_text(l)))
-
-        if curr_block:
-            curr_chapter.content.append(curr_block)
-            curr_block = list()
+                line_holder.push_back(line)
+                parse_texts(line_holder, curr_chapter.content)
+        except StopIteration:
+            pass
 
         book = Book()
 
@@ -4427,8 +4731,8 @@ def to_html(content, img_resolver):
     return html
 #   }}}
 
-#   {{{ -- func to_text
-def to_text(content):
+#   {{{ -- func to_asciidoc
+def to_asciidoc(content):
     if not isinstance(content, list):
         content = [ content, ]
 
@@ -4437,9 +4741,12 @@ def to_text(content):
     for line in content:
         if isinstance(line, basestring):
             text += line
-            text += "\n"
+            text += "\n\n"
+        elif isinstance(line, InlineContainer):
+            text += line.to_asciidoc()
+            text += "\n\n"
         elif isinstance(line, ContentElement):
-            text += to_text(line.lines)
+            text += line.to_asciidoc()
         else:
             raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
@@ -4456,9 +4763,9 @@ def get_images(content):
     for line in content:
         if isinstance(line, Img):
             yield line
-        elif isinstance(line, BlockElement):
+        elif isinstance(line, ContentElement):
             # 引用中也可能有图片
-            for img in get_images(line.lines):
+            for img in line.get_images():
                 yield img
 #   }}}
 
@@ -4673,10 +4980,23 @@ class HtmlConverter(object):
     def chapter_navbar(self, filename, chapter, link_to_toc=False):
         links = list()
 
-        if chapter.prev:
+        prev = chapter.prev
+        if not prev:    # 一直往上找
+            c = chapter
+            while c.parent:
+                c = c.parent
+                if c.prev:
+                    # 找出最底层的章节
+                    prev = c.prev
+                    while prev.subchapters:
+                        prev = prev.subchapters[-1]
+
+                    break
+
+        if prev:
             links.append(u"<a href='{link}'>上一章节</a>".format(
                 link = os.path.relpath(
-                    chapter.prev.toc_file if link_to_toc and chapter.prev.toc_file else chapter.prev.entry_file,
+                    prev.toc_file if link_to_toc and prev.toc_file else prev.entry_file,
                     os.path.dirname(filename))))
 
         if chapter.parent and chapter.parent.toc_file:
@@ -4697,7 +5017,7 @@ class HtmlConverter(object):
                     next.toc_file if link_to_toc and next.toc_file else next.entry_file,
                     os.path.dirname(filename))))
 
-        return u"<div class='chapter_navbar'><table border='0' width='100%'><tr><td align='center'>{links}</td></tr></table><hr/></div>\n".format(
+        return u"<div class='chapter_navbar'><table><tr><td>{links}</td></tr></table><hr/></div>\n".format(
                 links = u" | ".join(links))
     # }}}
 
@@ -5242,7 +5562,7 @@ class EpubConverter(Converter):
         if book.intro:
             descriptionElem = xml.createElement("dc:description")
             metadataElem.appendChild(descriptionElem)
-            descriptionElem.appendChild(xml.createTextNode(unicode(to_text(book.intro))))
+            descriptionElem.appendChild(xml.createTextNode(unicode(to_asciidoc(book.intro))))
 
         # /package/metadata/identifier
         identifierElem = xml.createElement("dc:identifier")
@@ -5457,10 +5777,10 @@ class TxtConverter(object):
             text += u"\n"
 
             if chapter.intro:
-                text += to_text(chapter.intro)
+                text += to_asciidoc(chapter.intro)
                 text += u"\n"
 
-            text += to_text(chapter.content)
+            text += to_asciidoc(chapter.content)
 
             for c in chapter.subchapters:
                 text += convert_chapter(c)
@@ -5592,8 +5912,6 @@ def convert_book(path):
                 chapter.publish_date = chapter.subchapters[0].publish_date if not chapter.publish_date else chapter.publish_date
                 chapter.source       = chapter.subchapters[0].source       if not chapter.source       else chapter.source
                 chapter.subchapters  = chapter.subchapters[0].subchapters
-                if chapter.subchapters[0].content:
-                    chapter.content      = chapter.subchapters[0].content
 
         if isinstance(chapter.intro, basestring):
             chapter.intro = [ chapter.intro ]
