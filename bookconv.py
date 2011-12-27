@@ -1081,22 +1081,6 @@ def pretty_xml(dom):
     xml = re.sub(r">\s*\n\s*([^\s<])", r">\1", xml)
     return xml
 
-class LineHolder(object):
-    def __init__(self, container):
-        self.iter = container.__iter__()
-        self.stacks = list()
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self.stacks:
-            return self.stacks.pop()
-
-        return self.iter.next()
-
-    def push_back(self, v):
-        self.stacks.append(v)
 # }}}
 
 # {{{ Book structures
@@ -4021,6 +4005,30 @@ class TxtParser(Parser):
         "description": "intro",
     }
 
+    class LineHolder(object):
+        re_comment_line = re.compile(r"^//")
+        def __init__(self, container):
+            self.iter = container.__iter__()
+            self.stacks = list()
+
+        def __iter__(self):
+            return self
+
+        def next(self):
+            while True:
+                if self.stacks:
+                    l = self.stacks.pop()
+                else:
+                    l = self.iter.next()
+
+                if self.re_comment_line.match(l):
+                    continue
+
+                return l
+
+        def push_back(self, v):
+            self.stacks.append(v)
+
     def parse(self, inputter, book_title, book_author):
         def concat_lines(lines):
             """ 把多行按asciidoc规则合并。连续的非空行将连接为一行。返回合并后的行 """
@@ -4132,7 +4140,7 @@ class TxtParser(Parser):
                 for cell in row_text.split(sep):
                     try:
                         row.append(list())
-                        parse_texts(LineHolder(cell.splitlines()), row[-1])
+                        parse_texts(self.LineHolder(cell.splitlines()), row[-1])
                     except StopIteration:
                         pass
 
@@ -4249,7 +4257,7 @@ class TxtParser(Parser):
         chapter_stack = [root_chapter]
         curr_chapter = chapter_stack[-1]
 
-        line_holder = LineHolder(inputter.read_lines(inputter.entry))
+        line_holder = self.LineHolder(inputter.read_lines(inputter.entry))
         try:
             while True:
                 line = line_holder.next()
