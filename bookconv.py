@@ -46,7 +46,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111227"
+VERSION=u"20111231"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -132,6 +132,7 @@ MAX_IMAGE_HEIGHT = 800
 # 各额外部分的文件名
 COVER_PAGE = u"cover_page"   # 封面
 TITLE_PAGE = u"title_page"   # 书名页
+PREAMBLE_PAGE = u"preamble_page"   # 前言页
 TOC_PAGE   = u"toc_page"     # 目录
 
 # 存放html页面的目录名称
@@ -145,7 +146,7 @@ BOOK_INTRO_TITLE = u"内容简介"
 CHAPTER_INTRO_TITLE = u"内容简介"
 
 CHAPTER_COVER_PAGE_ID_FORMAT = u"{0}_cover"
-CHAPTER_TITLE_PAGE_ID_FORMAT = u"{0}_title"
+CHAPTER_PREAMBLE_PAGE_ID_FORMAT   = u"{0}_preamble"
 CHAPTER_TOC_PAGE_ID_FORMAT   = u"{0}_toc"
 
 # 最上层章节的级别
@@ -291,6 +292,8 @@ HTML_STYLE = u"""\
 	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf)
 	url(res:///fonts/ttf/zw.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/zw.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/zw.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/zw.ttf),
 	url(res:///DK_System/system/font/zw.ttf),
 	url(res:///abook/fonts/zw.ttf),
 	url(res:///system/fonts/zw.ttf),
@@ -308,6 +311,8 @@ HTML_STYLE = u"""\
 	url(res:///Data/FONT/fs.ttf),
 	url(res:///fonts/ttf/fs.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/fs.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/fs.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/fs.ttf),
 	url(res:///DK_System/system/font/fs.ttf),
 	url(res:///abook/fonts/fs.ttf),
 	url(res:///system/fonts/fs.ttf),
@@ -325,6 +330,8 @@ HTML_STYLE = u"""\
 	url(res:///Data/FONT/kt.ttf),
 	url(res:///fonts/ttf/kt.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/kt.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/kt.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/kt.ttf),
 	url(res:///DK_System/system/font/kt.ttf),
 	url(res:///abook/fonts/kt.ttf),
 	url(res:///system/fonts/kt.ttf),
@@ -344,6 +351,8 @@ HTML_STYLE = u"""\
 	url(res:///opt/sony/ebook/FONT/tt0003m_.ttf)
 	url(res:///fonts/ttf/ht.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/ht.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/ht.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/ht.ttf),
 	url(res:///DK_System/system/font/ht.ttf),
 	url(res:///abook/fonts/ht.ttf),
 	url(res:///system/fonts/ht.ttf),
@@ -362,6 +371,8 @@ HTML_STYLE = u"""\
 	url(res:///Data/FONT/h1.ttf),
 	url(res:///fonts/ttf/h1.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h1.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h1.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/h1.ttf),
 	url(res:///DK_System/system/font/h1.ttf),
 	url(res:///abook/fonts/h1.ttf),
 	url(res:///system/fonts/h1.ttf),
@@ -380,6 +391,8 @@ HTML_STYLE = u"""\
 	url(res:///Data/FONT/h2.ttf),
 	url(res:///fonts/ttf/h2.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h2.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h2.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/h2.ttf),
 	url(res:///DK_System/system/font/h2.ttf),
 	url(res:///abook/fonts/h2.ttf),
 	url(res:///system/fonts/h2.ttf),
@@ -398,6 +411,8 @@ HTML_STYLE = u"""\
 	url(res:///Data/FONT/h3.ttf),
 	url(res:///fonts/ttf/h3.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h3.ttf),
+    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h3.ttf),
+    url(res:///ebook/fonts/../../mnt/extsd/fonts/h3.ttf),
 	url(res:///DK_System/system/font/h3.ttf),
 	url(res:///abook/fonts/h3.ttf),
 	url(res:///system/fonts/h3.ttf),
@@ -411,12 +426,12 @@ HTML_STYLE = u"""\
 
 
 body {
-	padding: 0%;
+	/*padding: 0%;
 	margin-top: 0%;
 	margin-bottom: 0%;
 	margin-left: 1%;
 	margin-right: 1%;
-	line-height:130%;
+	line-height:130%;*/
 	text-align: justify;
 	font-family:"zw";
 	font-size:100%;
@@ -1106,7 +1121,9 @@ class ChapterInfo:
         self.publisher    = u""
         self.isbn         = u""
         self.publish_date = u""
-        self.publist_ver  = u""
+        self.publish_ver  = u""
+
+        self.content      = list()   # list of lines，对于chapter是章节正文，对于book可以是前言（相当于正文前无标题的章节）
 #   }}}
 
 #   {{{ -- class Chapter
@@ -1116,7 +1133,6 @@ class Chapter(ChapterInfo):
 
         self.id           = u""
         self.level        = CHAPTER_TOP_LEVEL - 1   # 设为比最小有效值小一
-        self.content      = list()   # list of lines
 
         self.parent       = None     # 父章节
         self.prev         = None     # 同层的上一章节
@@ -1198,6 +1214,17 @@ class Literal(BlockContainer):
     def __init__(self, lines=None):
         BlockContainer.__init__(self, u"literal")
         self.append_lines(lines)
+
+    def to_asciidoc(self):
+        text = u""
+        for line in self.lines:
+            if isinstance(e, basestring):
+                text += u"  " + line + u"\n"
+            else:
+                raise TypeError("Need string type, not {0} type".format(type(line)))
+
+        text += u"\n"
+        return text
 #   }}}
 
 #   {{{ -- class Quote
@@ -1309,6 +1336,9 @@ class Line(InlineContainer):
 
     def to_html(self, img_resolver):
         return u'<p>' + InlineContainer.to_html(self, img_resolver) + u'</p>\n';
+
+    def to_asciidoc(self):
+        return InlineContainer.to_asciidoc(self) + u"\n\n"
 #   }}}
 
 #   {{{ -- class SectionTitle
@@ -1318,6 +1348,9 @@ class SectionTitle(InlineContainer):
 
     def to_html(self, img_resolver):
         return u''.join((u'<p class="section_title">', InlineContainer.to_html(self, img_resolver), u'</p>'))
+
+    def to_asciidoc(self):
+        return u"." + InlineContainer.to_asciidoc(self) + u"\n"
 #   }}}
 
 #   {{{ -- class Strong
@@ -1326,6 +1359,9 @@ class Strong(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"strong")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"**" + InlineContainer.to_asciidoc(self) + u"**"
 #   }}}
 
 #   {{{ -- class Emphasized
@@ -1334,6 +1370,9 @@ class Emphasized(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"emphasized")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"__" + InlineContainer.to_asciidoc(self) + u"__"
 #   }}}
 
 #   {{{ -- class Monospaced
@@ -1342,6 +1381,9 @@ class Monospaced(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"monospaced")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"++" + InlineContainer.to_asciidoc(self) + u"++"
 #   }}}
 
 #   {{{ -- class Superscript
@@ -1353,6 +1395,9 @@ class Superscript(InlineContainer):
 
     def to_html(self, img_resolver):
         return u'<sup>' + InlineContainer.to_html(self, img_resolver) + u'</sup>\n';
+
+    def to_asciidoc(self):
+        return u"^" + InlineContainer.to_asciidoc(self) + u"^"
 #   }}}
 
 #   {{{ -- class Subscript
@@ -1364,6 +1409,9 @@ class Subscript(InlineContainer):
 
     def to_html(self, img_resolver):
         return u'<sub>' + InlineContainer.to_html(self, img_resolver) + u'</sub>\n';
+
+    def to_asciidoc(self):
+        return u"~" + InlineContainer.to_asciidoc(self) + u"~"
 #   }}}
 
 #   {{{ -- class Underline
@@ -1372,6 +1420,9 @@ class Underline(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"underline")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"[underline]##" + InlineContainer.to_asciidoc(self) + u"##"
 #   }}}
 
 #   {{{ -- class Overline
@@ -1380,6 +1431,9 @@ class Overline(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"overline")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"[overline]##" + InlineContainer.to_asciidoc(self) + u"##"
 #   }}}
 
 #   {{{ -- class LineThrough
@@ -1388,6 +1442,9 @@ class LineThrough(InlineContainer):
     def __init__(self, sub_elements=None):
         InlineContainer.__init__(self, u"line-through")
         self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return u"[line-through]##" + InlineContainer.to_asciidoc(self) + u"##"
 #   }}}
 #  }}}
 
@@ -1416,6 +1473,7 @@ class Table(ContentElement):
         return html
 
     def to_asciidoc(self):
+        raise NotImplementedError()
         text = "\n"
 
         for row in self.rows:
@@ -1712,7 +1770,6 @@ def parse_filename(filename, title, author):
 
 #   {{{ -- func guess_title_author
 def guess_title_author(filename):
-    re_remove_ext = re.compile(u'\.[^.]*$', re.IGNORECASE)
     re_ignored_extra_infos = (
         re.compile(u'chm', re.IGNORECASE),
         )
@@ -1734,7 +1791,7 @@ def guess_title_author(filename):
         re.compile(u'《(?P<title>[^》]+)》', re.IGNORECASE),
         )
 
-    name = re_remove_ext.sub(u"", os.path.basename(filename.strip(u'/')))
+    name = os.path.splitext(os.path.basename(filename.strip(u'/')))[0]
 
     extra_info = "";
     for re_extra_info in re_extra_infos:
@@ -2228,6 +2285,12 @@ def literal_text_normalize(lines):
 #   {{{ -- func trim
 def trim(line):
     return re.sub(u"^[ \t　]+|[ \t　]+$", u"", line)
+#   }}}
+
+#   {{{ -- func urldecode
+def urldecode(url):
+    rex = re.compile('%([0-9a-hA-H][0-9a-hA-H])',re.M)
+    return rex.sub(lambda m: chr(int(m.group(1),16)), url.encode("utf-8")).decode("utf-8")
 #   }}}
 
 #   {{{ -- func is_alphanum
@@ -4197,7 +4260,7 @@ class TxtParser(Parser):
                 m = re_image.match(line)
                 if m:
                     # 图片
-                    content.append(InputterImg(m.group("src"), inputter, m.group("title")))
+                    content.append(InputterImg(urldecode(m.group("src")), inputter, m.group("title")))
                     return True
 
             return False
@@ -5093,6 +5156,15 @@ class HtmlConverter(object):
             ) + u"</div>";
     # }}}
 
+    # {{{ ---- func chapter_preamble
+    def chapter_preamble(self, files, filename, book):
+        result = u"<div class='preamble'>\n"
+        return result + to_html(
+                book.content,
+                lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename))
+            ) + u"</div>";
+    # }}}
+
     # {{{ ---- func chapter_content_end
     def chapter_content_end(self, filename, chapter):
         return u"<div class='chapter_content_end chapter_content_end_{level}'></div>".format(level=chapter.level)
@@ -5148,6 +5220,32 @@ class HtmlConverter(object):
                 "id":       img.id(),
             }
     # }}} 
+
+    # {{{ ---- func create_preamble_files
+    def create_preamble_files(self, files, path, book):
+        if not book.content:
+            return
+
+        filename = u"{name}{ext}".format(
+            name=os.path.join(path, PREAMBLE_PAGE), ext=HTML_EXT)
+
+        if files:
+            if files:
+                # 生成章节中的图片
+                for img in get_images(book.content):
+                    self.append_image(files, img)
+
+            files["html"].append({
+                "filename": filename,
+                "content":  u"".join((
+                    self.html_header(filename, book.title, cssfile=CSS_FILE),
+                    self.chapter_preamble(files, filename, book),
+                    self.html_footer(filename, book),
+                    )).encode("utf-8"),
+                "id":       PREAMBLE_PAGE
+                })
+
+    # }}}
 
     # {{{ ---- func create_chapter_files
     def create_chapter_files(self, files, path, book, chapters):
@@ -5297,8 +5395,10 @@ class HtmlConverter(object):
                 book.cover = None
 
         # 先决定各章节中用到的文件名（保存到chapter中）
+        self.create_preamble_files(None, "", book)
         self.create_chapter_files(None, "", book, book.subchapters)
         # 再真正生成文件
+        self.create_preamble_files(files, "", book)
         self.create_chapter_files(files, "", book, book.subchapters)
 
         # 记录下正文第一页的位置
@@ -5780,14 +5880,12 @@ class TxtConverter(object):
     def convert(self, outputter, book):
         def convert_chapter(chapter):
             text = u"\n"
-            text += chapter.title
-            text += u"\n"
-
             if chapter.author:
-                text += chapter.author
-                text += u"\n"
+                text += u"[author={author}]\n".format(author=chapter.author)
 
-            text += u"\n"
+            text += u"=" + u"=" * (chapter.level - CHAPTER_TOP_LEVEL) + u" "
+            text += chapter.title
+            text += u"\n\n"
 
             if chapter.intro:
                 text += to_asciidoc(chapter.intro)
@@ -5798,10 +5896,24 @@ class TxtConverter(object):
             for c in chapter.subchapters:
                 text += convert_chapter(c)
 
-        text = u""
-        text += book.title
-        text += u"\n"
-        text += book.author
+            return text
+
+        text = u"= " + book.title + u"\n"
+        text += u":Author: " + book.author + u"\n" if book.author else u""
+        text += u":SubTitle: " + book.sub_title + u"\n" if book.sub_title else u""
+        text += u":Series: " + book.series + u"\n" if book.series else u""
+        text += u":Category: " + book.category + u"\n" if book.category else u""
+        text += u":Publisher: " + book.publisher + u"\n" if book.publisher else u""
+        text += u":ISBN: " + book.isbn + u"\n" if book.isbn else u""
+        text += u":PublishDate: " + book.publish_date + u"\n" if book.publish_date else u""
+        text += u":PublishVer: " + book.publish_ver + u"\n" if book.publish_ver else u""
+
+        if book.intro:
+            text += u":Description: "
+            # Description只允许一段，因此把多段合并到一起
+            text += re.sub(r"\n(?:\s|\n)+", "\n", to_asciidoc(book.intro))
+            text += u"\n"
+
         text += u"\n"
 
         for chapter in book.subchapters:
@@ -5902,7 +6014,7 @@ class ZipOutputter(Outputter):
 # }}}
 
 # {{{ convert_book
-def convert_book(path):
+def convert_book(path, output=u""):
     def chapters_normalize(chapter, level, prefix):
         if hasattr(chapter, "id"):
             chapter.id = prefix
@@ -6079,8 +6191,8 @@ def convert_book(path):
         print_book_info(book)
 
         # {{{ Convert book
-        if options.output: 
-            bookfilename = options.output
+        if output: 
+            bookfilename = output
         else:
             bookfilename = book_file_name(book.title, book.author, u".epub")
 
@@ -6105,14 +6217,13 @@ if __name__ == "__main__":
     sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
 
     optparser = optparse.OptionParser(
-        usage="%prog [options] <chm>", 
+        usage="%prog [options] <chm> [<output_filename>]", 
         description="""\
     Convert chm books into epub format.""",
         version=VERSION)
 
     optparser.add_option('-t', '--title',   action="store", type="string", dest="title", help="Book title. If omit, guess from filename")
     optparser.add_option('-a', '--author',  action="store", type="string", dest="author", help="Book author. If omit, guess from filename")
-    optparser.add_option('-o', '--ouput',   action="store", type="string", dest="output", help="Ouput filename. If omit, <filename>-<author>.epub")
     optparser.add_option('-C', '--category',  action="store", type="string", dest="category", help="Book category. If omit, discover from web search")
     optparser.add_option('-e', '--encoding',  action="store", type="string", dest="encoding", default=locale.getpreferredencoding(), help="Default encoding for Txt output. Defaults to current locale (%default)")
     optparser.add_option('-P', '--parse-filename',    action="store_true", dest="parse_filename", default=False, help="Parse title/author from filename, don't convert.")
@@ -6155,6 +6266,10 @@ if __name__ == "__main__":
 
     filename = args[0]
     
+    output = u""
+    if len(args) > 1:
+        output = args[1]
+
     if options.parse_filename:
     # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
         l1cat = options.category
@@ -6187,6 +6302,6 @@ if __name__ == "__main__":
 
         sys.exit(0)
     else:
-        sys.exit(convert_book(filename))
+        sys.exit(convert_book(filename, output))
 # }}}
     
