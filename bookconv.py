@@ -146,6 +146,7 @@ BOOK_INTRO_TITLE = u"内容简介"
 CHAPTER_INTRO_TITLE = u"内容简介"
 
 CHAPTER_COVER_PAGE_ID_FORMAT = u"{0}_cover"
+CHAPTER_TITLE_PAGE_ID_FORMAT = u"{0}_title"
 CHAPTER_PREAMBLE_PAGE_ID_FORMAT   = u"{0}_preamble"
 CHAPTER_TOC_PAGE_ID_FORMAT   = u"{0}_toc"
 
@@ -1167,6 +1168,7 @@ class ContentElement(object):
 #   }}}
 
 #  {{{ BlockContainer and subclasses
+
 #   {{{ -- class BlockContainer
 class BlockContainer(ContentElement):
     """ 可以包含若干行的部件 """
@@ -1267,6 +1269,7 @@ class Quote(BlockContainer):
 #  }}}
 
 #  {{{ InlineContainer and subclasses
+
 #   {{{ -- class InlineContainer
 class InlineContainer(ContentElement):
     """ 行内元素容器，所包含的元素会连接在一起 """
