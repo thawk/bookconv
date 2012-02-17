@@ -25,6 +25,7 @@ import Image
 import time
 from cStringIO import StringIO
 from exceptions import TypeError
+from bisect import bisect_left
 
 from cgi import escape
 from urllib import urlencode, quote, basejoin, splittag, splitquery
@@ -46,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20111231"
+VERSION=u"20120217"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -258,6 +259,8 @@ BOOK_DB = (
     { "l1cat": u"社会", "l2cat": u"", "title": u"江城", "author": u"何伟" },
     { "l1cat": u"儿童文学", "l2cat": u"", "title": u"舒克和贝塔全传", "author": u"郑渊洁" },
     { "l1cat": u"悬疑", "l2cat": u"", "title": u"心理罪系列", "author": u"雷米" },
+    { "l1cat": u"玄幻", "l2cat": u"", "title": u"武装风暴", "author": u"骷髅精灵" },
+    { "l1cat": u"合集", "l2cat": u"", "title": u"黯然销魂作品合集", "author": u"黯然销魂" },
 )
 # }}}
 
@@ -2445,16 +2448,21 @@ class ChmInputter(Inputter):
         return content
 
     def exists(self, filename):
-        filename = os.path.normpath(filename)
+        filename = os.path.join(u"/", os.path.normpath(filename))
 
-        result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename).encode("utf-8"))
-        if result == CHM_RESOLVE_SUCCESS:
+        # 文件是否存在
+        idx = bisect_left(self.filelist, filename)
+        if idx != len(self.filelist) and self.filelist[idx] == filename:
             return True
 
         # 看看是不是目录
-        if not filename.endswith("/"):
-            result, ui = self.chmfile.ResolveObject(os.path.join(u"/", filename + "/").encode("utf-8"))
-            return result == CHM_RESOLVE_SUCCESS
+        if not filename.endswith(u"/"):
+            filename += os.path.sep
+            idx = bisect_left(self.filelist, filename)
+            if idx != len(self.filelist) and self.filelist[idx].startswith(filename):
+                return True
+
+        return False
 
     def isfile(self, filename):
         filename = os.path.normpath(filename)
@@ -2941,7 +2949,7 @@ class HtmlBuilderParser(Parser):
                         except NotParseableError as e:
                             # 有些书使用re_idx_details来作为子书的链接，因此也要试一下
                             try:
-                                subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename), u"", author)
+                                subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename), u"", book_author)
                                 assert(subbookinfo)
 
                                 chapter = Chapter()
@@ -4387,7 +4395,9 @@ class TxtParser(Parser):
 #   {{{ -- CollectionParsers
 #     {{{ ---- CollectionParser
 class CollectionParser(Parser):
-    entrys = ()
+    default_entrys = ()     # 缺省入口文件，可以被调用者通过inputer中指定来覆盖
+    force_entrys = ()       # 本Parser只能使用此入口文件，会覆盖inputter.entry
+
     re_comment = re.compile(u"<!--.*?-->")
     re_remove_querys = re.compile(u"[#\?].*$")
     re_auto_levels  = ()    # 多个表达式，初始不区分级别，按遇到的先后定顺序
@@ -4408,11 +4418,14 @@ class CollectionParser(Parser):
         subbook_count = 0
         first_subbook_cover = None
 
-        if inputter.entry:
+        if self.force_entrys:
+            # 强制指定入口文件
+            index_files = self.force_entrys
+        elif inputter.entry:
             # 如果已经指定了入口文件则直接使用之
             index_files = (inputter.entry, )
         else:
-            index_files = self.entrys
+            index_files = self.default_entrys
 
         for index_file in index_files:
             local_extras = list()
@@ -4653,7 +4666,7 @@ class CollectionParser(Parser):
 
 #     {{{ ---- HtmlBuilderCollectionParser
 class HtmlBuilderCollectionParser(CollectionParser):
-    entrys = ( u"cover.html", u"cover.htm" )
+    default_entrys = ( u"cover.html", u"cover.htm" )
 
     re_auto_levels  = (
         re.compile(u".*<td[^>]*class=m6[^>]*>([^<]+)</td>.*", re.IGNORECASE),
@@ -4684,7 +4697,7 @@ class HtmlBuilderCollectionParser(CollectionParser):
 
 #     {{{ ---- EasyChmCollectionParser
 class EasyChmCollectionParser(CollectionParser):
-    entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
+    default_entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
     re_links = (
         re.compile(u"\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
@@ -4700,7 +4713,7 @@ class EasyChmCollectionParser(CollectionParser):
 
 #     {{{ ---- EasyChmCollectionParser2
 class EasyChmCollectionParser2(CollectionParser):
-    entrys = ( u"index/js/book.js", )
+    force_entrys = ( u"index/js/book.js", u"js/book.js")
 
     re_links = (
         #booklist[0]=['噩盡島Ⅱ','<img src=../bookcover/01.jpg class=cover1>','1_1','莫仁','　　仙界回归百年，地球版图早已重划，……'];
@@ -4740,13 +4753,24 @@ class RedirectParser(Parser):
         re.compile(
             u"<p\s+align=\"center\">\s*" +
             u"<a\s+href=\"(?P<url>[^\"]+)\">\s*" +
-            u"<img\s[^<]*\\bsrc=\"conver.jpg\"[^>]*>\s*" +
+            u"<img\s[^<]*\\bsrc=\"con?ver.jpg\"[^>]*>\s*" +
             u"</a>\s*" +
             u"</p>", re.IGNORECASE),
+        
+        # <body topmargin="0" leftmargin="0" rightmargin="0" bottommargin="0" marginwidth="0" marginheight="0" style="overflow:hidden">
+        # <iframe frameborder="0" style="width:100%;height:100%" src="cover.htm"></iframe>
+        # </body>
+        re.compile(
+            u"<body[^>]*>\s*" +
+            u"<iframe\\b[^>]*\\bsrc=[\"'](?P<url>[^\"']+)[\"'][^>]*></iframe>\s*" +
+            u"</body[^>]*>", re.IGNORECASE),
     )
 
 
     def parse(self, inputter, book_title, book_author):
+        if not inputter.entry:
+            return None
+
         file_content = inputter.read_all(inputter.entry)
         for re_redirect in self.re_redirects:
             m = re_redirect.search(file_content)
