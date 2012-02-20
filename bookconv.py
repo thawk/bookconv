@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120217"
+VERSION=u"20120220"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -261,6 +261,7 @@ BOOK_DB = (
     { "l1cat": u"悬疑", "l2cat": u"", "title": u"心理罪系列", "author": u"雷米" },
     { "l1cat": u"玄幻", "l2cat": u"", "title": u"武装风暴", "author": u"骷髅精灵" },
     { "l1cat": u"合集", "l2cat": u"", "title": u"黯然销魂作品合集", "author": u"黯然销魂" },
+    { "l1cat": u"历史", "l2cat": u"", "title": u"明朝那些事儿", "author": u"当年明月" },
 )
 # }}}
 
@@ -1351,6 +1352,7 @@ class Line(InlineContainer):
 class SectionTitle(InlineContainer):
     def __init__(self, title):
         InlineContainer.__init__(self, u"section_title")
+        self.append_elements(title)
 
     def to_html(self, img_resolver):
         return u''.join((u'<p class="section_title">', InlineContainer.to_html(self, img_resolver), u'</p>'))
@@ -2139,36 +2141,70 @@ def unescape(text):
     return re.sub("&#?\w+;", fixup, text)
 #   }}}
 
-#   {{{ -- func content_normalize_from_html
+class HtmlContentNormalizer(object):
+    #       {{{ -- 正式表达式常量
+    re_content_line_sep = re.compile(r"(<\s*br\s*\/?>|(?:</?p(?:\s[^>]*|\s*)>)|\r|\n)+", re.IGNORECASE)
+    re_content_cleanup_html = re.compile(r"<[^>]*>|\n|\r", re.IGNORECASE)
+    re_content_img = re.compile(
+        u"<img[^>]*?\ssrc=(?P<quote1>['\"])?(?P<url>.*?)(?(quote1)(?P=quote1)|(?=\s|>))" +
+        u"(?:[^>]*\salt=(?P<quote2>['\"])?(?P<desc>.*?)(?(quote2)(?P=quote2)|(?=\s|>)))?" +
+        u"[^>]*>",
+        re.IGNORECASE | re.DOTALL)
+        
+    re_quote = re.compile(
+        ur"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
+        re.IGNORECASE | re.DOTALL)
+    #       }}}
 
-#       {{{ -- 正式表达式常量
-re_content_line_sep = re.compile(r"(<\s*br\s*\/?>|(?:</?p(?:\s[^>]*|\s*)>)|\r|\n)+", re.IGNORECASE)
-re_content_cleanup_html = re.compile(r"<[^>]*>|\n|\r", re.IGNORECASE)
-re_content_img = re.compile(
-    u"<img[^>]*?\ssrc=(?P<quote1>['\"])?(?P<url>.*?)(?(quote1)(?P=quote1)|(?=\s|>))" +
-    u"(?:[^>]*\salt=(?P<quote2>['\"])?(?P<desc>.*?)(?(quote2)(?P=quote2)|(?=\s|>)))?" +
-    u"[^>]*>",
-    re.IGNORECASE | re.DOTALL)
-    
-re_quote = re.compile(
-    ur"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
-    re.IGNORECASE | re.DOTALL)
-#       }}}
-
-# 从<img>的alt属性中提取图片的标题
-def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
-#       {{{ -- func content_normalize_img
-    def content_normalize_img(content, inputter, re_imgs):
-        lines = list()
+    def __init__(self, inputter, re_imgs=re_content_img):
+        self.inputter  = inputter
 
         if not hasattr(re_imgs, '__iter__'):
-            re_imgs = [re_imgs]
+            self.re_imgs = [re_imgs]
+        else:
+            self.re_imgs  = re_imgs
+
+    def normalize(self, line):
+        lines = list()
+
+        if not line:
+            return lines
+
+        # 处理所有引用
+        start_pos = 0
+        for m in self.re_quote.finditer(line):
+            if m.start() > start_pos:
+                self.content.extend(self._normalize_block_content(line[start_pos:m.start()]))
+
+            quote_lines = self._normalize_block_content(m.group('content'))
+            if quote_lines:
+                lines.append(Quote(quote_lines))
+
+            start_pos = m.end()
+
+        # 加入最后的内容
+        if start_pos < len(line):
+            lines.extend(self._normalize_block_content(line[start_pos:]))
+
+        return lines
+
+    def _normalize_block_content(self, block_content):
+        lines = list()
+        for line in self.re_content_line_sep.split(block_content):
+            line = line.strip()
+            if line:
+                lines.extend(self._normalize_line(line))
+
+        return lines
+
+    def _normalize_line(self, line):
+        lines = list()
 
         # 找出所有可能的图片位置
         img_pos = list()
         
-        for re_img in re_imgs:
-            for m in re_img.finditer(content):
+        for re_img in self.re_imgs:
+            for m in re_img.finditer(line):
                 img_pos.append({
                     "start" : m.start(),
                     "end" : m.end(),
@@ -2186,7 +2222,7 @@ def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
 
             if pos["start"] > start_pos:    # 马上就是图片，不需要处理两张图片之间的内容
                 # 加入图片之前的文本
-                lines.extend(content_text_normalize_from_html(content[start_pos:pos["start"]]))
+                lines.extend(self._to_text(line[start_pos:pos["start"]]))
 
             # 加入图片
             lines.append(InputterImg(pos["url"], inputter, title_normalize(pos["desc"])))
@@ -2194,48 +2230,24 @@ def content_normalize_from_html(content, inputter, re_imgs=re_content_img):
             start_pos = pos["end"]
 
         # 加入行末的内容
-        if start_pos < len(content):
-            lines.extend(content_text_normalize_from_html(content[start_pos:]))
+        if start_pos < len(line):
+            lines.extend(self._to_text(line[start_pos:]))
 
         return lines
-#       }}}
 
-    lines = list()
+    def text_only(self, line):
+        lines = list()
 
-    if not content:
+        if not line:
+            return lines
+
+        for l in self.re_content_line_sep.split(line):
+            lines.extend(self._to_text(l))
+
         return lines
 
-    # 处理所有引用
-    start_pos = 0
-    for m in re_quote.finditer(content):
-        if m.start() > start_pos:
-            lines.extend(content_normalize_img(content[start_pos:m.start()], inputter, re_imgs))
-
-        quote_lines = content_normalize_img(m.group('content'), inputter, re_imgs)
-        if quote_lines:
-            lines.append(Quote(quote_lines))
-
-        start_pos = m.end()
-
-    # 加入最后的内容
-    if start_pos < len(content):
-        lines.extend(content_normalize_img(content[start_pos:], inputter, re_imgs))
-
-    return lines
-#   }}}
-
-#   {{{ -- func content_text_normalize_from_html
-# 忽略图片
-def content_text_normalize_from_html(content):
-    lines = list()
-
-    if not content:
-        return lines
-
-    lines = (re_content_cleanup_html.sub(u"", l) for l in re_content_line_sep.split(content))
-
-    return content_text_normalize((unescape(l) for l in lines))
-#   }}}
+    def _to_text(self, line):
+        return content_text_normalize(unescape(self.re_content_cleanup_html.sub(u"", line)))
 
 #   {{{ -- func content_text_normalize
 #       {{{ -- 正式表达式常量
@@ -2739,6 +2751,18 @@ class HtmlBuilderParser(Parser):
     # <td align=center><img src=../image4/nkts.jpg class=p1 alt=南柯太守></td>
     #re_img_list = re.compile(u".*<td[^>]*><img src=(?P<src>[^'\" \t]+) class=[^>]* alt=(?P<desc>[^> ]+)></td>")
 
+    class ContentNormalizer(HtmlContentNormalizer):
+        re_section_title = re.compile(u"^\s*<font class=f10>(?P<title>[^<]+)</font>\s*$")
+
+        def _normalize_line(self, line):
+            m = self.re_section_title.match(line)
+            if m:
+                lines = list()
+                lines.append(SectionTitle(title_normalize_from_html(m.group("title"))))
+                return lines
+
+            return HtmlContentNormalizer._normalize_line(self, line)
+
     def _get_index_filenames(self, inputter):
         index_filenames = list()
         
@@ -2762,6 +2786,8 @@ class HtmlBuilderParser(Parser):
         return index_filenames
 
     def parse(self, inputter, book_title, book_author):
+        normalizer = self.ContentNormalizer(inputter=inputter)
+
         def read_chapter(inputter, filename, indent):
             logging.debug(u"{indent}    Parsing file {filename}...".format(filename=filename, indent=u" "*indent));
 
@@ -2783,11 +2809,11 @@ class HtmlBuilderParser(Parser):
                         if is_in_content:
                             m = self.re_content_end.search(line)
                             if not m:
-                                chapter.content.extend(content_normalize_from_html(line, inputter))
+                                chapter.content.extend(normalizer.normalize(line))
                                 break
 
                             # 出现正文结束标志，但前半行可能有内容
-                            chapter.content.extend(content_normalize_from_html(line[0:m.start()], inputter))
+                            chapter.content.extend(normalizer.normalize(line[0:m.start()]))
                             is_in_content = False
                             line = line[m.end():]
 
@@ -2914,7 +2940,7 @@ class HtmlBuilderParser(Parser):
                         logging.debug(u"{indent}      Found intro".format(indent=u"      "*inputter.nested_level))
                         intro = Chapter()
                         intro.title = BOOK_INTRO_TITLE
-                        intro.content = content_text_normalize_from_html(m.group(1))
+                        intro.content = normalizer.text_only(m.group(1))
                         continue
 
                 process_next_line = False
@@ -3163,6 +3189,8 @@ class EasyChmParser(Parser):
     # }}}
 
     def parse(self, inputter, book_title, book_author):
+        normalizer = HtmlContentNormalizer(inputter=inputter)
+
         def read_chapter(inputter, filename, title):
             chapter = Chapter()
             content = u"".join(inputter.read_lines(filename))
@@ -3176,20 +3204,21 @@ class EasyChmParser(Parser):
             for cleanup in self.re_content_cleanups:
                 content = cleanup[0].sub(cleanup[1], content)
 
-            content = content_normalize_from_html(content, inputter)
+            content = normalizer.normalize(content)
 
-            if has_inner_title and isinstance(content[0], basestring):
-                chapter.title_inner = trim(content[0])
-                chapter.content     = content[1:]
-            else:
-                chapter.content     = content
+            if content:
+                if has_inner_title and isinstance(content[0], basestring):
+                    chapter.title_inner = trim(content[0])
+                    chapter.content     = content[1:]
+                else:
+                    chapter.content     = content
 
             chapter.title = title
 
             return chapter
 
         def parse_intro(html, default_title=BOOK_INTRO_TITLE):
-            lines = content_text_normalize_from_html(html)
+            lines = normalizer.text_only(html)
             m = self.re_intro_title.match(lines[0])
             if m:
                 title = m.group("title")
@@ -3420,6 +3449,8 @@ class IFengBookParser(Parser):
 
         file_content = inputter.read_all(inputter.entry)
 
+        normalizer = HtmlContentNormalizer(inputter=inputter)
+
         # 找出书的基本信息
         book = Book()
         m = self.re_info.search(file_content)
@@ -3470,7 +3501,7 @@ class IFengBookParser(Parser):
             if m:
                 chapter = Chapter()
                 chapter.title   = title_normalize_from_html(m.group("title"))
-                chapter.content.extend(content_text_normalize_from_html(m.group("content")))
+                chapter.content.extend(normalizer.text_only(m.group("content")))
 
                 if m.group("type") == "bookIntro":
                     book.intro = u"\n".join(chapter.content)
@@ -3491,7 +3522,7 @@ class IFengBookParser(Parser):
 
             chapter = Chapter()
             chapter.title = title
-            chapter.intro = content_text_normalize_from_html(match_part.group("intro"))
+            chapter.intro = normalizer.text_only(match_part.group("intro"))
 
             logging.debug(u"      Chapter: {title}".format(title=chapter.title))
 
@@ -3508,7 +3539,7 @@ class IFengBookParser(Parser):
                     raise NotParseableError(u"{file} is not parseable by {parser}. '{chapter}' is not parseable!".format(
                         file=inputter.fullpath(), parser=self.__class__.__name__, chapter=match_li.group("url")))
 
-                subchapter.content.extend(content_text_normalize_from_html(m.group("content")))
+                subchapter.content.extend(normalizer.text_only(m.group("content")))
 
                 chapter.subchapters.append(subchapter)
 
@@ -3668,8 +3699,10 @@ class InfzmParser(Parser):
             raise NotParseableError(u"{file} is not parseable by {parser}. '{url}' is not parseable!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__, url=url))
 
+        normalizer = HtmlContentNormalizer(inputter=inputter)
+
         #print m.group("content")
-        #print content_normalize_from_html(m.group("content", inputter))
+        #print normalizer.normalize(m.group("content"))
         chapter = Chapter()
         chapter.title = title_normalize_from_html(m.group("title"))
         chapter.author = title_normalize_from_html(m.group("author"))
@@ -3681,22 +3714,26 @@ class InfzmParser(Parser):
         start_pos = 0
         content = m.group("content")
 
+        normalizer = HtmlContentNormalizer(inputter=inputter, re_imgs=self.re_news_content_img)
+
         for m in self.re_section_title.finditer(content):
             if m.start() > start_pos:
-                chapter.content.extend(content_normalize_from_html(content[start_pos:m.start()], inputter, self.re_news_content_img))
+                chapter.content.extend(normalizer.normalize(content[start_pos:m.start()]))
 
             chapter.content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
 
             start_pos = m.end()
 
         if start_pos < len(content):
-            chapter.content.extend(content_normalize_from_html(content[start_pos:], inputter, self.re_news_content_img))
+            chapter.content.extend(normalizer.normalize(content[start_pos:]))
 
         return chapter
 
     def parse(self, inputter, book_title, book_author):
         if not inputter.entry:
             raise notparseableerror(u"{file} is not parseable by {parser}".format( file=inputter.fullpath(), parser=self.__class__.__name__))
+
+        normalizer = HtmlContentNormalizer(inputter=inputter)
 
         file_content = inputter.read_all(inputter.entry)
         #print file_content
@@ -3730,7 +3767,7 @@ class InfzmParser(Parser):
         chapter = Chapter()
         chapter.title = u"本期头条"
         topnews = self.parse_chapter(m.group("url"), inputter)
-        topnews.intro = content_normalize_from_html(m.group("summary"), inputter)
+        topnews.intro = normalizer.normalize(m.group("summary"))
         chapter.subchapters.append(topnews)
         book.subchapters.append(chapter)
 
@@ -3912,8 +3949,13 @@ class NbweeklyParser(Parser):
             raise NotParseableError(u"{file} is not parseable by {parser}. '{path}' is not parseable!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__, path=path))
 
+        if self.re_chapter_content_img:
+            normalizer = HtmlContentNormalizer(inputter=inputter, re_imgs=self.re_chapter_content_img)
+        else:
+            normalizer = HtmlContentNormalizer(inputter=inputter)
+
         #print m.group("content")
-        #print content_normalize_from_html(m.group("content", inputter))
+        #print normalizer.normalize(m.group("content"))
 
         d = m.groupdict()
         chapter = Chapter()
@@ -3931,20 +3973,14 @@ class NbweeklyParser(Parser):
         if self.re_section_title:
             for m in self.re_section_title.finditer(content):
                 if m.start() > start_pos:
-                    if self.re_chapter_content_img:
-                        chapter.content.extend(content_normalize_from_html(content[start_pos:m.start()], inputter, self.re_chapter_content_img))
-                    else:
-                        chapter.content.extend(content_normalize_from_html(content[start_pos:m.start()], inputter))
+                    chapter.content.extend(normalizer.normalize(content[start_pos:m.start()]))
 
                 chapter.content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
 
                 start_pos = m.end()
 
         if start_pos < len(content):
-            if self.re_chapter_content_img:
-                chapter.content.extend(content_normalize_from_html(content[start_pos:], inputter, self.re_chapter_content_img))
-            else:
-                chapter.content.extend(content_normalize_from_html(content[start_pos:], inputter))
+            chapter.content.extend(normalizer.normalize(content[start_pos:]))
 
         return chapter
 
@@ -3970,7 +4006,7 @@ class NbweeklyParser(Parser):
                     chapter.cover = self.parse_cover(d['cover'], inputter)
 
                 if d.has_key('intro'):
-                    chapter.intro = content_normalize_from_html(d['intro'])
+                    chapter.intro = normalizer.normalize(d['intro'])
 
                 if d.has_key('author'):
                     chapter.author = title_normalize_from_html(d['author'])
@@ -4418,6 +4454,8 @@ class CollectionParser(Parser):
         subbook_count = 0
         first_subbook_cover = None
 
+        normalizer = HtmlContentNormalizer(inputter=inputter)
+
         if self.force_entrys:
             # 强制指定入口文件
             index_files = self.force_entrys
@@ -4600,7 +4638,7 @@ class CollectionParser(Parser):
                                 if self.re_extra_end.match(line):
                                     break
 
-                                chapter.content.extend(content_text_normalize_from_html(line))
+                                chapter.content.extend(normalizer.text_only(line))
 
                             if len(chapter.content) > 0:
                                 local_extras.append(chapter)
