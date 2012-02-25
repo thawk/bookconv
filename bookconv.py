@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120220"
+VERSION=u"20120225"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -63,7 +63,7 @@ TITLE_ONLY_COVER_PATTERNS = [
     u"{title}",
 ]
 
-COVER_EXTENSIONS = [ u".jpg", u".png", u".gif", u".jpeg", u".JPG", u".PNG", u".GIF", u".JPEG" ]
+COVER_EXTENSIONS = [ u".png", u".jpg", u".gif", u".jpeg", u".JPG", u".PNG", u".GIF", u".JPEG" ]
 
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
 
@@ -262,6 +262,7 @@ BOOK_DB = (
     { "l1cat": u"玄幻", "l2cat": u"", "title": u"武装风暴", "author": u"骷髅精灵" },
     { "l1cat": u"合集", "l2cat": u"", "title": u"黯然销魂作品合集", "author": u"黯然销魂" },
     { "l1cat": u"历史", "l2cat": u"", "title": u"明朝那些事儿", "author": u"当年明月" },
+    { "l1cat": u"玄幻", "l2cat": u"", "title": u"大隐", "author": u"血珊瑚" },
 )
 # }}}
 
@@ -601,36 +602,34 @@ h3 {
 	font-weight:bold;
 	font-size:120%;
 	font-family:"fs","kt","ht","zw";
-	/*margin-bottom:-0.9em;*/
     margin-botton: 0.5em;
 	border-style: none none solid none;
 	border-width: 0px 0px 1px 0px;
 	border-color: purple;
 }
 h4 {
-/*	color:gray;*/
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
-	font-size:medium;
+	font-size:115%;
 	font-family:"ht","zw";
-	/*margin-bottom:-0.8em;*/
+    margin-botton: 0.5em;
 }
 h5 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
-	font-size:small;
+	font-size:115%;
 	font-family:"kt","zw";
-	margin-bottom:-0.9em;
+    margin-botton: 0.5em;
 }
 h6 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
-	font-size:x-small;
+	font-size:115%;
 	font-family:"kt","zw";
-	/*margin-bottom:-0.9em;*/
+    margin-botton: 0.5em;
 }
 
 /*正文中的分隔线*/
@@ -939,11 +938,11 @@ li {
 }
 
 .section_title {
-    margin-top: 0.5em;
-    margin-bottom: 0.1em;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
 	font-family:"ht","kt","zw";
     font-weight:bold;
-    font-size: 130%;
+    font-size: 105%;
     page-break-after:avoid;
 }
 
@@ -2225,7 +2224,7 @@ class HtmlContentNormalizer(object):
                 lines.extend(self._to_text(line[start_pos:pos["start"]]))
 
             # 加入图片
-            lines.append(InputterImg(pos["url"], inputter, title_normalize(pos["desc"])))
+            lines.append(InputterImg(pos["url"], self.inputter, title_normalize(pos["desc"])))
 
             start_pos = pos["end"]
 
@@ -4850,10 +4849,13 @@ class RedirectParser(Parser):
 
 #   {{{ -- func to_html
 def to_html(content, img_resolver):
+    html = u""
+
+    if not content:
+        return html
+
     if not isinstance(content, list):
         content = [ content, ]
-
-    html = u""
 
     for line in content:
         if isinstance(line, basestring):
@@ -4996,7 +4998,7 @@ class HtmlConverter(object):
     # }}}
 
     # {{{ ---- func toc_page
-    def toc_page(self, filename, book):
+    def toc_page(self, files, filename, book):
         html = u"<div class='book_toc_page toc_page'>\n"
         html += u"<div class='toc_title'>{title}</div>".format(title=u"目  录")
         html += u"<ul class='toc_list'>"
@@ -5005,7 +5007,10 @@ class HtmlConverter(object):
             html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
                 link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
                 title = escape(c.title),
-                intro = u"".join((u"<p>" + escape(line) + u"</p>\n" for line in c.intro)) if c.intro else u"")
+                intro = u"".join(
+                    to_html(
+                        c.intro,
+                        lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
             
         html += u"</ul></div>"
 
@@ -5485,7 +5490,7 @@ class HtmlConverter(object):
             "filename": filename,
             "content":  u"".join((
                         self.html_header(filename, book.title, cssfile=CSS_FILE),
-                        self.toc_page(filename, book),
+                        self.toc_page(files, filename, book),
                         self.html_footer(filename, book),
                         )).encode("utf-8"),
             "id":       TOC_PAGE,
