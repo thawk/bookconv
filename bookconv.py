@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120225"
+VERSION=u"20120306"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -263,6 +263,7 @@ BOOK_DB = (
     { "l1cat": u"合集", "l2cat": u"", "title": u"黯然销魂作品合集", "author": u"黯然销魂" },
     { "l1cat": u"历史", "l2cat": u"", "title": u"明朝那些事儿", "author": u"当年明月" },
     { "l1cat": u"玄幻", "l2cat": u"", "title": u"大隐", "author": u"血珊瑚" },
+    { "l1cat": u"合集", "l2cat": u"", "title": u"烟雨江南作品集", "author": u"烟雨江南" },
 )
 # }}}
 
