@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120306"
+VERSION=u"20120319"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2438,7 +2438,15 @@ class ChmInputter(Inputter):
         if not ok:
             raise Exception("chmlib.chm_enumerate failed")
 
-        self.filelist = filelist
+        for enc in (encoding, "utf-8", "GB18030"):
+            if enc:
+                try:
+                    self.filelist = [ unicode(f, enc) for f in filelist ]
+                    break
+                except UnicodeDecodeError:
+                    pass
+        else:
+            self.filelist = filelist
 
     def __enter__(self):
         return self
