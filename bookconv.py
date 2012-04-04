@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120319"
+VERSION=u"20120405"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -192,6 +192,7 @@ BOOK_DB = (
     { "l1cat": u"玄幻", "l2cat": u"", "title": u"勿用作品集", "author": u"勿用" },
     { "l1cat": u"爱情", "l2cat": u"", "title": u"千江有水千江月", "author": u"萧丽红" },
     { "l1cat": u"科幻", "l2cat": u"", "title": u"卡徒", "author": u"方想" },
+    { "l1cat": u"玄幻", "l2cat": u"", "title": u"修真世界", "author": u"方想" },
     { "l1cat": u"历史", "l2cat": u"清史民国", "title": u"发迹", "author": u"古龙岗" },
     { "l1cat": u"悬疑", "l2cat": u"", "title": u"周浩晖小说集", "author": u"周浩晖" },
     { "l1cat": u"恐怖", "l2cat": u"", "title": u"国内最受欢迎的十位恐怖小说家作品大合集V1.0", "author": u"" },
@@ -451,7 +452,7 @@ div {
 	font-family:"zw";
 }
 
-p {
+p, .p {
 	text-align: justify;
 	text-indent: 2em!important;
 	line-height:130%;
@@ -683,6 +684,7 @@ li {
 
 .cover img {
     height: 100%;
+    max-width: 100%;
 }
 
 .title_page .title {
@@ -735,6 +737,7 @@ li {
 
 .chapter_cover_page img {
     height: 100%;
+    max-width: 100%;
 }
 
 .chapter_title_page .cover {
@@ -1025,6 +1028,7 @@ li {
 .img img {
     page-break-after:avoid;
     max-height: 85%;
+    max-width: 100%;
 }
 
 table.normal {
@@ -1342,7 +1346,7 @@ class Line(InlineContainer):
         self.append_elements(elements)
 
     def to_html(self, img_resolver):
-        return u'<p>' + InlineContainer.to_html(self, img_resolver) + u'</p>\n';
+        return u"<p class='p'>" + InlineContainer.to_html(self, img_resolver) + u"</p>\n";
 
     def to_asciidoc(self):
         return InlineContainer.to_asciidoc(self) + u"\n\n"
@@ -1355,7 +1359,7 @@ class SectionTitle(InlineContainer):
         self.append_elements(title)
 
     def to_html(self, img_resolver):
-        return u''.join((u'<p class="section_title">', InlineContainer.to_html(self, img_resolver), u'</p>'))
+        return u''.join((u'<p class="p section_title">', InlineContainer.to_html(self, img_resolver), u'</p>'))
 
     def to_asciidoc(self):
         return u"." + InlineContainer.to_asciidoc(self) + u"\n"
@@ -4868,7 +4872,7 @@ def to_html(content, img_resolver):
 
     for line in content:
         if isinstance(line, basestring):
-            html += u"".join((u"<p>", escape(line), u"</p>"))
+            html += u"".join((u"<p class='p'>", escape(line), u"</p>"))
         elif isinstance(line, ContentElement):
             html += line.to_html(img_resolver)
         elif isinstance(line, Img):
@@ -5078,7 +5082,7 @@ class HtmlConverter(object):
 
         if chapter.author:
             html += u"""\
-        <p class='author chapter_author_{level}'>{author}</p>
+        <p class='p author chapter_author_{level}'>{author}</p>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5124,7 +5128,7 @@ class HtmlConverter(object):
             html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
                 link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
                 title = escape(c.title),
-                intro = u"".join((u"<p>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
+                intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
             
         html += u"</ul></div>"
 
@@ -5213,12 +5217,12 @@ class HtmlConverter(object):
         for c in ['author', 'originated', 'publish_date', 'source']:
             v = getattr(chapter, c)
             if v:
-                html += u"<p class='chapter_{name}'>{value}</p>\n""".format(name = c, value = v)
+                html += u"<p class='p chapter_{name}'>{value}</p>\n""".format(name = c, value = v)
 
         if chapter.intro:
             html += u"".join([
                 u"<div class='chapter_intro chapter_intro_{level}'>\n".format(level=chapter.level),
-                u"".join((u"<p>" + escape(line) + u"</p>\n" for line in chapter.intro)),
+                u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in chapter.intro)),
                 u"</div>\n"])
 
         html += u"</div>"
