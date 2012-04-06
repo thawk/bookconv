@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120405"
+VERSION=u"20120406"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -128,7 +128,7 @@ MAX_COVER_ASPECT_RATIO = 2.0
 
 # 输出图片的最大宽度和高度
 MAX_IMAGE_WIDTH  = 600
-MAX_IMAGE_HEIGHT = 800
+MAX_IMAGE_HEIGHT = 724
 
 # 各额外部分的文件名
 COVER_PAGE = u"cover_page"   # 封面
@@ -2105,13 +2105,23 @@ def complete_book_info(book_info):
         book_info["cover"] = cover
 
     newinfo = fuzzy_lookup(title, author, local_lookup)
-    if not newinfo:
-        newinfo = fuzzy_lookup(title, author, lookup_book_info)
-    
+    if newinfo:
     # 把原来没有的项目拷贝过去
-    for k in [ "author", "l1cat", "l2cat", "cover" ]:
-        if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
-            book_info[k] = newinfo[k]
+        for k in [ "author", "l1cat", "l2cat", "cover" ]:
+            if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
+                book_info[k] = newinfo[k]
+
+    for k in [ "author", "l1cat", "cover" ]:
+        if not book_info.has_key(k) or not book_info[k]:
+            # 还有未知项目
+            newinfo = fuzzy_lookup(title, author, lookup_book_info)
+
+            # 把原来没有的项目拷贝过去
+            for k in [ "author", "l1cat", "l2cat", "cover" ]:
+                if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
+                    book_info[k] = newinfo[k]
+
+            return
 #   }}}
 # }}}
 
@@ -3308,8 +3318,8 @@ class EasyChmParser(Parser):
                     cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], inputter)
                     if cover:
                         book.cover = cover
-                        logging.debug(u"{indent}  Found book cover".format(
-                            indent=u"      "*inputter.nested_level))
+                        logging.debug(u"{indent}  Found book cover '{filename}'".format(
+                            indent=u"      "*inputter.nested_level, filename=cover.filename()))
         
                 if rule['map'].has_key('book_intro'):
                     # 提供了书本的简介
