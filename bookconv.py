@@ -562,7 +562,7 @@ text-decoration:none;
 }
 .heavy {
 	font-family:"ht","zw";
-	color:blue;
+	color:#268bd2;  /* blue */
 	/*font-weight:bold;*/
 	/*font-size:10.5pt;*/
 }
@@ -580,7 +580,7 @@ text-decoration:none;
 	margin-left:38.2%;
 	border-style: none none none solid;
 	border-width: 0px 0px 0px 10px;
-	border-color: blue yellow;
+	border-color: #268bd2 #b58900;   /* blue yellow */
 	font-family:"ht","zw";
 	font-size:9pt;
 }
@@ -590,13 +590,13 @@ text-decoration:none;
 	margin-left:0.58in;
 	border-style: none none none solid;
 	border-width: 0px 0px 0px 10px;
-	border-color: blue yellow;
+	border-color: #268bd2 #b58900;   /* blue yellow */
 	font-family:"ht","zw";
 	font-size:9pt;
 	padding: 5px 5px 5px 5px;
 }
 h1 {
-	color:blue;
+	color:#268bd2;  /* blue */
 	margin-top:61.8%;
 	margin-left:33%;
 	line-height:100%;
@@ -609,7 +609,7 @@ h1 {
 	font-family:"h1","ht","zw";
 }
 .chapter_content_begin h1 {
-	color:blue;
+	color:#268bd2;  /* blue */
     margin: 0px 0px 0.5em 1.16em;
 	line-height:100%;
 	text-align: justify;
@@ -646,15 +646,15 @@ h2 {
 	text-align: justify;
 	border-style: none double none solid;
 	border-width: 0px 5px 0px 20px;
-	border-color: blue;
-	border-left-color: blue;
+	border-color: #268bd2;  /* blue */
+	border-left-color: #268bd2;  /* blue */
 	font-weight:bold;
 	font-size:medium;
 	font-family:"ht","zw";
 }
 
 h3 {
-	color:blue;
+	color:#268bd2;  /* blue */
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
@@ -701,12 +701,12 @@ h6 {
 .signature {
 	padding-left:40%;
 	font-family:"kt","zw";
-	color:blue;
+	color:#268bd2;  /* blue */
 }
 .date {
 	padding-left:40%;
 	font-family:"kt","zw";
-	color:blue;
+	color:#268bd2;  /* blue */
 }
 .from {
 	font-family: "kt","zw";
@@ -744,7 +744,7 @@ li {
 }
 
 .title_page .title {
-	color:blue;
+	color:#268bd2;  /* blue */
 	margin-top:61.8%;
 	margin-left:30%;
 	line-height:100%;
@@ -758,7 +758,7 @@ li {
 }
 
 .title_page .sub_title {
-	color:blue;
+	color:#268bd2;  /* blue */
 	margin-left:30%;
     margin-top: 20px;
     margin-bottom: 10%;
@@ -803,7 +803,7 @@ li {
 }
 
 .chapter_title_page .title {
-	color:blue;
+	color:#268bd2;  /* blue */
 	margin-top:61.8%;
 	margin-left:30%;
 	line-height:100%;
@@ -866,7 +866,7 @@ li {
 }
 
 .toc_page .toc_list li a {
-    color: blue;
+    color: #268bd2;  /* blue */
     cursor: pointer;
     font-size: 1.2em;
     font-weight: bold;
@@ -898,7 +898,7 @@ li {
 }
 
 .chapter_navbar a {
-    color: blue;
+    color: #268bd2;  /* blue */
     cursor: pointer;
     text-decoration: underline;
 }
@@ -982,7 +982,7 @@ li {
 .chapter_content_begin_h2 .chapter_publish_date,
 .chapter_content_begin_h2 .chapter_source
 {
-	color:blue;
+	color:#268bd2;  /* blue */
 	margin-top:0;
     margin-bottom: 0;
 	line-height:100%;
