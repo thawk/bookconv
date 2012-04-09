@@ -169,6 +169,15 @@ MEDIA_TYPES = (
     { "type":"image", "media-type":"image/gif",              "pattern":re.compile(r".*\.gif",   re.IGNORECASE) },
 )
 
+IMAGE_FORMAT_MAP = {
+    ".jpe": "JPEG",
+    ".jpg": "JPEG",
+    ".jfif": "JPEG",
+    ".jpeg": "JPEG",
+    ".png": "PNG",
+    ".gif": "GIF",
+}
+
 DEFAULT_CATEGORY = u'Unknown'
 CATEGORY_NEWS_PAPER = u'报刊'
 
@@ -1562,13 +1571,14 @@ class Table(ContentElement):
 # {{{ Img like classes
 #   {{{ -- class ImgImpl
 class ImgImpl(object):
-    def __init__(self, unique_key):
+    def __init__(self, unique_key, format="jpeg"):
         self.content_    = None
         self.id_         = u""
         self.width_      = -1
         self.height_     = -1
         self.is_loaded_  = False
         self.unique_key_ = unique_key
+        self.format_     = format
 
     def load_content(self):
         raise NotImplementedError()
@@ -1600,6 +1610,8 @@ class ImgImpl(object):
         return self.unique_key_
 
     def resize(self, maxWidth, maxHeight):
+        self.load_image()
+
         if self.width_ > maxWidth or self.height_ > maxHeight:
             img = Image.open(StringIO(self.content_))
 
@@ -1613,7 +1625,7 @@ class ImgImpl(object):
             if resized:
                 o = len(self.content_)
                 f = StringIO()
-                resized.save(f, "JPEG")
+                resized.save(f, self.format_)
                 self.content_ = f.getvalue()
                 self.width_, self.height_ = resized.size
                 f.close()
@@ -1625,6 +1637,13 @@ class Img(object):
         self.filename_  = filename
         self.extension_ = os.path.splitext(filename)[1].lower()
         self.desc_      = desc
+
+    @classmethod
+    def ext_to_format(cls, ext):
+        if IMAGE_FORMAT_MAP.has_key(ext):
+            return IMAGE_FORMAT_MAP[ext]
+
+        return ext[1:].upper()
 
     def width(self):
         raise NotImplementedError()
@@ -1711,7 +1730,7 @@ class InputterImg(CachedImg):
         def __init__(self, path, inputter=None):
             self.inputter_   = inputter if inputter else FileSysInputter("")
             self.path_       = path
-            ImgImpl.__init__(self, self.inputter_.fullpath(path))
+            ImgImpl.__init__(self, self.inputter_.fullpath(path), Img.ext_to_format(os.path.splitext(path)[1].lower()))
             
         def load_content(self):
             return self.inputter_.read_binary(self.path_)
@@ -1723,15 +1742,15 @@ class InputterImg(CachedImg):
 #   {{{ -- class MemImg
 class MemImg(CachedImg):
     class Impl(ImgImpl):
-        def __init__(self, content):
-            ImgImpl.__init__(self, md5.new(content).hexdigest())
+        def __init__(self, content, format):
+            ImgImpl.__init__(self, md5.new(content).hexdigest(), format)
             self.content_ = content
 
         def load_content(self):
             return self.content_
 
     def __init__(self, content, filename, desc=u""):
-        super(MemImg, self).__init__(self.Impl(content), filename, desc)
+        super(MemImg, self).__init__(self.Impl(content, Img.ext_to_format(os.path.splitext(filename)[1].lower())), filename, desc)
 #   }}}
 
 #   {{{ -- class SuitableImg
@@ -1956,7 +1975,7 @@ def complete_book_info(book_info):
         class ZongHengImg(CachedImg):
             class Impl(ImgImpl):
                 def __init__(self, book_url):
-                    ImgImpl.__init__(self, book_url)
+                    ImgImpl.__init__(self, book_url, "jpeg")
                     self.book_url_ = book_url
                     
                 def load_content(self):
