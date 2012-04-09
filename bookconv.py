@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120406"
+VERSION=u"20120409"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -292,146 +292,202 @@ HTML_STYLE = u"""\
 /*nook：系统字体*/
 /*embed*/
 
-
+/*↓↓老牛字体样式2.1 2012-03-02↓↓*/
+/*↓↓欢迎非商业性使用，但请注明“老牛字体样式”；商业使用请与老牛联系↓↓*/
 @font-face {
 	font-family:"zw";
-	src:url(res:///opt/sony/ebook/FONT/zw.ttf),
+	src:url(../fonts/zw.ttf),
+	url(res:///opt/sony/ebook/FONT/zw.ttf),
 	url(res:///Data/FONT/zw.ttf),
-	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf)
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/zw.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/zw.ttf),
+	url(res:///ebook/fonts/zw.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/zw.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/zw.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/zw.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/zw.ttf),
 	url(res:///DK_System/system/font/zw.ttf),
 	url(res:///abook/fonts/zw.ttf),
 	url(res:///system/fonts/zw.ttf),
 	url(res:///system/media/sdcard/fonts/zw.ttf),
 	url(res:///media/fonts/zw.ttf),
 	url(res:///sdcard/fonts/zw.ttf),
-	url(fonts/zw.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/zw.ttf),
+	url(res:///media/flash/fonts/zw.ttf),
+	url(res:///media/sd/fonts/zw.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
 @font-face {
 	font-family:"fs";
-	src:url(res:///opt/sony/ebook/FONT/fs.ttf),
+	src:url(../fonts/fs.ttf),
+	url(res:///opt/sony/ebook/FONT/fs.ttf),
 	url(res:///Data/FONT/fs.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/fs.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/fs.ttf),
+	url(res:///ebook/fonts/fs.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/fs.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/fs.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/fs.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/fs.ttf),
 	url(res:///DK_System/system/font/fs.ttf),
 	url(res:///abook/fonts/fs.ttf),
 	url(res:///system/fonts/fs.ttf),
 	url(res:///system/media/sdcard/fonts/fs.ttf),
 	url(res:///media/fonts/fs.ttf),
 	url(res:///sdcard/fonts/fs.ttf),
-	url(fonts/fs.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/fs.ttf),
+	url(res:///media/flash/fonts/fs.ttf),
+	url(res:///media/sd/fonts/fs.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
 @font-face {
 	font-family:"kt";
-	src:url(res:///opt/sony/ebook/FONT/kt.ttf),
+	src:url(../fonts/kt.ttf),
+	url(res:///opt/sony/ebook/FONT/kt.ttf),
 	url(res:///Data/FONT/kt.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/kt.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/kt.ttf),
+	url(res:///ebook/fonts/kt.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/kt.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/kt.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/kt.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/kt.ttf),
 	url(res:///DK_System/system/font/kt.ttf),
 	url(res:///abook/fonts/kt.ttf),
 	url(res:///system/fonts/kt.ttf),
 	url(res:///system/media/sdcard/fonts/kt.ttf),
 	url(res:///media/fonts/kt.ttf),
 	url(res:///sdcard/fonts/kt.ttf),
-	url(fonts/kt.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/kt.ttf),
+	url(res:///media/flash/fonts/kt.ttf),
+	url(res:///media/sd/fonts/kt.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
-
+@font-face {
+	font-family:"ktpy";
+	src:url(../fonts/ktpy.ttf),
+	url(res:///opt/sony/ebook/FONT/ktpy.ttf),
+	url(res:///Data/FONT/ktpy.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/ktpy.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/ktpy.ttf),
+	url(res:///ebook/fonts/ktpy.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
+	url(res:///fonts/ttf/ktpy.ttf),
+	url(res:///../../media/mmcblk0p1/fonts/ktpy.ttf),
+	url(res:///DK_System/system/font/ktpy.ttf),
+	url(res:///abook/fonts/ktpy.ttf),
+	url(res:///system/fonts/ktpy.ttf),
+	url(res:///system/media/sdcard/fonts/ktpy.ttf),
+	url(res:///media/fonts/ktpy.ttf),
+	url(res:///sdcard/fonts/ktpy.ttf),
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/ktpy.ttf),
+	url(res:///media/flash/fonts/ktpy.ttf),
+	url(res:///media/sd/fonts/ktpy.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
+}
 @font-face {
 	font-family:"ht";
-	src:url(res:///opt/sony/ebook/FONT/ht.ttf),
+	src:url(../fonts/ht.ttf),
+	url(res:///opt/sony/ebook/FONT/ht.ttf),
 	url(res:///Data/FONT/ht.ttf),
-	url(res:///opt/sony/ebook/FONT/tt0003m_.ttf)
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/ht.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/ht.ttf),
+	url(res:///ebook/fonts/ht.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/ht.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/ht.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/ht.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/ht.ttf),
 	url(res:///DK_System/system/font/ht.ttf),
 	url(res:///abook/fonts/ht.ttf),
 	url(res:///system/fonts/ht.ttf),
 	url(res:///system/media/sdcard/fonts/ht.ttf),
 	url(res:///media/fonts/ht.ttf),
 	url(res:///sdcard/fonts/ht.ttf),
-	url(fonts/ht.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/ht.ttf),
+	url(res:///media/flash/fonts/ht.ttf),
+	url(res:///media/sd/fonts/ht.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
-
 @font-face {
 	font-family:"h1";
-	src:url(res:///opt/sony/ebook/FONT/h1.ttf),
+	src:url(../fonts/h1.ttf),
+	url(res:///opt/sony/ebook/FONT/h1.ttf),
 	url(res:///Data/FONT/h1.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/h1.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/h1.ttf),
+	url(res:///ebook/fonts/h1.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/h1.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h1.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h1.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/h1.ttf),
 	url(res:///DK_System/system/font/h1.ttf),
 	url(res:///abook/fonts/h1.ttf),
 	url(res:///system/fonts/h1.ttf),
 	url(res:///system/media/sdcard/fonts/h1.ttf),
 	url(res:///media/fonts/h1.ttf),
 	url(res:///sdcard/fonts/h1.ttf),
-	url(fonts/h1.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/h1.ttf),
+	url(res:///media/flash/fonts/h1.ttf),
+	url(res:///media/sd/fonts/h1.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
-
 @font-face {
 	font-family:"h2";
-	src:url(res:///opt/sony/ebook/FONT/h2.ttf),
+	src:url(../fonts/h2.ttf),
+	url(res:///opt/sony/ebook/FONT/h2.ttf),
 	url(res:///Data/FONT/h2.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/h2.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/h2.ttf),
+	url(res:///ebook/fonts/h2.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/h2.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h2.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h2.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/h2.ttf),
 	url(res:///DK_System/system/font/h2.ttf),
 	url(res:///abook/fonts/h2.ttf),
 	url(res:///system/fonts/h2.ttf),
 	url(res:///system/media/sdcard/fonts/h2.ttf),
 	url(res:///media/fonts/h2.ttf),
 	url(res:///sdcard/fonts/h2.ttf),
-	url(fonts/h2.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/h2.ttf),
+	url(res:///media/flash/fonts/h2.ttf),
+	url(res:///media/sd/fonts/h2.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
-
 @font-face {
 	font-family:"h3";
-	src:url(res:///opt/sony/ebook/FONT/h3.ttf),
+	src:url(../fonts/h3.ttf),
+	url(res:///opt/sony/ebook/FONT/h3.ttf),
 	url(res:///Data/FONT/h3.ttf),
+	url(res:///opt/sony/ebook/FONT/tt0011m_.ttf),
+	url(res:///ebook/fonts/../../mnt/sdcard/fonts/h3.ttf),
+	url(res:///ebook/fonts/../../mnt/extsd/fonts/h3.ttf),
+	url(res:///ebook/fonts/h3.ttf),
+	url(res:///ebook/fonts/DroidSansFallback.ttf),
 	url(res:///fonts/ttf/h3.ttf),
 	url(res:///../../media/mmcblk0p1/fonts/h3.ttf),
-    url(res:///ebook/fonts/../../mnt/sdcard/fonts/h3.ttf),
-    url(res:///ebook/fonts/../../mnt/extsd/fonts/h3.ttf),
 	url(res:///DK_System/system/font/h3.ttf),
 	url(res:///abook/fonts/h3.ttf),
 	url(res:///system/fonts/h3.ttf),
 	url(res:///system/media/sdcard/fonts/h3.ttf),
 	url(res:///media/fonts/h3.ttf),
 	url(res:///sdcard/fonts/h3.ttf),
-	url(fonts/h3.ttf),
-	url(res:///system/fonts/DroidSansFallback.ttf), /* Nook */
-    url(res:///ebook/fonts/DroidSansFallback.ttf);  /* Sony PRS-T1 */
+	url(res:///system/fonts/DroidSansFallback.ttf),
+	url(res:///mnt/MOVIFAT/font/h3.ttf),
+	url(res:///media/flash/fonts/h3.ttf),
+	url(res:///media/sd/fonts/h3.ttf),
+	url(res:///opt/onyx/arm/lib/fonts/AdobeHeitiStd-Regular.otf);
 }
-
+/*↑↑老牛字体样式2.1↑↑*/
+/*↑↑欢迎非商业性使用，但请注明“老牛字体样式”；商业使用请与老牛联系↑↑*/
 
 body {
 	/*padding: 0%;
