@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120507"
+VERSION=u"20120511"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -185,8 +185,10 @@ CATEGORY_NEWS_PAPER = u'报刊'
 
 # 简介章节的名称。符合名称的章节视为简介
 RE_INTRO_TITLES = (
-    re.compile(u'简介|内容简介|故事梗概', re.IGNORECASE),
+    re.compile(u'简介|内容简介|内容提要|故事梗概', re.IGNORECASE),
 )
+
+ASCIIDOC_ATTR_ROLE = u"role"
 
 # }}}
 
@@ -519,7 +521,7 @@ div {
 	font-family:"zw";
 }
 
-p, .p {
+p, .p, p.p {
 	text-align: justify;
 	text-indent: 2em!important;
 	line-height:130%;
@@ -556,17 +558,18 @@ text-decoration:none;
 }
 
 
-.center {
+.center p, .center .p, .center p.p {
 	text-align: center;
 	margin-left: 0%;
 	margin-right: 0%;
 }
-.left {
-	text-align: center;
+.left p, .left .p, .left p.p {
+	text-align: left;
 	margin-left: 0%;
 	margin-right: 0%;
 }
-.right {
+
+.right p, .right .p, .right p.p {
 	text-align: right;
 	margin-left: 0%;
 	margin-right: 0%;
@@ -966,6 +969,13 @@ li {
 	/*page-break-before:always;*/
 }
 
+.chapter_sub_title {
+    font-family: "kt", "zw";
+    text-align: justify;
+	text-indent: 0em!important;
+    margin-bottom: 1em;
+}
+
 .chapter_author {
     font-family: "kt", "zw";
     text-align: right;
@@ -1267,13 +1277,14 @@ class BlockContainer(ContentElement):
     def to_html(self, img_resolver):
         html = u""
 
-        if self.style_class:
-            html += u'<div class="{0}">'.format(self.style_class)
+        if self.lines:
+            if self.style_class:
+                html += u'<div class="{0}">'.format(self.style_class)
 
-        html += to_html(self.lines, img_resolver)
+            html += to_html(self.lines, img_resolver)
 
-        if self.style_class:
-            html += u'</div>'
+            if self.style_class:
+                html += u'</div>'
 
         return html
 
@@ -1283,6 +1294,14 @@ class BlockContainer(ContentElement):
     def get_images(self):
         for img in get_images(self.lines):
             yield img
+#   }}}
+
+#   {{{ -- class StyledBlock
+class StyledBlock(BlockContainer):
+    """ 带样式的块 """
+    def __init__(self, style_class, lines=None):
+        BlockContainer.__init__(self, style_class)
+        self.append_lines(lines)
 #   }}}
 
 #   {{{ -- class Literal
@@ -2851,8 +2870,10 @@ class HtmlBuilderParser(Parser):
         # <td><font color="#0000FF">&nbsp;</font><A HREF="刘慈欣000.htm" ><font color="#0000FF">★刘慈欣资料</font></A></td>
         re.compile(u".*?<td[^>]*>\s*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>.+?)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>", re.IGNORECASE),
         re.compile(u".*?<td[^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>.+?)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?(?:</font[^>]*>(?:&nbsp;|　|\s)*)</td>", re.IGNORECASE),
-        re.compile(u".*?<td[^>]*>\s*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)(?P<title>.+?)(?:</font[^>]*>(?:&nbsp;|　|\s)*)</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>", re.IGNORECASE),
+        re.compile(u".*?<td[^>]*>\s*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)?(?P<title>.+?)(?:</font[^>]*>(?:&nbsp;|　|\s)*)?</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>", re.IGNORECASE),
         #re.compile(u"<td[^>]*>\s*(?:</?font[^>]*>(?:&nbsp;|　|\s)*)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:</?font[^>]*>\s*)*(?P<title>.+?)(?:</?font[^>]*>\s*)*</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?(?:</?font[^>]*>\s*)*</td>", re.IGNORECASE | re.DOTALL),
+        # <font color="#000000">·</font><A HREF="mydoc001.htm" >第02章 春雪</A><BR>
+        re.compile(u".*?</font><A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)?(?P<title>.+?)(?:</font[^>]*>(?:&nbsp;|　|\s)*)?</A>", re.IGNORECASE),
     )
 
     re_title = re.compile(r"\s*<title>\s*([^<]+)\s*", re.IGNORECASE)
@@ -4208,6 +4229,8 @@ class TxtParser(Parser):
         re.compile(r"^\.(?P<title>[^. \t　].*)"),
     ]
 
+    re_dequote = re.compile(r"^(?P<quote>[\"'])(?P<text>.*?)(?P=quote)$")
+
     re_literal = re.compile(r"^[ \t　]{1,6}(?P<content>.*)")
 
     re_quote = re.compile(r"^\[(?P<style>quote|verse)(?:,\s*(?P<attribution>[^,]+?)\s*(?:,\s*(?P<citetitle>[^]]+?)\s*)?)?]")
@@ -4217,6 +4240,8 @@ class TxtParser(Parser):
     re_quoted_text = re.compile(r"(?:\[(?P<attrs>[^]]*)\])?(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
     
     re_head_attribute = re.compile(r"^:(?P<name>[^:]+):\s*(?P<value>.*?)\s*$")
+
+    re_attributes_line = re.compile(r"\[(?P<attrs>[^\]]+)\]\s*")
 
     re_table_begin = re.compile(r"^\|===+\s*$")
     re_table_end = re_table_begin
@@ -4289,6 +4314,32 @@ class TxtParser(Parser):
 
             return result
                 
+        def parse_attributes(line):
+            attrs = dict()
+
+            m = self.re_attributes_line.match(line)
+            if m:
+                position = 0
+                for attr in m.group("attrs").split(","):
+                    if "=" in attr:
+                        # 命名参数
+                        (name, val) = attr.split("=", 1)
+                        m = self.re_dequote.match(val)
+                        if m:
+                            attrs[name] = m.group("text")
+                        else:
+                            attrs[name] = val
+                    else:
+                        # 定位参数，从0开始
+                        m = self.re_dequote.match(attr)
+                        if m:
+                            attr = m.group("text")
+
+                        attrs[position] = attr
+                        position += 1
+
+            return attrs
+
         def parse_paragraph(line_holder):
             lines = list()
             for line in line_holder:
@@ -4347,7 +4398,7 @@ class TxtParser(Parser):
 
             return elements
                             
-        def parse_chapter_attributes(line_holder, chapter):
+        def parse_chapter_attributes(line_holder, chapter, last_attrs):
             for line in line_holder:
                 m = self.re_head_attribute.match(line)
                 if m:   # 是属性行
@@ -4359,22 +4410,28 @@ class TxtParser(Parser):
                         # attr_name lower case, alphanumeric, dash and
                         # underscore characters only — all other characters deleted
                         attr_name = re.sub(r"[^0-9a-zA-Z_-]", "", attr_name.lower())
-
-                        if attr_name in self.attributes and not getattr(chapter, self.attributes[attr_name]):
-                            setattr(chapter, self.attributes[attr_name], attr_value)
-                        elif attr_name == "cover" and inputter.exists(attr_value):
-                            chapter.cover = InputterImg(attr_value, inputter)
+                        last_attrs[attr_name] = attr_value
                 else:
                     line_holder.push_back(line)
                     break
 
-        def handle_table(line, line_holder, content):
+            for attr_name in last_attrs:
+                attr_value = last_attrs[attr_name]
+
+                if attr_name in self.attributes and not getattr(chapter, self.attributes[attr_name]):
+                    setattr(chapter, self.attributes[attr_name], attr_value)
+                elif attr_name == "cover" and inputter.exists(attr_value):
+                    chapter.cover = InputterImg(attr_value, inputter)
+
+        def handle_table(line, line_holder, content, last_attrs):
             def append_row(table, row_text, sep="|"):
                 row = list()
                 for cell in row_text.split(sep):
                     try:
                         row.append(list())
-                        parse_texts(self.LineHolder(cell.splitlines()), row[-1])
+                        lh = self.LineHolder(cell.splitlines())
+                        while True:
+                            parse_texts(lh, row[-1])
                     except StopIteration:
                         pass
 
@@ -4455,31 +4512,41 @@ class TxtParser(Parser):
                 retain_line_break=True)
             return True
 
-        def parse_texts(line_holder, content):
-            """ 解释除了标题、表格以外的内容 """
-            for line in line_holder:
-                if self.re_empty_line.match(line):
-                    continue
+        def parse_texts(line_holder, content, last_attrs):
+            """ 解释除了标题、表格以外的内容.
+            
+            会抛出StopIteration异常 """
+            line = line_holder.next()
 
-                if self.re_title.match(line) or self.re_table_begin.match(line):
-                    line_holder.push_back(line)
-                    return
+            if self.re_empty_line.match(line):
+                return
 
-                if handle_quote(line, line_holder, content):
-                    continue
-
-                if handle_literal(line, line_holder, content):
-                    continue
-
-                if handle_image(line, content):
-                    continue
-
-                if handle_section_title(line, content):
-                    continue
-
+            if self.re_title.match(line) or self.re_table_begin.match(line) or self.re_attributes_line.match(line):
                 line_holder.push_back(line)
+                return
 
-                # 正文内容
+            if handle_quote(line, line_holder, content):
+                return
+
+            if handle_literal(line, line_holder, content):
+                return
+
+            if handle_image(line, content):
+                return
+
+            if handle_section_title(line, content):
+                return
+
+            line_holder.push_back(line)
+
+            # 正文内容
+            if last_attrs.has_key(ASCIIDOC_ATTR_ROLE) and last_attrs[ASCIIDOC_ATTR_ROLE]:
+                # 指定了class
+                content.append(
+                    StyledBlock(
+                        last_attrs[ASCIIDOC_ATTR_ROLE],
+                        [ Line(parse_quoted_text(l)) for l in concat_lines(parse_paragraph(line_holder))]))
+            else:
                 for l in concat_lines(parse_paragraph(line_holder)):
                     content.append(Line(parse_quoted_text(l)))
 
@@ -4492,9 +4559,22 @@ class TxtParser(Parser):
         curr_chapter = chapter_stack[-1]
 
         line_holder = self.LineHolder(inputter.read_lines(inputter.entry))
+        last_attrs = dict()
+
         try:
             while True:
                 line = line_holder.next()
+
+                # 处理属性行
+                attrs = parse_attributes(line)
+                if attrs:
+                    if last_attrs:
+                        for k in attrs:
+                            last_attrs[k] = attrs[k]
+                    else:
+                        last_attrs = attrs
+
+                    continue
 
                 # 处理title
                 m = self.re_title.match(line)
@@ -4515,14 +4595,14 @@ class TxtParser(Parser):
                     curr_chapter.parent.subchapters.append(curr_chapter)
 
                     chapter_stack.append(curr_chapter)
-                    parse_chapter_attributes(line_holder, curr_chapter)
-                    continue
+                    parse_chapter_attributes(line_holder, curr_chapter, last_attrs)
+                elif handle_table(line, line_holder, curr_chapter.content, last_attrs):
+                    pass
+                else:
+                    line_holder.push_back(line)
+                    parse_texts(line_holder, curr_chapter.content, last_attrs)
 
-                if handle_table(line, line_holder, curr_chapter.content):
-                    continue
-
-                line_holder.push_back(line)
-                parse_texts(line_holder, curr_chapter.content)
+                last_attrs.clear()
         except StopIteration:
             pass
 
@@ -4619,7 +4699,9 @@ class CollectionParser(Parser):
                         if m:
                             alt_entry_links.add(m.group("root"))
 
+                    #print line
                     for re_link in self.re_links:
+                        #print re_link.pattern
                         m = re_link.match(line)
 
                         if not m:
@@ -4823,7 +4905,7 @@ class CollectionParser(Parser):
 
 #     {{{ ---- HtmlBuilderCollectionParser
 class HtmlBuilderCollectionParser(CollectionParser):
-    default_entrys = ( u"cover.html", u"cover.htm" )
+    default_entrys = ( u"cover.html", u"cover.htm", u"index.htm" )
 
     re_auto_levels  = (
         re.compile(u".*<td[^>]*class=m6[^>]*>([^<]+)</td>.*", re.IGNORECASE),
@@ -4831,7 +4913,9 @@ class HtmlBuilderCollectionParser(CollectionParser):
         )
 
     re_links = (
-        re.compile(u".*<td[^>]*>[ \t　]*<A[^>]*HREF=['\"](?P<root>[^\"']+)/index\.html['\"]\s+title=进入阅读[^>]*>(?P<title>[^<]+)</A>.*", re.IGNORECASE),
+        re.compile(u".*<td[^>]*>[ \t　]*<A[^>]*HREF=['\"](?P<root>[^\"']+)/index\.html?['\"]\s+title=进入阅读[^>]*>(?P<title>[^<]+)</A>.*", re.IGNORECASE),
+        # <td align="center" style="border: 1 dotted #996600"><a href="zw8/index.htm"><img src="zw8.jpg" width="150" height="220" border="0" alt="异变"></a></td>
+        re.compile(u".*<td[^>]*>\s*<a[^>]+href=\"(?P<root>[^\"]+)/index\.html?\"[^>]*>\s*<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*alt=\"(?P<title>[^\"]+)\"[^>]*>\s*</a>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>.*", re.IGNORECASE),
         re.compile(
             u".*" +
             u"<td[^>]*>" +
@@ -5014,6 +5098,14 @@ def to_asciidoc(content):
             text += "\n\n"
         elif isinstance(line, ContentElement):
             text += line.to_asciidoc()
+        elif isinstance(line, Img):
+            try:
+                text += u"\n\nimage:{src}[title=\"{desc}\"]\n\n".format(
+                    src = u'{id}{ext}'.format(id=line.id(), ext=line.extension()),
+                    desc = escape(line.desc()) if line.desc() else u"")
+            except:
+                if not options.skip_bad_img:
+                    raise
         else:
             raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
@@ -5028,7 +5120,19 @@ def get_images(content):
         content = [ content, ]
 
     for line in content:
-        if isinstance(line, Img):
+        if isinstance(line, ChapterInfo):
+            # 处理章节封面
+            if line.cover:
+                yield line.cover
+
+            # 处理章节内容
+            for img in get_images(line.content):
+                yield img
+
+            # 处理子章节
+            for img in get_images(line.subchapters):
+                yield img
+        elif isinstance(line, Img):
             yield line
         elif isinstance(line, ContentElement):
             # 引用中也可能有图片
@@ -5185,7 +5289,7 @@ class HtmlConverter(object):
 
         if chapter.sub_title:
             html += u"""\
-        <h{hlevel} class='sub_title chapter_sub_title_{level}'>{sub_title}</h{hlevel}>
+        <h{hlevel} class='sub_title chapter_sub_title chapter_sub_title_{level} chapter_sub_title_h{hlevel}'>{sub_title}</h{hlevel}>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5325,15 +5429,18 @@ class HtmlConverter(object):
             level  = chapter.level,
             title  = escape(title))
 
-        for c in ['author', 'originated', 'publish_date', 'source']:
+        for c in ['sub_title', 'author', 'originated', 'publish_date', 'source']:
             v = getattr(chapter, c)
             if v:
-                html += u"<p class='p chapter_{name}'>{value}</p>\n""".format(name = c, value = v)
+                html += u"<p class='p chapter_{name} chapter_{name}_{level} chapter_{name}_h{level}'>{value}</p>\n""".format(
+                    name = c, value = v, level=chapter.level, hlevel=hlevel)
 
         if chapter.intro:
             html += u"".join([
                 u"<div class='chapter_intro chapter_intro_{level}'>\n".format(level=chapter.level),
-                u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in chapter.intro)),
+                to_html(
+                    chapter.intro,
+                    lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename))),
                 u"</div>\n"])
 
         html += u"</div>"
@@ -6078,8 +6185,17 @@ class TxtConverter(object):
     def convert(self, outputter, book):
         def convert_chapter(chapter):
             text = u"\n"
+            attrs = list()
+
             if chapter.author:
-                text += u"[author={author}]\n".format(author=chapter.author)
+                attrs.append(u"author=\"{author}\"".format(author=chapter.author))
+
+            if chapter.cover:
+                attrs.append(u"cover=\"{cover}\"".format(
+                    cover=u'{id}{ext}'.format(id=chapter.cover.id(), ext=chapter.cover.extension())))
+
+            if attrs:
+                text += u"[" + u",".join(attrs) + u"]\n"
 
             text += u"=" + u"=" * (chapter.level - CHAPTER_TOP_LEVEL) + u" "
             text += chapter.title
@@ -6095,6 +6211,19 @@ class TxtConverter(object):
                 text += convert_chapter(c)
 
             return text
+
+        # 先处理所有图片，为图片加上ID
+        saved_files = dict()
+        for img in get_images(book):
+            if not saved_files.has_key(img.unique_key()):
+                img.set_id(u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(saved_files)+1))
+                img.resize(MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)       
+                saved_files[img.unique_key()] = True
+
+                outputter.add_file(
+                    u'{id}{ext}'.format(id=img.id(), ext=img.extension()),
+                    img.content(),
+                    id=img.id())
 
         text = u"= " + book.title + u"\n"
         text += u":Author: " + book.author + u"\n" if book.author else u""
@@ -6118,7 +6247,6 @@ class TxtConverter(object):
             text += convert_chapter(chapter)
 
         outputter.add_file(self.filename, text.encode(options.encoding))
-
 #   }}}
 
 # }}}
