@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120409"
+VERSION=u"20120414"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -64,6 +64,8 @@ TITLE_ONLY_COVER_PATTERNS = [
 ]
 
 COVER_EXTENSIONS = [ u".png", u".jpg", u".gif", u".jpeg", u".JPG", u".PNG", u".GIF", u".JPEG" ]
+
+DEFAULT_ENCODING = "GB18030"
 
 BOOK_DATABASE = os.path.join(os.getenv("HOME"), "ebooks", "book_database.db")
 
@@ -1870,6 +1872,7 @@ def guess_title_author(filename):
         )
     re_title_author_patterns = (
         re.compile(u'.*《(?P<title>[^》]+)》(?:[^:：]*[:：])?(?P<author>[^:：]+)', re.IGNORECASE),
+        re.compile(u'.*《(?P<title>[^》]+)》(?P<author>.*)', re.IGNORECASE),           # 匹配只有《书名》的形式
         re.compile(u'(?P<title>.+)作者\s*[:：]\s*(?P<author>.+)', re.IGNORECASE),      # 有'作者'字样
         re.compile(u'(?P<title>.+)[-－_＿:：](?P<author>.+)', re.IGNORECASE),          # -或_或:分隔
         re.compile(u'^(?P<title>[^ 　]+)[ 　]+(?P<author>.+)', re.IGNORECASE),         # 空格分隔
@@ -1904,8 +1907,9 @@ def guess_title_author(filename):
             title  = title.strip(u" 　\t- _－＿")
             author = author.strip(u" 　\t- _－＿")
 
-            if title and author:
-                break
+            break
+            #if title and author:
+            #    break
 
     if not title or not author:
         title  = ""
@@ -2253,7 +2257,7 @@ class HtmlContentNormalizer(object):
         else:
             self.re_imgs  = re_imgs
 
-    def normalize(self, line):
+    def normalize(self, line, inputter=None):
         lines = list()
 
         if not line:
@@ -2263,9 +2267,9 @@ class HtmlContentNormalizer(object):
         start_pos = 0
         for m in self.re_quote.finditer(line):
             if m.start() > start_pos:
-                self.content.extend(self._normalize_block_content(line[start_pos:m.start()]))
+                self.content.extend(self._normalize_block_content(line[start_pos:m.start()], inputter))
 
-            quote_lines = self._normalize_block_content(m.group('content'))
+            quote_lines = self._normalize_block_content(m.group('content'), inputter)
             if quote_lines:
                 lines.append(Quote(quote_lines))
 
@@ -2273,21 +2277,24 @@ class HtmlContentNormalizer(object):
 
         # 加入最后的内容
         if start_pos < len(line):
-            lines.extend(self._normalize_block_content(line[start_pos:]))
+            lines.extend(self._normalize_block_content(line[start_pos:], inputter))
 
         return lines
 
-    def _normalize_block_content(self, block_content):
+    def _normalize_block_content(self, block_content, inputter=None):
         lines = list()
         for line in self.re_content_line_sep.split(block_content):
             line = line.strip()
             if line:
-                lines.extend(self._normalize_line(line))
+                lines.extend(self._normalize_line(line, inputter))
 
         return lines
 
-    def _normalize_line(self, line):
+    def _normalize_line(self, line, inputter=None):
         lines = list()
+
+        if not inputter:
+            inputter = self.inputter
 
         # 找出所有可能的图片位置
         img_pos = list()
@@ -2314,7 +2321,7 @@ class HtmlContentNormalizer(object):
                 lines.extend(self._to_text(line[start_pos:pos["start"]]))
 
             # 加入图片
-            lines.append(InputterImg(pos["url"], self.inputter, title_normalize(pos["desc"])))
+            lines.append(InputterImg(pos["url"], inputter, title_normalize(pos["desc"])))
 
             start_pos = pos["end"]
 
@@ -2454,8 +2461,15 @@ class Inputter(object):
         # 解释不成功，用chardet模块尝试查找编码
         logging.info("Checking with chardet")
         encoding = chardet.detect(binary)["encoding"]
-        logging.info("  encoding is {0}".format(encoding))
-        u = unicode(binary, encoding)
+
+        if not encoding:
+            encoding = self.last_encoding if self.last_encoding else DEFAULT_ENCODING
+
+            logging.info(u"  Unable to detect encoding for '{0}', using {1}".format(self.fullpath(filename), encoding))
+        else:
+            logging.info(u"  encoding is {0} for '{1}'".format(encoding, self.fullpath(filename)))
+
+        u = unicode(binary, encoding, 'ignore')     # 可能有部分字符有问题，允许部分编码错误
         last_encoding = encoding
         return u
 
@@ -2706,7 +2720,11 @@ class SubInputter(Inputter):
         self.inputter.__exit(*args)
 
     def read_binary(self, filename):
-        return self.inputter.read_binary(os.path.join(self.root, filename))
+        try:
+            return self.inputter.read_binary(os.path.join(self.root, filename))
+        except:
+            print u"root: '{0}' filename: '{1}' fullpath: '{2}'".format(self.root, filename, self.fullpath(filename))
+            raise
 
     def exists(self, filename):
         return self.inputter.exists(os.path.join(self.root, filename))
@@ -2851,14 +2869,14 @@ class HtmlBuilderParser(Parser):
     class ContentNormalizer(HtmlContentNormalizer):
         re_section_title = re.compile(u"^\s*<font class=f10>(?P<title>[^<]+)</font>\s*$")
 
-        def _normalize_line(self, line):
+        def _normalize_line(self, line, inputter=None):
             m = self.re_section_title.match(line)
             if m:
                 lines = list()
                 lines.append(SectionTitle(title_normalize_from_html(m.group("title"))))
                 return lines
 
-            return HtmlContentNormalizer._normalize_line(self, line)
+            return HtmlContentNormalizer._normalize_line(self, line, inputter)
 
     def _get_index_filenames(self, inputter):
         index_filenames = list()
@@ -3301,7 +3319,7 @@ class EasyChmParser(Parser):
             for cleanup in self.re_content_cleanups:
                 content = cleanup[0].sub(cleanup[1], content)
 
-            content = normalizer.normalize(content)
+            content = normalizer.normalize(content, inputter)
 
             if content:
                 if has_inner_title and isinstance(content[0], basestring):
@@ -4961,11 +4979,15 @@ def to_html(content, img_resolver):
         elif isinstance(line, ContentElement):
             html += line.to_html(img_resolver)
         elif isinstance(line, Img):
-            html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
-                src = img_resolver(line) if img_resolver else line.filename(),
-                alt = escape(line.desc()) if line.desc() else u"img",
-                desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
-                )
+            try:
+                html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
+                    src = img_resolver(line) if img_resolver else line.filename(),
+                    alt = escape(line.desc()) if line.desc() else u"img",
+                    desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
+                    )
+            except:
+                if not options.skip_bad_img:
+                    raise
         else:
             raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
@@ -5475,7 +5497,11 @@ class HtmlConverter(object):
             if files:
                 # 生成章节中的图片
                 for img in get_images(chapter.content):
-                    self.append_image(files, img)
+                    try:
+                        self.append_image(files, img)
+                    except Exception as e:
+                        if not options.skip_bad_img:  # 允许跳过图片错误
+                            raise
 
             if chapter.subchapters:
                 # 有子章节，生成章节目录
@@ -6404,6 +6430,7 @@ if __name__ == "__main__":
     optparser.add_option('-v', '--verbose', action="store_true", dest="verbose", default=False, help="Be moderatery verbose")
     optparser.add_option('-s', '--silent',  action="store_true", dest="silent", default=False, help="Only show warning and errors")
     optparser.add_option('-n', '--nest-directory',  action="store_true", dest="nestdir", default=False, help="Create one sub directory for every chapte to avoid too much files in a single directory.")
+    optparser.add_option('-b', '--skip-bad-img',  action="store_true", dest="skip_bad_img", default=False, help="Ignore and skip bad or missing images")
 
     (options, args) = optparser.parse_args()
 
