@@ -530,8 +530,8 @@ p, .p, p.p {
 	/*margin-bottom:-0.9em;*/
 }
 
-table p, li p, .literal p, .quote p {
-	text-indent: 0em!important; /* no indent inside table/literal/quote*/
+table p, li p, .literal p, blockquote p {
+	text-indent: 0em!important; /* no indent inside table/literal/blockquote/
 }
 
 a{
@@ -1035,14 +1035,15 @@ li {
     color: #333333;
     font-size:100%;
 	font-family:"kt","zw";
+    text-align: left;
 }
 
 /* 引用 */
-.quote {
+blockquote {
     margin: 1em 1em 1em 2em;
 	border-style: none none none solid;
 	border-width: 0px 0px 0px 5px;
-	border-color: #CCCC00;
+	border-color: #F0F0F0;
     color: #333333;
     font-size:100%;
 	font-family:"kt","zw";
@@ -1314,7 +1315,7 @@ class Literal(BlockContainer):
     def to_asciidoc(self):
         text = u""
         for line in self.lines:
-            if isinstance(e, basestring):
+            if isinstance(line, basestring):
                 text += u"  " + line + u"\n"
             else:
                 raise TypeError("Need string type, not {0} type".format(type(line)))
@@ -1333,7 +1334,7 @@ class Quote(BlockContainer):
         self.append_lines(lines)
 
     def to_html(self, img_resolver):
-        html  = u'<div class="quote">'
+        html  = u'<blockquote>'
         html += to_html(self.lines, img_resolver)
 
         if self.citetitle:
@@ -1342,7 +1343,7 @@ class Quote(BlockContainer):
         if self.attribution:
             html += u'<div class="attribution">—— {0}</div>'.format(escape(self.attribution))
 
-        html += u'</div>'
+        html += u'</blockquote>'
 
         return html
 
@@ -4220,12 +4221,11 @@ class NbweeklyParser(Parser):
 
 #   {{{ -- TxtParser
 class TxtParser(Parser):
-    re_images = [
-        re.compile(r"^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)"),
-        re.compile(r"^image:(?P<src>[^ \t　[]+)(?:\[\]|\[[^]]*\btitle=(?P<quote>[\"'])(?P<title>.*?)(?P=quote)[^]]*\])"),
-    ]
+    # {{{ ---- Regexs
+    re_image1 = re.compile(r"^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)")
+    re_image2 = re.compile(r"^image:(?P<src>[^ \t　[]+)(?P<attrs>\[[^]]*\])")
 
-    re_sections = [
+    re_block_titles = [
         re.compile(r"^\.(?P<title>[^. \t　].*)"),
     ]
 
@@ -4237,20 +4237,23 @@ class TxtParser(Parser):
 
     re_paragraph_end = re.compile(r"^[ \t　]*$|^\|==+")
 
-    re_quoted_text = re.compile(r"(?:\[(?P<attrs>[^]]*)\])?(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
+    re_quoted_text = re.compile(r"(?P<attrs>\[[^]]*\])?(?P<quote_char>\*\*|\+\+|__|##)(?P<text>.*?)(?P=quote_char)")
     
     re_head_attribute = re.compile(r"^:(?P<name>[^:]+):\s*(?P<value>.*?)\s*$")
 
-    re_attributes_line = re.compile(r"\[(?P<attrs>[^\]]+)\]\s*")
+    re_attributes = re.compile(r"^\[(?P<attrs>[^\]]+)\]\s*$")
 
     re_table_begin = re.compile(r"^\|===+\s*$")
     re_table_end = re_table_begin
 
     re_empty_line = re.compile(r"^[ \t　]*$")
 
-    re_title = re.compile("^(?P<leading_char>=+)\s+(?P<title>.*?)(?:\s+(?P=leading_char))?\s*$")
+    re_section_title = re.compile("^(?P<leading_char>=+)\s+(?P<title>.*?)(?:\s+(?P=leading_char))?\s*$")
 
-    # 在文件header中的属性名与ChapterInfo中字段的对应关系
+    re_delimited_block = re.compile("^(?P<delimit_char>[/\+-.\*_=])(?P=delimit_char){3,}\s*$")
+    # }}}
+
+    # {{{ ---- 在文件header中的属性名与ChapterInfo中字段的对应关系
     attributes = {
         "title":       "title",
         "subtitle":    "sub_title",
@@ -4263,7 +4266,9 @@ class TxtParser(Parser):
         "publistver":  "publist_ver",
         "description": "intro",
     }
+    # }}}
 
+    # {{{ ---- class LineHolder
     class LineHolder(object):
         re_comment_line = re.compile(r"^//")
         def __init__(self, container):
@@ -4287,8 +4292,11 @@ class TxtParser(Parser):
 
         def push_back(self, v):
             self.stacks.append(v)
+    # }}}
 
+    # {{{ ---- func parse
     def parse(self, inputter, book_title, book_author):
+        # {{{ ------ func concat_lines
         def concat_lines(lines):
             """ 把多行按asciidoc规则合并。连续的非空行将连接为一行。返回合并后的行 """
             result = list()
@@ -4313,11 +4321,18 @@ class TxtParser(Parser):
                 result.append(last_line)
 
             return result
+        # }}}
                 
-        def parse_attributes(line):
+        # {{{ ------ func parse_attributes
+        def parse_attributes(line, last_attrs):
+            """ 解释属性行
+
+            返回True表示line是属性行，包含的属性将合并到last_attrs中。
+            False表示不是属性行。"""
+
             attrs = dict()
 
-            m = self.re_attributes_line.match(line)
+            m = self.re_attributes.match(line)
             if m:
                 position = 0
                 for attr in m.group("attrs").split(","):
@@ -4338,9 +4353,17 @@ class TxtParser(Parser):
                         attrs[position] = attr
                         position += 1
 
-            return attrs
+                    if attrs:
+                        for k in attrs:
+                            last_attrs[k] = attrs[k]
 
-        def parse_paragraph(line_holder):
+                        return True
+
+            return False
+        # }}}
+
+        # {{{ ------ func get_paragraph
+        def get_paragraph(line_holder, retain_line_break=False):
             lines = list()
             for line in line_holder:
                 if not self.re_paragraph_end.match(line):
@@ -4349,25 +4372,23 @@ class TxtParser(Parser):
                     line_holder.push_back(line)
                     break
 
+            if not retain_line_break:
+                # 不保留换行符，把所有连续行连接为一行
+                lines = concat_lines(lines)
+
             return lines
+        # }}}
 
-        def parse_special_paragraph(line_holder, content, block, retain_line_break=True):
-            lines = parse_paragraph(line_holder)
-
-            if lines:
-                if not retain_line_break:
-                    lines = concat_lines(lines)
-
-                if lines:
-                    block.append_lines(lines)
-                    content.append(block)
-
+        # {{{ ------ func parse_quoted_text
         def parse_quoted_text(text):
             elements = list()
             start = 0
             for me in self.re_quoted_text.finditer(text):
                 if me.start() != start: # 匹配前的部分
                     elements.append(text[start:me.start()])
+
+                attrs = dict()
+                parse_attributes(me.group("attrs"), attrs)
 
                 quote_char = me.group("quote_char")
                 if quote_char == "__":
@@ -4381,12 +4402,13 @@ class TxtParser(Parser):
                 elif quote_char == "~":
                     elements.append(Subscript(parse_quoted_text(me.group("text"))))
                 else:
-                    attrs = me.group("attrs")
-                    if attrs == "underline":
+                    keyword = attrs[0] if attrs.has_key(0) else u""
+
+                    if keyword == "underline":
                         elements.append(Underline(parse_quoted_text(me.group("text"))))
-                    elif attrs == "overline":
+                    elif keyword == "overline":
                         elements.append(Overline(parse_quoted_text(me.group("text"))))
-                    elif attrs == "line-through":
+                    elif keyword == "line-through":
                         elements.append(LineThrough(parse_quoted_text(me.group("text"))))
                     else:
                         elements.append(parse_quoted_text(me.group("text")))
@@ -4397,7 +4419,9 @@ class TxtParser(Parser):
                 elements.append(text[start:])
 
             return elements
+        # }}}
                             
+        # {{{ ------ func parse_chapter_attributes
         def parse_chapter_attributes(line_holder, chapter, last_attrs):
             for line in line_holder:
                 m = self.re_head_attribute.match(line)
@@ -4422,7 +4446,9 @@ class TxtParser(Parser):
                     setattr(chapter, self.attributes[attr_name], attr_value)
                 elif attr_name == "cover" and inputter.exists(attr_value):
                     chapter.cover = InputterImg(attr_value, inputter)
+        # }}}
 
+        # {{{ ------ func handle_table
         def handle_table(line, line_holder, content, last_attrs):
             def append_row(table, row_text, sep="|"):
                 row = list()
@@ -4431,7 +4457,7 @@ class TxtParser(Parser):
                         row.append(list())
                         lh = self.LineHolder(cell.splitlines())
                         while True:
-                            parse_texts(lh, row[-1])
+                            parse_block(lh, row[-1])
                     except StopIteration:
                         pass
 
@@ -4464,40 +4490,52 @@ class TxtParser(Parser):
                 content.append(table)
 
             return True
-            
-        def handle_quote(line, line_holder, content):
-            m = self.re_quote.match(line)
-            if not m:
-                return False
+        # }}}
 
-            # 开始一个引用块
-            parse_special_paragraph(
-                line_holder, content,
-                Quote(attribution=m.group("attribution"), citetitle=m.group("citetitle")),
-                retain_line_break=(m.group("style")=="verse"))
-            return True
-
+        # {{{ ------ func handle_image
         def handle_image(line, content):
             # 处理图片
-            for re_image in self.re_images:
-                m = re_image.match(line)
-                if m:
-                    # 图片
-                    content.append(InputterImg(urldecode(m.group("src")), inputter, m.group("title")))
-                    return True
+            m = self.re_image1.match(line)
+            if m:
+                # 图片
+                content.append(InputterImg(urldecode(m.group("src")), inputter, m.group("title")))
+                return True
+
+            m = self.re_image2.match(line)
+            if m:
+                # 图片
+                attrs = dict()
+                parse_attributes(m.group("attrs"), attrs)
+
+                alt = u""
+                if attrs.has_key(0):
+                    alt = attrs[0]
+                elif attrs.has_key(ASCIIDOC_ATTR_ALT):
+                    alt = attrs[ASCIIDOC_ATTR_ALT]
+
+                title = u""
+                if attrs.has_key(ASCIIDOC_ATTR_TITLE):
+                    title = attrs[ASCIIDOC_ATTR_TITLE]
+
+                content.append(InputterImg(urldecode(m.group("src")), inputter, title))
+                return True
 
             return False
+        # }}}
 
-        def handle_section_title(line, content):
-            for re_section in self.re_sections:
-                m = re_section.match(line)
+        # {{{ ------ func handle_block_title
+        def handle_block_title(line, content):
+            for re_block_title in self.re_block_titles:
+                m = re_block_title.match(line)
                 if m:
                     # 节标题
                     content.append(SectionTitle(title_normalize_from_html(m.group("title"))))
                     return True
 
             return False
+        # }}}
 
+        # {{{ ------ func handle_literal
         def handle_literal(line, line_holder, content):
             # 识别是否开始一个literal block（由缩进引起）
             m = self.re_literal.match(line)
@@ -4506,26 +4544,88 @@ class TxtParser(Parser):
 
             # 有缩进的行，是Literal
             line_holder.push_back(line)
-            parse_special_paragraph(
-                line_holder, content, 
-                Literal(),
-                retain_line_break=True)
-            return True
 
-        def parse_texts(line_holder, content, last_attrs):
+            content.append(
+                Literal(
+                    get_paragraph(line_holder, retain_line_break=True)))
+
+            return True
+        # }}}
+
+        # {{{ ------ func handle_delimited_block
+        def handle_delimited_block(line, line_holder, content, last_attrs):
+            m = self.re_delimited_block.match(line)
+            if not m:
+                return False
+
+            delimit_char = m.group("delimit_char")
+
+            lines = list()
+            r = re.compile(u"^{delimit_char}{{4,}}\s*$".format(delimit_char=delimit_char))
+
+            try:
+                for l in line_holder:
+                    if r.match(l):
+                        break
+                    else:
+                        lines.append(l)
+            except StopIteration:
+                logging.error(u"Can't find end delimit block: '" + line + u"'")
+                raise
+
+            lh = self.LineHolder(lines)
+            if delimit_char == "_":
+                block = Quote()
+                content.append(block)
+            else:
+                block = BlockContainer()
+                content.append(block)
+
+            block_content = list()
+            parse_blocks(lh, block_content, last_attrs)
+
+            block.append_lines(block_content)
+
+            return True
+        # }}}
+
+        # {{{ ------ func parse_paragraph
+        def parse_paragraph(line_holder, content, last_attrs):
+            if last_attrs.has_key(0) and last_attrs[0] == "quote":
+                # 开始一个引用块
+                attribution = last_attrs[1] if last_attrs.has_key(1) else u""
+                citetitle = last_attrs[2] if last_attrs.has_key(2) else u""
+
+                content.append(
+                    Quote(
+                        [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder) ],
+                    attribution,
+                    citetitle))
+            elif last_attrs.has_key(ASCIIDOC_ATTR_ROLE) and last_attrs[ASCIIDOC_ATTR_ROLE]:
+                # 指定了class
+                content.append(
+                    StyledBlock(
+                        last_attrs[ASCIIDOC_ATTR_ROLE],
+                        [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder)]))
+            else:
+                for l in get_paragraph(line_holder):
+                    content.append(Line(parse_quoted_text(l)))
+        # }}}
+
+        # {{{ ------ func parse_block
+        def parse_block(line_holder, content, last_attrs, line=None):
             """ 解释除了标题、表格以外的内容.
             
+            每次处理一个block。
+
             会抛出StopIteration异常 """
-            line = line_holder.next()
+            if line is None:
+                line = line_holder.next()
 
             if self.re_empty_line.match(line):
                 return
 
-            if self.re_title.match(line) or self.re_table_begin.match(line) or self.re_attributes_line.match(line):
-                line_holder.push_back(line)
-                return
-
-            if handle_quote(line, line_holder, content):
+            if handle_table(line, line_holder, content, last_attrs):
                 return
 
             if handle_literal(line, line_holder, content):
@@ -4534,21 +4634,77 @@ class TxtParser(Parser):
             if handle_image(line, content):
                 return
 
-            if handle_section_title(line, content):
+            if handle_block_title(line, content):
+                return
+
+            if handle_delimited_block(line, line_holder, content, last_attrs):
                 return
 
             line_holder.push_back(line)
 
             # 正文内容
-            if last_attrs.has_key(ASCIIDOC_ATTR_ROLE) and last_attrs[ASCIIDOC_ATTR_ROLE]:
-                # 指定了class
-                content.append(
-                    StyledBlock(
-                        last_attrs[ASCIIDOC_ATTR_ROLE],
-                        [ Line(parse_quoted_text(l)) for l in concat_lines(parse_paragraph(line_holder))]))
-            else:
-                for l in concat_lines(parse_paragraph(line_holder)):
-                    content.append(Line(parse_quoted_text(l)))
+            parse_paragraph(line_holder, content, last_attrs)
+        # }}}
+
+        # {{{ ------ func parse_blocks
+        def parse_blocks(line_holder, content, last_attrs):
+            try:
+                while True:
+                    line = line_holder.next()
+
+                    # 处理属性行
+                    if parse_attributes(line, last_attrs):
+                        continue
+
+                    parse_block(line_holder, content, last_attrs, line=line)
+
+                    last_attrs.clear()
+            except StopIteration:
+                pass
+        # }}}
+
+        # {{{ ------ func parse_section_body
+        def parse_section_body(line_holder, chapter, last_attrs):
+            try:
+                while True:
+                    line = line_holder.next()
+
+                    # 处理属性行
+                    if parse_attributes(line, last_attrs):
+                        continue
+
+                    # 处理title
+                    m = self.re_section_title.match(line)
+                    if m:   
+                        level = len(m.group("leading_char"))
+
+                        if level <= chapter.level:
+                            line_holder.push_back(line)
+                            return
+
+                        # 子章节
+                        curr_chapter = Chapter()
+                        curr_chapter.title = title_normalize(m.group("title"))
+                        curr_chapter.level = level
+                        logging.debug(u"{indent}  Level {level} toc: {title}".format(
+                            indent=u"  "*(curr_chapter.level+3*inputter.nested_level), level=curr_chapter.level, title=curr_chapter.title))
+
+                        # 标题行
+                        curr_chapter.parent = chapter
+                        chapter.subchapters.append(curr_chapter)
+
+                        parse_chapter_attributes(line_holder, curr_chapter, last_attrs)
+                        
+                        last_attrs.clear()
+                        parse_section_body(line_holder, curr_chapter, last_attrs)
+                    else:
+                        line_holder.push_back(line)
+                        parse_block(line_holder, chapter.content, last_attrs)
+
+                    last_attrs.clear()
+            except StopIteration:
+                pass
+        # }}}
 
         if not inputter.entry or inputter.entry[-4:].lower() != ".txt":
             raise NotParseableError(u"{file} is not parseable by {parser}. Not .txt file!".format(
@@ -4561,51 +4717,7 @@ class TxtParser(Parser):
         line_holder = self.LineHolder(inputter.read_lines(inputter.entry))
         last_attrs = dict()
 
-        try:
-            while True:
-                line = line_holder.next()
-
-                # 处理属性行
-                attrs = parse_attributes(line)
-                if attrs:
-                    if last_attrs:
-                        for k in attrs:
-                            last_attrs[k] = attrs[k]
-                    else:
-                        last_attrs = attrs
-
-                    continue
-
-                # 处理title
-                m = self.re_title.match(line)
-                if m:   
-                    level = len(m.group("leading_char"))
-
-                    curr_chapter = Chapter()
-                    curr_chapter.title = title_normalize(m.group("title"))
-                    curr_chapter.level = level
-                    logging.debug(u"{indent}  Level {level} toc: {title}".format(
-                        indent=u"  "*(curr_chapter.level+3*inputter.nested_level), level=curr_chapter.level, title=curr_chapter.title))
-
-                    # 标题行
-                    while level <= chapter_stack[-1].level:
-                        chapter_stack.pop()
-                            
-                    curr_chapter.parent = chapter_stack[-1]
-                    curr_chapter.parent.subchapters.append(curr_chapter)
-
-                    chapter_stack.append(curr_chapter)
-                    parse_chapter_attributes(line_holder, curr_chapter, last_attrs)
-                elif handle_table(line, line_holder, curr_chapter.content, last_attrs):
-                    pass
-                else:
-                    line_holder.push_back(line)
-                    parse_texts(line_holder, curr_chapter.content, last_attrs)
-
-                last_attrs.clear()
-        except StopIteration:
-            pass
-
+        parse_section_body(line_holder, root_chapter, last_attrs) 
         book = Book()
 
         # 如果root_chapter只有一个子章节，则直接使用该章节
@@ -4625,6 +4737,7 @@ class TxtParser(Parser):
             book.author = book_author
 
         return book
+    # }}}
 #   }}}
 
 #   {{{ -- CollectionParsers
