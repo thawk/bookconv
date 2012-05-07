@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120414"
+VERSION=u"20120507"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2522,6 +2522,7 @@ class FileSysInputter(Inputter):
         return os.path.normpath(os.path.join(self.basedir, filename))
 #   }}}
 
+g_idx = 0
 #   {{{ -- ChmInputter
 class ChmInputter(Inputter):
     def __init__(self, filename, encoding=""):
@@ -2551,6 +2552,8 @@ class ChmInputter(Inputter):
         else:
             self.filelist = filelist
 
+        self.filelist.sort()
+
     def __enter__(self):
         return self
 
@@ -2575,6 +2578,7 @@ class ChmInputter(Inputter):
 
         # 文件是否存在
         idx = bisect_left(self.filelist, filename)
+
         if idx != len(self.filelist) and self.filelist[idx] == filename:
             return True
 
