@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120511"
+VERSION=u"20120514"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -531,7 +531,7 @@ p, .p, p.p {
 }
 
 table p, li p, .literal p, blockquote p {
-	text-indent: 0em!important; /* no indent inside table/literal/blockquote/
+	text-indent: 0em!important; /* no indent inside table/literal/blockquote */
 }
 
 a{
@@ -1029,7 +1029,7 @@ li {
 
 /* 引用 */
 .literal {
-    margin: 1em 1em 1em 1em;
+    margin: 1em 1em 1em 2em;
     border: none;
     padding: 0px 0px 0px 5px;
     color: #333333;
@@ -1038,9 +1038,15 @@ li {
     text-align: left;
 }
 
+.literal p {
+    line-height: 100%;
+    font-style: italic;
+}
+
 /* 引用 */
 blockquote {
     margin: 1em 1em 1em 2em;
+    padding-left: 0.5em;
 	border-style: none none none solid;
 	border-width: 0px 0px 0px 5px;
 	border-color: #F0F0F0;
@@ -4561,7 +4567,7 @@ class TxtParser(Parser):
             delimit_char = m.group("delimit_char")
 
             lines = list()
-            r = re.compile(u"^{delimit_char}{{4,}}\s*$".format(delimit_char=delimit_char))
+            r = re.compile(u"^[{delimit_char}]{{4,}}\s*$".format(delimit_char=delimit_char))
 
             try:
                 for l in line_holder:
@@ -4575,16 +4581,13 @@ class TxtParser(Parser):
 
             lh = self.LineHolder(lines)
             if delimit_char == "_":
-                block = Quote()
-                content.append(block)
+                # quote block
+                content.append(Quote(parse_blocks(self.LineHolder(lines))))
+            elif delimit_char == ".":
+                # literal block
+                content.append(Literal(lines))
             else:
-                block = BlockContainer()
-                content.append(block)
-
-            block_content = list()
-            parse_blocks(lh, block_content, last_attrs)
-
-            block.append_lines(block_content)
+                content.append(BlockContainer(parse_blocks(self.LineHolder(lines))))
 
             return True
         # }}}
@@ -4647,7 +4650,9 @@ class TxtParser(Parser):
         # }}}
 
         # {{{ ------ func parse_blocks
-        def parse_blocks(line_holder, content, last_attrs):
+        def parse_blocks(line_holder, last_attrs=dict()):
+            lines = list()
+
             try:
                 while True:
                     line = line_holder.next()
@@ -4656,11 +4661,13 @@ class TxtParser(Parser):
                     if parse_attributes(line, last_attrs):
                         continue
 
-                    parse_block(line_holder, content, last_attrs, line=line)
+                    parse_block(line_holder, lines, last_attrs, line=line)
 
                     last_attrs.clear()
             except StopIteration:
                 pass
+
+            return lines
         # }}}
 
         # {{{ ------ func parse_section_body
