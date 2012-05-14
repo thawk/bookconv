@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120514"
+VERSION=u"20120516"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -283,6 +283,8 @@ BOOK_DB = (
 
 # {{{ Globals
 options = dict()
+
+book_dir = os.getcwd()
 
 # 已经处理过的文件
 parsed_files = dict()
@@ -1967,24 +1969,41 @@ def guess_title_author(filename):
 #   }}}
 
 #   {{{ -- func lookup_cover
-def lookup_cover(title, author):
+def lookup_cover(title, author, exactly_match=False):
+    def do_lookup_cover_in_dir(path, title, author):
+        patterns = COVER_PATTERNS if author else TITLE_ONLY_COVER_PATTERNS
+        for pattern in patterns:
+            filename = pattern.format(title=title, author=author)
+            for ext in COVER_EXTENSIONS:
+                p = os.path.join(path, filename + ext)
+                if os.path.exists(p):
+                    return InputterImg(p)
+
     def do_lookup_cover(title, author):
         for cover_path in COVER_PATHS:
-            patterns = COVER_PATTERNS if author else TITLE_ONLY_COVER_PATTERNS
-            for pattern in patterns:
-                filename = pattern.format(title=title, author=author)
-                for ext in COVER_EXTENSIONS:
-                    p = os.path.join(cover_path, filename + ext)
-                    if os.path.exists(p):
-                        return InputterImg(p)
+            cover = do_lookup_cover_in_dir(cover_path, title, author)
+            if cover:
+                return cover;
 
         return None
+
+    if book_dir:
+        cover = do_lookup_cover_in_dir(book_dir, title, author)
+        if cover:
+            return cover
+
+        cover = do_lookup_cover_in_dir(book_dir, title, u"")
+        if cover:
+            return cover
 
     # 既考虑标题，又考虑作者
     if author:
         cover = do_lookup_cover(title, author)
         if cover:
             return cover
+
+    if exactly_match:
+        return None # Author not matched, lookup failed
 
     # 只考虑标题
     cover = do_lookup_cover(title, u"")
@@ -2841,7 +2860,14 @@ class Parser(object):
                     if cover and not book.cover:
                         book.cover = cover
                     elif not book.cover:
-                        book.cover = lookup_cover(book.title, book.author)
+                        if book_dir:
+                            for ext in COVER_EXTENSIONS:
+                                p = os.path.join(book_dir, "cover" + ext)
+                                if os.path.exists(p):
+                                    book.cover = InputterImg(p)
+
+                        if not book.cover:
+                            book.cover = lookup_cover(book.title, book.author)
 
                     return book
             except NotParseableError as e:
@@ -6461,12 +6487,24 @@ class ZipOutputter(Outputter):
 
 # {{{ convert_book
 def convert_book(path, output=u""):
+    # {{{ -- func chapters_normalize
     def chapters_normalize(chapter, level, prefix):
         if hasattr(chapter, "id"):
             chapter.id = prefix
 
         if hasattr(chapter, "level"):
             chapter.level = level
+
+        if not chapter.cover:
+            c = chapter
+            while c:
+                author = c.author
+                if author:
+                    break
+
+                c = c.parent
+
+            chapter.cover = lookup_cover(chapter.title, author, exactly_match=True)
 
         if chapter.subchapters:
             # 如果父章节没有内容，只有一个子章节，且与子章节名称一样，则可以合并
@@ -6519,8 +6557,9 @@ def convert_book(path, output=u""):
                         break
 
             chapters_normalize(c, level + 1, prefix + "_" + str(i + 1))
+    # }}}
 
-    # {{{ get_suitable_inputter
+    # {{{ -- get_suitable_inputter
     def get_suitable_inputter(path):
         inputter = None
 
@@ -6552,7 +6591,7 @@ def convert_book(path, output=u""):
         return inputter
     # }}}
 
-    # {{{ Parse book
+    # {{{ -- parse_book
     def parse_book(inputter):
         book = None
 
@@ -6616,6 +6655,7 @@ def convert_book(path, output=u""):
         return book
     # }}}
 
+    # {{{ -- func print_book_info
     def print_book_info(book):
         logging.info(u"Book Info:")
         logging.info(u"  Book Title:  '{title}'".format(title=book.title))
@@ -6626,9 +6666,16 @@ def convert_book(path, output=u""):
             logging.info(u"  Cover: Yes")
         else:
             logging.info(u"  Cover: None")
+    # }}}
 
+    # {{{ -- Function Body
     if options.plain_toc:
         logging.info(u"Using plain TOC")
+
+    if os.path.isfile(path):
+        book_dir = os.path.abspath(os.path.dirname(path))
+    else:
+        book_dir = os.path.abspath(os.path.dirname(os.path.dirname(os.path.join(path, ""))))
 
     inputter = get_suitable_inputter(path)
     with inputter:
@@ -6655,6 +6702,7 @@ def convert_book(path, output=u""):
         # }}}
 
     return 0
+    # }}}
 # }}}
 
 # {{{ main
