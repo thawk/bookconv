@@ -144,6 +144,9 @@ CONTENT_DIR = u"content"
 # 不大于该大小就使用嵌入式封面（上半显示图片，下半显示文字），否则将图片拉伸到全页面
 MAX_EMBED_COVER_HEIGHT = 300
 
+# 可嵌入目录页显示的最大preamble大小
+MAX_INLINE_PREAMBLE_SIZE = 100
+
 # 简介章节的缺省标题
 BOOK_INTRO_TITLE = u"内容简介"
 CHAPTER_INTRO_TITLE = u"内容简介"
@@ -1257,6 +1260,9 @@ class ContentElement(object):
     def to_asciidoc(self):
         raise NotImplementedError()
 
+    def content_size(self):
+        raise NotImplementedError()
+
     def get_images(self):
         return list()
 #   }}}
@@ -1299,6 +1305,9 @@ class BlockContainer(ContentElement):
 
     def to_asciidoc(self):
         return to_asciidoc(self.lines)
+
+    def content_size(self):
+        return content_size(self.lines)
 
     def get_images(self):
         for img in get_images(self.lines):
@@ -1428,6 +1437,9 @@ class InlineContainer(ContentElement):
                 raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
 
         return text
+
+    def content_size(self):
+        return content_size(self.sub_elements)
 
     def get_images(self):
         for img in get_images(self.sub_elements):
@@ -5258,6 +5270,22 @@ def to_asciidoc(content):
     return text
 #   }}}
 
+#   {{{ -- func content_size
+def content_size(content):
+    """ 计算内容content的大小 """
+    if not isinstance(content, list):
+        content = [ content, ]
+
+    size = 0
+    for line in content:
+        if isinstance(line, basestring):
+            size += len(line)
+        elif isinstance(line, ContentElement):
+            size += line.content_size()
+    
+    return size
+#   }}}
+
 #   {{{ -- func get_images
 def get_images(content):
     """ 取出content中包含的所有图片对象
@@ -5477,13 +5505,24 @@ class HtmlConverter(object):
         if chapter.author:
             html += u"<div class='toc_author'>{author}</div>".format(author=escape(chapter.author))
 
+        inline_preamble = False
+
+        if chapter.content and not chapter.content_file:    # 有章节前言，且应嵌入（content_file==u""）
+            # 章节的前言少于指定长度，可以整体嵌入目录页
+            inline_preamble = True
+
+            html += u"<div class='preamble'>{preamble}</div>".format(
+                preamble=to_html(
+                    chapter.content,
+                    lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename))))
+
         html += u"<ul class='toc_list'>"
 
         # 如果章节本身也有内容，则生成一个目录项
-        if chapter.content:
+        if chapter.content and chapter.content_file:
             html += u"<li><a href='{link}'>{title}</a></li>".format(
-                link = os.path.relpath(chapter.content_file, os.path.dirname(filename)),
-                title = u"章节正文")
+                    link = os.path.relpath(chapter.content_file, os.path.dirname(filename)),
+                    title = u"前言")
 
         for c in chapter.subchapters:
             html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
@@ -5788,8 +5827,10 @@ class HtmlConverter(object):
                         "id":       CHAPTER_TOC_PAGE_ID_FORMAT.format(chapter.id),
                         })
                 
-            if chapter.content or not chapter.entry_file:
-                # 有内容，或本章节没有生成任何文件，则需要生成一个内容文件
+            if     ((chapter.content and # 有内容
+                     (not chapter.subchapters or # 有内容且无子章节
+                      content_size(chapter.content) > MAX_INLINE_PREAMBLE_SIZE)) or # 有子章节，但章节内容太长，不适合放到章节目录中
+                    not chapter.entry_file): # 章节没有目录也没有正文，必须生成一个文件
                 filename = u"{name}{ext}".format(name=os.path.join(path, chapter.id), ext=HTML_EXT)
                 chapter.content_file = filename
 
