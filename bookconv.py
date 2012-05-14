@@ -880,8 +880,16 @@ li {
     line-height: 1.2;
 }
 
+.toc_page .toc_list img {
+    float: left;
+    max-width: 75px;
+    max-height: 100px;
+    margin-bottom: 0.5em;
+}
+
 .toc_page .toc_list li {
     padding-bottom: 0.5em;
+    clear: both;
 }
 
 .toc_page .toc_list li a {
@@ -5406,13 +5414,23 @@ class HtmlConverter(object):
         html += u"<ul class='toc_list'>"
 
         for c in book.subchapters:
-            html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
-                link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                title = escape(c.title),
-                intro = u"".join(
-                    to_html(
-                        c.intro,
-                        lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
+            if c.cover:
+                html += u"<li><a href='{link}'><img src='{cover}' />{title}</a><span class='intro'>{intro}</span></li>".format(
+                    cover = os.path.relpath(self.get_img_destpath_(files, c.cover), os.path.dirname(filename)),
+                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                    title = escape(c.title),
+                    intro = u"".join(
+                        to_html(
+                            c.intro,
+                            lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
+            else:
+                html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
+                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                    title = escape(c.title),
+                    intro = u"".join(
+                        to_html(
+                            c.intro,
+                            lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
             
         html += u"</ul></div>"
 
@@ -5525,10 +5543,17 @@ class HtmlConverter(object):
                     title = u"前言")
 
         for c in chapter.subchapters:
-            html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
-                link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                title = escape(c.title),
-                intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
+            if c.cover:
+                html += u"<li><a href='{link}'><img src='{cover}' />{title}</a><span class='intro'>{intro}</span></li>".format(
+                    cover = os.path.relpath(self.get_img_destpath_(files, c.cover), os.path.dirname(filename)),
+                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                    title = escape(c.title),
+                    intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
+            else:
+                html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
+                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
+                    title = escape(c.title),
+                    intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
             
         html += u"</ul></div>"
 
