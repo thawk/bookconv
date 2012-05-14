@@ -5518,6 +5518,11 @@ class HtmlConverter(object):
         if ancestors:
             html += u"<span class='toc_ancestors'>" + ancestors + "</span>\n"
 
+        if chapter.cover and chapter.cover.height() <= MAX_EMBED_COVER_HEIGHT:
+            html += u"<div class='cover chapter_cover'><img alt='{title}' src='{cover}' /></div>".format(
+                title = escape(title), 
+                cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
+
         html += u"<div class='toc_title'>{title}</div>".format(title=escape(title))
 
         if chapter.author:
