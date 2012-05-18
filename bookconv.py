@@ -1260,6 +1260,7 @@ class Book(ChapterInfo):
         ChapterInfo.__init__(self)
 
         self.text_page    = u""         # 正文第一页
+        self.meta_title   = u""         # 在opf文件中使用的标题
 #   }}}
 
 #   {{{ -- class ContentElement
@@ -6221,7 +6222,7 @@ class EpubConverter(Converter):
         # /ncx/docTitle/text
         textElem = xml.createElement("text")
         titleElem.appendChild(textElem)
-        textElem.appendChild(xml.createTextNode(unicode(book.title)))
+        textElem.appendChild(xml.createTextNode(unicode(book.meta_title if book.meta_title else book.title)))
 
         if book.author:
             # /ncx/docAuthor
@@ -6275,7 +6276,7 @@ class EpubConverter(Converter):
         # /package/metadata/title
         titleElem = xml.createElement("dc:title")
         metadataElem.appendChild(titleElem)
-        titleElem.appendChild(xml.createTextNode(unicode(book.title)))
+        titleElem.appendChild(xml.createTextNode(unicode(book.meta_title if book.meta_title else book.title)))
 
         # /package/metadata/creator
         authorElem = xml.createElement("dc:creator")
@@ -6792,10 +6793,9 @@ def convert_book(path, output=u""):
 
         # 仅当保留了当初的标题时，才使用从书名中猜测的信息
         if not book.title or book.title == fileinfo["title"]:
-            book.title  = fileinfo["title"] + fileinfo["extra_info"]
-            title = fileinfo["title"]
-        else:
-            title = book.title
+            book.meta_title  = fileinfo["title"] + fileinfo["extra_info"]
+            if not book.sub_title:
+                book.sub_title = fileinfo["extra_info"]
 
         if not book.author:
             book.author = fileinfo["author"]
@@ -6811,7 +6811,7 @@ def convert_book(path, output=u""):
             logging.info(u"Searching book information from internet...")
 
             bookinfo = {
-                "title"  : title,
+                "title"  : book.title,
                 "author" : book.author,
                 "l1cat"  : book.category,
                 "cover"  : cover,
@@ -6862,7 +6862,10 @@ def convert_book(path, output=u""):
         if output: 
             bookfilename = output
         else:
-            bookfilename = book_file_name(book.title, book.author, u".epub")
+            bookfilename = book_file_name(
+                book.meta_title if book.meta_title else book.title,
+                book.author,
+                u".epub")
 
         if os.path.splitext(bookfilename)[1].lower() == u".txt":
             with FileSysOutputter() as outputter:
