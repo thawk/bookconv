@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120518"
+VERSION=u"20120521"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -544,8 +544,8 @@ table p, li p, .literal p, blockquote p {
 	text-indent: 0em!important; /* no indent inside table/literal/blockquote */
 }
 
-a{
-text-decoration:none;
+a {
+    text-decoration:none;
 }
 
 .cover {
@@ -645,7 +645,7 @@ h1 {
 	font-family:"h1","ht","zw";
 }
 h2 {
-	/*color:white;*/
+	color:white;
     margin: 0 0 0.2em 0;
 	line-height:100%;
 	text-align: justify;
@@ -734,12 +734,6 @@ h6 {
 	color: #800000;
 }
 
-.title {
-  text-align: left;
-}
-a {
-  text-decoration: none;
-}
 li {
 	list-style-type:none;
 }
@@ -853,13 +847,6 @@ li {
     line-height: 1.2;
 }
     
-.toc_page .toc_list .cover img {
-    display: block;
-    float: left;
-    width: 150px;
-    max-height: 200px;
-}
-
 .toc_page .toc_list li {
     padding-bottom: 0.5em;
     clear: both;
@@ -868,13 +855,13 @@ li {
 
 .toc_page .toc_list li .info {
     display: block;
-    position: relative;
-    text-align: right;
+    /*position: relative;*/
+    /*text-align: right;*/
     margin-bottom: 0.5em;
 
     /* 使得info的高度为title/author的最大者 */
-    /*height: 1%;
-    overflow: hidden;*/
+    /*height: 1%;*/
+    /*overflow: hidden;*/
 }
 
 .toc_page .toc_list li a {
@@ -884,17 +871,29 @@ li {
     font-weight: bold;
     line-height: 1.2;
     text-align: left;
-    text-decoration: underline;
+}
+
+.toc_page .toc_list .cover img {
+    display: block;
+    float: left;
+    width: 150px;
+    height: auto;
+    max-height: 200px;
+    margin: 0 0.5em 0.5em 0;
 }
 
 .toc_page .toc_list li .title {
     display: block;
-    float: left;
+    width: 100%;
+    text-align: left;
+	font-family: "ht","zw";
 }
 
 .toc_page .toc_list li .author {
+    display: block;
     color: #2aa198; /* cyan */
     font-size: 0.8em;
+    width: 100%;
     text-align: right;
 	font-family: "kt","fs","zw";
 }
