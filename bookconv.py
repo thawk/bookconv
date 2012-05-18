@@ -147,6 +147,9 @@ MAX_EMBED_COVER_HEIGHT = 300
 # 可嵌入目录页显示的最大preamble大小
 MAX_INLINE_PREAMBLE_SIZE = 100
 
+# 在目录中显示的简介的最大大小，超出会被截断
+MAX_INLINE_INTRO_SIZE = 150
+
 # 简介章节的缺省标题
 BOOK_INTRO_TITLE = u"内容简介"
 CHAPTER_INTRO_TITLE = u"内容简介"
@@ -533,7 +536,7 @@ div {
 
 p, .p, p.p {
 	text-align: justify;
-	text-indent: 2em!important;
+    text-indent: 2em;
 	line-height:130%;
     margin-top: 0em;
     margin-bottom: 0.3em;
@@ -892,7 +895,7 @@ li {
 .toc_page .toc_list li .author {
     display: block;
     color: #2aa198; /* cyan */
-    font-size: 0.8em;
+    font-size: 0.9em;
     width: 100%;
     text-align: right;
 	font-family: "kt","fs","zw";
@@ -900,8 +903,14 @@ li {
 
 .toc_page .toc_list li .intro {
     display: block;
-    font-size: 1em;
+    font-size: 0.8em;
     text-indent: 0;
+}
+
+.toc_page .toc_list li .intro p {
+    line-height: normal;
+    padding: none;
+    margin: none;
 }
 
 .chapter_cover_header .cover {
@@ -1264,6 +1273,9 @@ class ContentElement(object):
     def to_asciidoc(self):
         raise NotImplementedError()
 
+    def to_text(self):
+        raise NotImplementedError()
+
     def content_size(self):
         raise NotImplementedError()
 
@@ -1310,6 +1322,9 @@ class BlockContainer(ContentElement):
     def to_asciidoc(self):
         return to_asciidoc(self.lines)
 
+    def to_text(self):
+        return to_text(self.lines)
+
     def content_size(self):
         return content_size(self.lines)
 
@@ -1337,11 +1352,20 @@ class Literal(BlockContainer):
         text = u""
         for line in self.lines:
             if isinstance(line, basestring):
+                text += u"  " + line + u"\n\n"
+            else:
+                raise TypeError("Need string type, not {0} type".format(type(line)))
+
+        return text
+
+    def to_text(self):
+        text = u""
+        for line in self.lines:
+            if isinstance(line, basestring):
                 text += u"  " + line + u"\n"
             else:
                 raise TypeError("Need string type, not {0} type".format(type(line)))
 
-        text += u"\n"
         return text
 #   }}}
 
@@ -1381,6 +1405,28 @@ class Quote(BlockContainer):
 
         text += u']\n'
         text += BlockContainer.to_asciidoc(self)
+        return text
+
+    def to_asciidoc(self):
+        text = BlockContainer.to_text(self)
+
+        ref = ""
+        
+        if self.attribution:
+            ref = self.attribution
+
+        if self.citetitle:
+            if ref:
+                ref += ','
+
+            ref += self.citetitle
+
+        if ref:
+            text += '－－'
+            text += ref
+            text += '\n'
+
+        return text
 #   }}}
 #  }}}
 
@@ -1437,6 +1483,18 @@ class InlineContainer(ContentElement):
                 text += escape(e)
             elif isinstance(e, InlineContainer):
                 text += e.to_asciidoc()
+            else:
+                raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
+
+        return text
+
+    def to_text(self):
+        text = u""
+        for e in self.sub_elements:
+            if isinstance(e, basestring):
+                text += escape(e)
+            elif isinstance(e, InlineContainer):
+                text += e.to_text()
             else:
                 raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
 
@@ -5229,15 +5287,16 @@ def to_html(content, img_resolver):
         elif isinstance(line, ContentElement):
             html += line.to_html(img_resolver)
         elif isinstance(line, Img):
-            try:
-                html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
-                    src = img_resolver(line) if img_resolver else line.filename(),
-                    alt = escape(line.desc()) if line.desc() else u"img",
-                    desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
-                    )
-            except:
-                if not options.skip_bad_img:
-                    raise
+            if img_resolver is not None:    # 如果img_resolver是None，忽略图片
+                try:
+                    html += u"<div class='img'><img alt='{alt}' src='{src}' />{desc}</div>".format(
+                        src = img_resolver(line) if img_resolver else line.filename(),
+                        alt = escape(line.desc()) if line.desc() else u"img",
+                        desc = u"<div class='desc'>{desc}</div>".format(desc=escape(line.desc())) if line.desc() else u""
+                        )
+                except:
+                    if not options.skip_bad_img:
+                        raise
         else:
             raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
@@ -5268,6 +5327,30 @@ def to_asciidoc(content):
             except:
                 if not options.skip_bad_img:
                     raise
+        else:
+            raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
+
+    return text
+#   }}}
+
+#   {{{ -- func to_text
+def to_text(content):
+    if not isinstance(content, list):
+        content = [ content, ]
+
+    text = u""
+
+    for line in content:
+        if isinstance(line, basestring):
+            text += line
+            text += "\n"
+        elif isinstance(line, InlineContainer):
+            text += line.to_text()
+            text += "\n"
+        elif isinstance(line, ContentElement):
+            text += line.to_text()
+        elif isinstance(line, Img):
+            pass    # 忽略图片
         else:
             raise NotImplementedError(u"Don't know how to covert {0} to html!".format(type(line)))
 
@@ -5431,11 +5514,17 @@ class HtmlConverter(object):
 
         html += u"</span>\n"  # span.info
 
+        intro_lines = u""
+        if chapter.intro:
+            intro_lines = to_text(chapter.intro)
+            if len(intro_lines) > MAX_INLINE_INTRO_SIZE:
+                intro_lines = intro_lines[:MAX_INLINE_INTRO_SIZE] + u"……"
+
+            intro_lines = intro_lines.splitlines()
+
         html += u"<div class='intro'>{intro}</div>".format(
                 intro = u"".join(
-                    to_html(
-                        chapter.intro,
-                        lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
+                    to_html(intro_lines, None)))
 
         html += u"</li>\n"
 
