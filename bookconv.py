@@ -507,13 +507,18 @@ HTML_STYLE = u"""\
 /*↑↑老牛字体样式2.1↑↑*/
 /*↑↑欢迎非商业性使用，但请注明“老牛字体样式”；商业使用请与老牛联系↑↑*/
 
+@page {
+    margin: none;
+    padding: none;
+    border-width: none;
+}
+
 body {
-	/*padding: 0%;
-	margin-top: 0%;
-	margin-bottom: 0%;
-	margin-left: 1%;
-	margin-right: 1%;
-	line-height:130%;*/
+	padding: none;
+    margin: none;
+    border-width: none;
+
+	line-height:130%;
 	text-align: justify;
 	font-family:"zw";
 	font-size:100%;
@@ -754,7 +759,7 @@ li {
     text-align: center;
 }
 
-.cover img {
+.book .cover img {
     height: 100%;
     max-width: 100%;
 }
@@ -847,12 +852,12 @@ li {
     font-size: 1em;
     line-height: 1.2;
 }
-
+    
 .toc_page .toc_list .cover img {
+    display: block;
     float: left;
-    max-width: 150px;
-    /*max-height: 200px;*/
-    margin-bottom: 0.5em;
+    width: 150px;
+    max-height: 200px;
 }
 
 .toc_page .toc_list li {
@@ -868,8 +873,8 @@ li {
     margin-bottom: 0.5em;
 
     /* 使得info的高度为title/author的最大者 */
-    height: 1%;
-    overflow: hidden;
+    /*height: 1%;
+    overflow: hidden;*/
 }
 
 .toc_page .toc_list li a {
@@ -6751,6 +6756,8 @@ def convert_book(path, output=u""):
     # {{{ -- Function Body
     if options.plain_toc:
         logging.info(u"Using plain TOC")
+
+    global book_dir
 
     if os.path.isfile(path):
         book_dir = os.path.abspath(os.path.dirname(path))
