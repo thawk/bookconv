@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120516"
+VERSION=u"20120518"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -581,15 +581,15 @@ text-decoration:none;
 }
 .heavy {
 	font-family:"ht","zw";
-	color:#268bd2;  /* blue */
-	/*font-weight:bold;*/
+	/*color:#268bd2;*/  /* blue */
+	font-weight:bold;
 	/*font-size:10.5pt;*/
 }
-.author {
+/*.author {
 	font-family:"kt","zw";
 	color:white;
 	font-size:10.5pt;
-}
+}*/
 .preface {
 	font-family:"fs","zw";
 }
@@ -615,7 +615,7 @@ text-decoration:none;
 	padding: 5px 5px 5px 5px;
 }
 h1 {
-	color:#268bd2;  /* blue */
+	/*color:#268bd2;*/  /* blue */
 	margin-top:61.8%;
 	margin-left:33%;
 	line-height:100%;
@@ -628,7 +628,7 @@ h1 {
 	font-family:"h1","ht","zw";
 }
 .chapter_content_begin h1 {
-	color:#268bd2;  /* blue */
+	/*color:#268bd2;*/  /* blue */
     margin: 0px 0px 0.5em 1.16em;
 	line-height:100%;
 	text-align: justify;
@@ -642,7 +642,7 @@ h1 {
 	font-family:"h1","ht","zw";
 }
 h2 {
-	color:white;
+	/*color:white;*/
 	margin-top:0;
     margin-bottom:0.2em;
 	line-height:100%;
@@ -673,7 +673,7 @@ h2 {
 }
 
 h3 {
-	color:#268bd2;  /* blue */
+	/*color:#268bd2;*/  /* blue */
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
@@ -763,7 +763,7 @@ li {
 }
 
 .title_page .title {
-	color:#268bd2;  /* blue */
+	/*color:#268bd2;*/  /* blue */
 	margin-top:61.8%;
 	margin-left:30%;
 	line-height:100%;
@@ -777,7 +777,7 @@ li {
 }
 
 .title_page .sub_title {
-	color:#268bd2;  /* blue */
+	/*color:#268bd2;*/  /* blue */
 	margin-left:30%;
     margin-top: 20px;
     margin-bottom: 10%;
@@ -810,45 +810,19 @@ li {
 	font-family:"fs","zw";
 }
 
-.chapter_cover_page img {
+.chapter .cover_page img {
     height: 100%;
     max-width: 100%;
 }
 
-.chapter_title_page .cover {
+.chapter .title_page .cover {
     margin-top:7%;
     height: 50%;
     text-align: center;
 }
 
-.chapter_title_page .title {
-	color:#268bd2;  /* blue */
-	margin-top:61.8%;
-	margin-left:30%;
-	line-height:100%;
-	text-align: justify;
-	border-style: none double none solid;
-	border-width: 0px 5px 0px 20px;
-	border-color: fuchsia;
-	font-weight:bold;
-	font-size:173%;
-	font-family:"h1","ht","zw";
-}
-
-.chapter_title_cover_page .title {
+.chapter .title_cover_page .title {
     margin-top: 4.8%;
-}
-
-.chapter_title_page .author {
-	color:gray;
-	margin-left:30%;
-	line-height:100%;
-	text-align: justify;
-    padding: 1em 5px 0px 20px;
-	page-break-before:avoid;
-	font-weight:bold;
-	font-size:120%;
-	font-family:"fs","zw";
 }
 
 .toc_page .toc_title {
@@ -861,6 +835,7 @@ li {
 }
 
 .toc_page .toc_author {
+    color: #2aa198; /* cyan */
     display: block;
     text-align: center;
     font-size: 1.2em;
@@ -880,16 +855,28 @@ li {
     line-height: 1.2;
 }
 
-.toc_page .toc_list img {
+.toc_page .toc_list .cover img {
     float: left;
-    max-width: 75px;
-    max-height: 100px;
+    max-width: 150px;
+    max-height: 200px;
     margin-bottom: 0.5em;
 }
 
 .toc_page .toc_list li {
     padding-bottom: 0.5em;
     clear: both;
+    position: relative;
+}
+
+.toc_page .toc_list li .info {
+    display: block;
+    position: relative;
+    text-align: right;
+    margin-bottom: 0.5em;
+
+    /* 使得info的高度为title/author的最大者 */
+    height: 1%;
+    overflow: hidden;
 }
 
 .toc_page .toc_list li a {
@@ -902,9 +889,21 @@ li {
     text-decoration: underline;
 }
 
+.toc_page .toc_list li .title {
+    display: block;
+    float: left;
+}
+
+.toc_page .toc_list li .author {
+    color: #2aa198; /* cyan */
+    font-size: 0.8em;
+    text-align: right;
+	font-family: "kt","fs","zw";
+}
+
 .toc_page .toc_list li .intro {
     display: block;
-    font-size: 0.7em;
+    font-size: 1em;
     text-indent: 0;
 }
 
@@ -4382,10 +4381,10 @@ class TxtParser(Parser):
             返回True表示line是属性行，包含的属性将合并到last_attrs中。
             False表示不是属性行。"""
 
-            attrs = dict()
-
             m = self.re_attributes.match(line)
             if m:
+                attrs = dict()
+
                 position = 0
                 for attr in m.group("attrs").split(","):
                     if "=" in attr:
@@ -4405,11 +4404,11 @@ class TxtParser(Parser):
                         attrs[position] = attr
                         position += 1
 
-                    if attrs:
-                        for k in attrs:
-                            last_attrs[k] = attrs[k]
+                if attrs:
+                    for k in attrs:
+                        last_attrs[k] = attrs[k]
 
-                        return True
+                    return True
 
             return False
         # }}}
@@ -4753,8 +4752,8 @@ class TxtParser(Parser):
                     else:
                         line_holder.push_back(line)
                         parse_block(line_holder, chapter.content, last_attrs)
+                        last_attrs.clear()
 
-                    last_attrs.clear()
             except StopIteration:
                 pass
         # }}}
@@ -5343,7 +5342,9 @@ class HtmlConverter(object):
     # {{{ ---- func cover_page
     def cover_page(self, files, filename, book, cover):
         html = U"""\
+      <div class='book'>
       <div class='cover'><img alt="{title}" src="{cover}" /></div>
+      </div>
 """.format(
             title = unicode(escape(book.title)),
             cover = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
@@ -5353,6 +5354,7 @@ class HtmlConverter(object):
 
     # {{{ ---- func title_page
     def title_page(self, filename, book):
+        html = u"<div class='book'>"
         if not book.sub_title:
             html = u"""\
             <div class='title_page'>
@@ -5374,11 +5376,13 @@ class HtmlConverter(object):
                 sub_title     = unicode(escape(book.sub_title)),
                 author        = unicode(escape(book.author)))
 
+        html += u"</div>"
         return html;
     # }}}
 
     # {{{ ---- func title_cover_page
     def title_cover_page(self, files, filename, book, cover):
+        html = u"<div class='book'>"
         if not book.sub_title:
             html = u"""\
             <div class='title_page title_cover_page'>
@@ -5404,35 +5408,53 @@ class HtmlConverter(object):
                 author        = unicode(escape(book.author)),
                 cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
 
+        html += u"</div>"
         return html;
+    # }}}
+
+    # {{{ ---- func toc_item
+    def toc_item(self, files, filename, chapter):
+        html = u"<li>"
+
+        if chapter.cover:
+            html += u"<a href='{link}' class='cover'><img src='{cover}' /></a>".format(
+                cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)),
+                link = os.path.relpath(chapter.entry_file, os.path.dirname(filename)))
+
+        html += u"<span class='info'>"
+
+        html += u"<a href='{link}'><span class='title'>{title}</span></a>".format(
+            link = os.path.relpath(chapter.entry_file, os.path.dirname(filename)),
+            title = escape(chapter.title))
+
+        if chapter.author:
+            html += u"<span class='author'>{author}</span>".format(
+                author = chapter.author)
+
+        html += u"</span>"  # span.info
+
+        html += u"<span class='intro'>{intro}</span>".format(
+                intro = u"".join(
+                    to_html(
+                        chapter.intro,
+                        lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
+
+        html += u"</li>"
+
+        return html
     # }}}
 
     # {{{ ---- func toc_page
     def toc_page(self, files, filename, book):
-        html = u"<div class='book_toc_page toc_page'>\n"
+        html = u"<div class='book'>"
+        html += u"<div class='toc_page'>\n"
         html += u"<div class='toc_title'>{title}</div>".format(title=u"目  录")
         html += u"<ul class='toc_list'>"
 
         for c in book.subchapters:
-            if c.cover:
-                html += u"<li><a href='{link}'><img src='{cover}' />{title}</a><span class='intro'>{intro}</span></li>".format(
-                    cover = os.path.relpath(self.get_img_destpath_(files, c.cover), os.path.dirname(filename)),
-                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                    title = escape(c.title),
-                    intro = u"".join(
-                        to_html(
-                            c.intro,
-                            lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
-            else:
-                html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
-                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                    title = escape(c.title),
-                    intro = u"".join(
-                        to_html(
-                            c.intro,
-                            lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
-            
-        html += u"</ul></div>"
+            html += self.toc_item(files, filename, c)
+
+        html += u"</ul></div></div>"
 
         return html
     # }}}
@@ -5440,7 +5462,9 @@ class HtmlConverter(object):
     # {{{ ---- func chapter_cover_page
     def chapter_cover_page(self, files, filename, chapter):
         html = U"""\
-      <div class='chapter_cover_page'><div class='cover chapter_cover chapter_large_cover'><img alt="{title}" src="{cover}" /></div></div>
+      <div class='chapter'>
+      <div class='cover_page'><div class='cover chapter_cover chapter_large_cover'><img alt="{title}" src="{cover}" /></div></div>
+      </div>
 """.format(
             title = escape(chapter.title_inner or chapter.title), 
             cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
@@ -5455,17 +5479,18 @@ class HtmlConverter(object):
         extra_class = u""
         img = u""
         if chapter.cover:
-            img = u"<div class='cover chapter_cover'><img alt='{title}' src='{cover}' /></div>".format(
+            img = u"<div class='cover'><img alt='{title}' src='{cover}' /></div>".format(
                 title = escape(title), 
                 cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
 
-            extra_class += u"chapter_title_cover_page"
+            extra_class += u"title_cover_page"
 
         if chapter.sub_title:
-            extra_class += u"chapter_title_page_with_sub_title"
+            extra_class += u"title_page_with_sub_title"
 
         html = u"""\
-        <div class='chapter_title_page {extra_class}' id='{id}'>{img}
+        <div class='chapter'>
+        <div class='title_page {extra_class}' id='{id}'>{img}
 """.format(
             extra_class = extra_class,
             id    = chapter.id,
@@ -5473,7 +5498,7 @@ class HtmlConverter(object):
 
         if title:
             html += u"""\
-        <h{hlevel} class='title chapter_title_{level}'>{title}</h{hlevel}>
+        <h{hlevel} class='title title_{level}'>{title}</h{hlevel}>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5481,7 +5506,7 @@ class HtmlConverter(object):
 
         if chapter.sub_title:
             html += u"""\
-        <h{hlevel} class='sub_title chapter_sub_title chapter_sub_title_{level} chapter_sub_title_h{hlevel}'>{sub_title}</h{hlevel}>
+        <h{hlevel} class='sub_title sub_title_{level} sub_title_h{hlevel}'>{sub_title}</h{hlevel}>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5489,13 +5514,13 @@ class HtmlConverter(object):
 
         if chapter.author:
             html += u"""\
-        <p class='p author chapter_author_{level}'>{author}</p>
+        <p class='author author_{level}'>{author}</p>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
             author  = escape(chapter.author))
 
-        html += u"</div>"
+        html += u"</div></div>"
 
         return html
     # }}}
@@ -5514,12 +5539,12 @@ class HtmlConverter(object):
         #        link = os.path.relpath(ancestor.entry_file, os.path.dirname(filename)),
         #        title = escape(ancestor.title)) + ancestors
         
-        html = u"<div class='chapter_toc_page toc_page'>\n"
+        html = u"<div class='chapter'><div class='toc_page toc_page'>\n"
         if ancestors:
             html += u"<span class='toc_ancestors'>" + ancestors + "</span>\n"
 
         if chapter.cover and chapter.cover.height() <= MAX_EMBED_COVER_HEIGHT:
-            html += u"<div class='cover chapter_cover'><img alt='{title}' src='{cover}' /></div>".format(
+            html += u"<div class='cover'><img alt='{title}' src='{cover}' /></div>".format(
                 title = escape(title), 
                 cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)))
 
@@ -5548,19 +5573,9 @@ class HtmlConverter(object):
                     title = u"前言")
 
         for c in chapter.subchapters:
-            if c.cover:
-                html += u"<li><a href='{link}'><img src='{cover}' />{title}</a><span class='intro'>{intro}</span></li>".format(
-                    cover = os.path.relpath(self.get_img_destpath_(files, c.cover), os.path.dirname(filename)),
-                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                    title = escape(c.title),
-                    intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
-            else:
-                html += u"<li><a href='{link}'>{title}</a><span class='intro'>{intro}</span></li>".format(
-                    link = os.path.relpath(c.entry_file, os.path.dirname(filename)),
-                    title = escape(c.title),
-                    intro = u"".join((u"<p class='p'>" + escape(line) + u"</p>\n" for line in c.intro if isinstance(line, basestring)) if c.intro else u""))
-            
-        html += u"</ul></div>"
+            html += self.toc_item(files, filename, c)
+
+        html += u"</ul></div></div>"
 
         return html
     # }}}
