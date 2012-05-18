@@ -619,10 +619,8 @@ h1 {
 	margin-top:61.8%;
 	margin-left:33%;
 	line-height:100%;
-	text-align: justify;
-	border-style: none double none solid;
-	border-width: 0px 5px 0px 20px;
-	border-color: purple;
+	text-align: center;
+    border: none
 	font-weight:bold;
 	font-size:173%;
 	font-family:"h1","ht","zw";
@@ -643,13 +641,12 @@ h1 {
 }
 h2 {
 	/*color:white;*/
-	margin-top:0;
-    margin-bottom:0.2em;
+    margin: 0 0 0.2em 0;
 	line-height:100%;
 	text-align: justify;
 	border-style: none double none solid;
 	border-width: 0px 5px 0px 20px;
-	border-color: purple;
+	border-color: #2aa198; /* green */
 	background-color: gray;
 	padding: 100px 5px 0.5em 5px;
 	font-weight:bold;
@@ -682,7 +679,7 @@ h3 {
     margin-botton: 0.5em;
 	border-style: none none solid none;
 	border-width: 0px 0px 1px 0px;
-	border-color: purple;
+	border-color: #2aa198; /* green */
 }
 h4 {
 	line-height:130%;
@@ -764,13 +761,10 @@ li {
 
 .title_page .title {
 	/*color:#268bd2;*/  /* blue */
-	margin-top:61.8%;
-	margin-left:30%;
+    margin: 61.8% 0 0 0;
 	line-height:100%;
-	text-align: justify;
-	border-style: none double none solid;
-	border-width: 0px 5px 0px 20px;
-	border-color: fuchsia;
+	text-align: center;
+    border: none;
 	font-weight:bold;
 	font-size:173%;
 	font-family:"h1","ht","zw";
@@ -778,16 +772,15 @@ li {
 
 .title_page .sub_title {
 	/*color:#268bd2;*/  /* blue */
-	margin-left:30%;
-    margin-top: 20px;
-    margin-bottom: 10%;
+    margin: 20px 0 10% 0;
 	line-height:100%;
-	text-align: justify;
+	text-align: center;
     border: none;
-    padding: 0px 5px 0px 20px;
+    padding: none;
 	font-weight:normal;
 	font-size:140%;
 	font-family:"h2","ht","zw";
+	page-break-before:avoid;
 }
 
 .title_page_with_sub_title .title {
@@ -800,10 +793,10 @@ li {
 
 .title_page .author {
 	color:gray;
-	margin-left:30%;
+    margin: 1em 0 0 0;
 	line-height:100%;
-	text-align: justify;
-    padding: 1em 5px 0px 20px;
+	text-align: center;
+    padding: none
 	page-break-before:avoid;
 	font-weight:bold;
 	font-size:120%;
