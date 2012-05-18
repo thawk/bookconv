@@ -619,10 +619,8 @@ h1 {
 	margin-top:61.8%;
 	margin-left:33%;
 	line-height:100%;
-	text-align: justify;
-	border-style: none double none solid;
-	border-width: 0px 5px 0px 20px;
-	border-color: purple;
+	text-align: center;
+    border: none;
 	font-weight:bold;
 	font-size:173%;
 	font-family:"h1","ht","zw";
@@ -643,13 +641,12 @@ h1 {
 }
 h2 {
 	/*color:white;*/
-	margin-top:0;
-    margin-bottom:0.2em;
+    margin: 0 0 0.2em 0;
 	line-height:100%;
 	text-align: justify;
 	border-style: none double none solid;
 	border-width: 0px 5px 0px 20px;
-	border-color: purple;
+	border-color: #2aa198; /* green */
 	background-color: gray;
 	padding: 100px 5px 0.5em 5px;
 	font-weight:bold;
@@ -682,7 +679,7 @@ h3 {
     margin-botton: 0.5em;
 	border-style: none none solid none;
 	border-width: 0px 0px 1px 0px;
-	border-color: purple;
+	border-color: #2aa198; /* green */
 }
 h4 {
 	line-height:130%;
@@ -764,13 +761,10 @@ li {
 
 .title_page .title {
 	/*color:#268bd2;*/  /* blue */
-	margin-top:61.8%;
-	margin-left:30%;
+    margin: 61.8% 0 0 0;
 	line-height:100%;
-	text-align: justify;
-	border-style: none double none solid;
-	border-width: 0px 5px 0px 20px;
-	border-color: fuchsia;
+	text-align: center;
+    border: none;
 	font-weight:bold;
 	font-size:173%;
 	font-family:"h1","ht","zw";
@@ -778,16 +772,15 @@ li {
 
 .title_page .sub_title {
 	/*color:#268bd2;*/  /* blue */
-	margin-left:30%;
-    margin-top: 20px;
-    margin-bottom: 10%;
+    margin: 20px 0 10% 0;
 	line-height:100%;
-	text-align: justify;
+	text-align: center;
     border: none;
-    padding: 0px 5px 0px 20px;
+    padding: none;
 	font-weight:normal;
 	font-size:140%;
 	font-family:"h2","ht","zw";
+	page-break-before:avoid;
 }
 
 .title_page_with_sub_title .title {
@@ -800,10 +793,10 @@ li {
 
 .title_page .author {
 	color:gray;
-	margin-left:30%;
+    margin: 1em 0 0 0;
 	line-height:100%;
-	text-align: justify;
-    padding: 1em 5px 0px 20px;
+	text-align: center;
+    padding: none;
 	page-break-before:avoid;
 	font-weight:bold;
 	font-size:120%;
@@ -858,7 +851,7 @@ li {
 .toc_page .toc_list .cover img {
     float: left;
     max-width: 150px;
-    max-height: 200px;
+    /*max-height: 200px;*/
     margin-bottom: 0.5em;
 }
 
@@ -1874,9 +1867,9 @@ def book_file_name(title, author, suffix):
 
     author = author.strip()
     if author:
-        filename = u"《{title}》作者：{author}".format(title=unicode(title), author=unicode(author))
+        filename = u"{title} - {author}".format(title=unicode(title), author=unicode(author))
     else:
-        filename = u"《{title}》".format(title=unicode(title))
+        filename = u"{title}".format(title=unicode(title))
 
     filename += unicode(suffix.strip())
 
@@ -5356,7 +5349,7 @@ class HtmlConverter(object):
     def title_page(self, filename, book):
         html = u"<div class='book'>"
         if not book.sub_title:
-            html = u"""\
+            html += u"""\
             <div class='title_page'>
                 <div class='title'>{title}</div>
                 <div class='author'>{author}</div>
@@ -5365,7 +5358,7 @@ class HtmlConverter(object):
                 title         = unicode(escape(book.title)),
                 author        = unicode(escape(book.author)))
         else:
-            html = u"""\
+            html += u"""\
             <div class='title_page title_page_with_sub_title'>
                 <div class='title'>{title}</div>
                 <div class='sub_title'>{sub_title}</div>
@@ -5384,7 +5377,7 @@ class HtmlConverter(object):
     def title_cover_page(self, files, filename, book, cover):
         html = u"<div class='book'>"
         if not book.sub_title:
-            html = u"""\
+            html += u"""\
             <div class='title_page title_cover_page'>
                 <div class='cover'><img alt="{title}" src="{cover}" /></div>
                 <div class='title'>{title}</div>
@@ -5395,7 +5388,7 @@ class HtmlConverter(object):
                 author        = unicode(escape(book.author)),
                 cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
         else:
-            html = u"""\
+            html += u"""\
             <div class='title_page title_page_with_sub_title title_cover_page title_cover_page_with_sub_title'>
                 <div class='cover'><img alt="{title}" src="{cover}" /></div>
                 <div class='title'>{title}</div>
@@ -5408,18 +5401,19 @@ class HtmlConverter(object):
                 author        = unicode(escape(book.author)),
                 cover         = os.path.relpath(self.get_img_destpath_(files, cover), os.path.dirname(filename)))
 
-        html += u"</div>"
+        html += u"</div>\n"
         return html;
     # }}}
 
     # {{{ ---- func toc_item
     def toc_item(self, files, filename, chapter):
-        html = u"<li>"
+        html = u"<li>\n"
 
         if chapter.cover:
-            html += u"<a href='{link}' class='cover'><img src='{cover}' /></a>".format(
+            html += u"<a href='{link}' class='cover'><img src='{cover}' alt='{title}'/></a>\n".format(
                 cover = os.path.relpath(self.get_img_destpath_(files, chapter.cover), os.path.dirname(filename)),
-                link = os.path.relpath(chapter.entry_file, os.path.dirname(filename)))
+                link = os.path.relpath(chapter.entry_file, os.path.dirname(filename)),
+                title = escape(chapter.title))
 
         html += u"<span class='info'>"
 
@@ -5431,22 +5425,22 @@ class HtmlConverter(object):
             html += u"<span class='author'>{author}</span>".format(
                 author = chapter.author)
 
-        html += u"</span>"  # span.info
+        html += u"</span>\n"  # span.info
 
-        html += u"<span class='intro'>{intro}</span>".format(
+        html += u"<div class='intro'>{intro}</div>".format(
                 intro = u"".join(
                     to_html(
                         chapter.intro,
                         lambda img: os.path.relpath(self.get_img_destpath_(files, img), os.path.dirname(filename)))))
 
-        html += u"</li>"
+        html += u"</li>\n"
 
         return html
     # }}}
 
     # {{{ ---- func toc_page
     def toc_page(self, files, filename, book):
-        html = u"<div class='book'>"
+        html = u"<div class='book'>\n"
         html += u"<div class='toc_page'>\n"
         html += u"<div class='toc_title'>{title}</div>".format(title=u"目  录")
         html += u"<ul class='toc_list'>"
@@ -5454,7 +5448,7 @@ class HtmlConverter(object):
         for c in book.subchapters:
             html += self.toc_item(files, filename, c)
 
-        html += u"</ul></div></div>"
+        html += u"</ul></div></div>\n"
 
         return html
     # }}}
@@ -5520,7 +5514,7 @@ class HtmlConverter(object):
             level  = chapter.level,
             author  = escape(chapter.author))
 
-        html += u"</div></div>"
+        html += u"</div></div>\n"
 
         return html
     # }}}
