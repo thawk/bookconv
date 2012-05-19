@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120611"
+VERSION=u"20120613"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2094,6 +2094,13 @@ def complete_book_info(book_info):
         re.compile(u'(?P<title>.+)(?:合集|全集|系列)', re.IGNORECASE),
     )
 
+    re_category_map = (
+        ( re.compile(u'合集|合辑|全集|系列|作品集|小说集', re.IGNORECASE), u'合集'),
+        ( re.compile(u'恐怖', re.IGNORECASE), u'恐怖'),
+        ( re.compile(u'科幻', re.IGNORECASE), u'科幻'),
+        ( re.compile(u'玄幻|修真', re.IGNORECASE), u'玄幻'),
+    )
+
 #     {{{ ---- func lookup_zong_heng
     def lookup_zong_heng(title, author, encoding='utf-8'):
         class ZongHengImg(CachedImg):
@@ -2320,7 +2327,14 @@ def complete_book_info(book_info):
                 if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
                     book_info[k] = newinfo[k]
 
-            return
+            break
+
+    if not book_info['l1cat']:
+        for (r,c) in re_category_map:
+            if r.search(book_info['title']):
+                book_info['l1cat'] = c
+                break
+        
 #   }}}
 # }}}
 
@@ -2932,17 +2946,25 @@ class Parser(object):
             try:
                 book = parser.parse(inputter, title, author)
                 if book:
+                    # 指定了封面
                     if cover and not book.cover:
                         book.cover = cover
-                    elif not book.cover:
+
+                    # 找一下书本目录下有没有cover.jpg
+                    if not book.cover:
                         if book_dir:
                             for ext in COVER_EXTENSIONS:
                                 p = os.path.join(book_dir, "cover" + ext)
                                 if os.path.exists(p):
                                     book.cover = InputterImg(p)
 
-                        if not book.cover:
-                            book.cover = lookup_cover(book.title, book.author)
+                    # 封面库中有没有这本书的封面
+                    if not book.cover:
+                        book.cover = lookup_cover(book.title, book.author)
+
+                    # 取第一个子章节的封面
+                    if not book.cover and book.subchapters and book.subchapters[0].cover:
+                        book.cover = book.subchapters[0].cover
 
                     return book
             except NotParseableError as e:
@@ -3332,6 +3354,7 @@ class EasyChmParser(Parser):
     re_intro_removes = [
         re.compile(u"^[ \t　]*\**\.*[ \t　]*$"),
     ]
+    re_title_sep = re.compile(u"<\s*br\s*/?\s*>", re.IGNORECASE)
 
     # {{{ ---- pages_rules
     pages_rules = [
@@ -3382,12 +3405,19 @@ class EasyChmParser(Parser):
         { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] == fields[4] and fields[4] == fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3 },
         },
-        # 《丹·布朗作品集》作者：[美]丹·布朗.chm.js: pages[0]=['1_01','书籍相关','970','达芬奇密码','达芬奇密码','①'];
         # 《卡徒》（精校文字全本）作者：方想.chm.js: pages[0]=['1_001','第一节 以卡为生','4970','第一集','1','第一集'];
         # 权柄-三戒大师.chm.js: pages[0]=['1_01','第一章 秦少爷初临宝地 防狼术小试牛刀','2876','第一卷 原上草','卷一','第一卷 原上草'];
         # 汤姆.克兰西作品集.chm.js: pages[0]=['01_01','第一章 伦敦市区:一个阳光灿烂的日子','10569','爱国者游戏','爱国者游戏','爱国者游戏'];
-        { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] != fields[4],
+        { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] != fields[4] and fields[5] == fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3 },
+        },
+        # 《丹·布朗作品集》作者：[美]丹·布朗.chm.js: pages[0]=['1_01','书籍相关','970','达芬奇密码','达芬奇密码','①'];
+        { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] != fields[4] and fields[4] == fields[3],
+          'map'  : { 'file': 0, 'title1': 1, 'title2': 3 },
+        },
+        # pages[0]=['01_01','第一章 血尸','3155','第一卷 七星鲁王','1','第一季·七星鲁王宫'];
+        { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] != fields[4] and fields[4] != fields[3] and fields[5] != fields[3],
+          'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 5 },
         },
 
         # 《圣纹师》（实体封面版）作者：拂晓星.chm.js: pages[0]=['1-1','～第一章零之殿下～','7314','·第一集 愿望女神·','<img src=../txt/01.jpg id=...>','·第一集 愿望女神·','掌握人类命运的圣纹师，出现了前所未有的危机！<br>急剧'];
@@ -3403,22 +3433,27 @@ class EasyChmParser(Parser):
         { 'cond' : lambda idx,fields: len(fields) == 8 and len(fields[4]) == 0 and len(fields[5]) > 0 and fields[6][0:5].lower() == u"<font" and len(fields[7]) > 0,
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 5, 'author': 7 },
         },
-        # 道门世家-普通.chm.js: pages[0]=['1-1','本集简介','0','第一集','第一集','A～★航星★','<img src=../txt/01.jpg class=cover>','<br>　　我是一个平','<img src=../txt/1.jpg class=cover>','0','第一集'];
-        # 《刘猛作品集》作者：刘猛.chm: pages[0]=['1_1','第一章 提炼','40144','最后一颗子弹留给我','','A～★航星★','<img src=../txt/1.jpg class=cover>','　　这是一部关于青春和爱……','<img src=../txt/1.jpg class=cover>','40144','最后一颗子弹留给我'];
-        { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[7]) > 20 and fields[10] == fields[3],
-          'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title2_cover': [6, 8], 'title2_intro': 7 },
-        },
+
+        #合并到下面，由程序对于两级相同的标题进行合并
+        ## 道门世家-普通.chm.js: pages[0]=['1-1','本集简介','0','第一集','第一集','A～★航星★','<img src=../txt/01.jpg class=cover>','<br>　　我是一个平','<img src=../txt/1.jpg class=cover>','0','第一集'];
+        ## 《刘猛作品集》作者：刘猛.chm: pages[0]=['1_1','第一章 提炼','40144','最后一颗子弹留给我','','A～★航星★','<img src=../txt/1.jpg class=cover>','　　这是一部关于青春和爱……','<img src=../txt/1.jpg class=cover>','40144','最后一颗子弹留给我'];
+        #{ 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[7]) > 20 and fields[10] == fields[3],
+        #  'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title2_cover': [6, 8], 'title2_intro': 7 },
+        #},
+
         # 《二月河帝王系列》作者：二月河.epub: pages[581]=['14_1','第一回','10319','爝火五羊城','','A～★航星★','<img src=../txt/4.jpg class=cover>','','<img src=../txt/4.jpg class=cover>','10319','爝火五羊城'];
         { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and fields[7] == "" and fields[10] == fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title2_cover': [6, 8] },
         },
         # 《二月河帝王系列》作者：二月河.epub: pages[0]=['01_01','楔子','4522','第一卷 夺宫初政','','A～★航星★','<img src=../txt/1.jpg class=cover>','　　康熙帝名玄烨，...','<img src=../txt/1.jpg class=cover>','4522','康熙大帝'];
+        # 
         { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[7]) > 20 and len(fields[10]) > 0 and fields[10] != fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 10, 'title3_cover': [6, 8], 'title3_intro': 7 },
         },
         # 《荆柯守作品合集》: pages[0]=['01_1','风起紫罗峡目录大纲','885','作品相关','','','<img src=../txt/1.jpg class=cover>','','<img src=../txt/1.jpg class=cover>','','风起紫罗峡'];
-        { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[10]) > 0 and fields[10] != fields[3],
-          'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 10, 'title3_cover': [6, 8] },
+        #{ 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[10]) > 0 and fields[10] != fields[3],
+        { 'cond' : lambda idx,fields: len(fields) == 11 and fields[6][0:4].lower() == u"<img" and fields[8][0:4].lower() == u"<img" and len(fields[10]) > 0,
+         'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 10, 'title3_cover': [6, 8], 'title3_intro': 7 },
         },
         # 《酒徒历史作品集》: pages[58]=['05_01','第一章 黄昏（一）','6406','第一卷 斜阳','指南录','天','涯','　　一群男人为了捍卫一个文明不被武力征服的权力，一个民族不集体沦为四等奴隶的尊严而进行的抗争。<br>　　在崖山落日前，探索历史的另一种可能，和文明的另一种出路。以文天祥空坑兵败后的抗元故事为主线，介绍那个时代的传奇……','E','书','指南录'];
         { 'cond' : lambda idx,fields: len(fields) == 11 and len(fields[4]) > 0 and fields[4] == fields[10] and len(fields[7]) > 20,
@@ -3571,7 +3606,10 @@ class EasyChmParser(Parser):
 
                     if lvl > 1:
                         chapter = Chapter()
-                        chapter.title = title_normalize_from_html(pages[idx][rule['map'][title_name]])
+                        titles = self.re_title_sep.split(pages[idx][rule['map'][title_name]], 1)
+                        chapter.title = title_normalize_from_html(titles[0])
+                        if len(titles) > 1: # 有简短的前言
+                            chapter.content = content_text_normalize(titles[1])
                     else:
                         subInputter = SubInputter(inputter, u"txt")
                         chapter = read_chapter(
@@ -6862,7 +6900,13 @@ def convert_book(path, output=u""):
 
         # {{{ Convert book
         if output: 
-            bookfilename = output
+            if not os.path.exists(output) or not os.path.isfile(output):
+                bookfilename = os.path.join(output, book_file_name(
+                    book.meta_title if book.meta_title else book.title,
+                    book.author,
+                    u".epub"))
+            else:
+                bookfilename = output
         else:
             bookfilename = book_file_name(
                 book.meta_title if book.meta_title else book.title,
