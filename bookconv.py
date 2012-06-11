@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120521"
+VERSION=u"20120611"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -5179,7 +5179,9 @@ class EasyChmCollectionParser2(CollectionParser):
 
     re_links = (
         #booklist[0]=['噩盡島Ⅱ','<img src=../bookcover/01.jpg class=cover1>','1_1','莫仁','　　仙界回归百年，地球版图早已重划，……'];
-        re.compile(u".*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^']+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^']+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        #booklist[0]=['神游','天涯凝望','1','徐公子胜治','　　面对文学与传说中的玄幻纷呈时，你是否也梦想拥有这份神奇的精彩人生？其实不必去遐想仙界与异星，玄妙的世界就在你我的身边，身心境界可以延伸到的极致之处。<br>　　这世上真有异人吗？真有神迹吗？——梦境可以化实！妄想可以归真！<br>　　一位市井中懵懂少年是如何成为世间仙侠，又如何遭遇红尘情痴？请舒展心灵的触角来《神游》。'];
+        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^']+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
     )
 
     cover_base = ( u"/index/", )
@@ -5375,30 +5377,30 @@ def content_size(content):
 #   }}}
 
 #   {{{ -- func get_images
-def get_images(content):
+def get_images(*args):
     """ 取出content中包含的所有图片对象
     """
-    if not isinstance(content, list):
-        content = [ content, ]
-
-    for line in content:
-        if isinstance(line, ChapterInfo):
+    for arg in args:
+        if isinstance(arg, ChapterInfo):
             # 处理章节封面
-            if line.cover:
-                yield line.cover
+            if arg.cover:
+                yield arg.cover
 
             # 处理章节内容
-            for img in get_images(line.content):
+            for img in get_images(arg.content):
                 yield img
 
             # 处理子章节
-            for img in get_images(line.subchapters):
+            for img in get_images(arg.subchapters):
                 yield img
-        elif isinstance(line, Img):
-            yield line
-        elif isinstance(line, ContentElement):
+        elif isinstance(arg, Img):
+            yield arg
+        elif isinstance(arg, ContentElement):
             # 引用中也可能有图片
-            for img in line.get_images():
+            for img in arg.get_images():
+                yield img
+        elif isinstance(arg, list):
+            for img in get_images(*arg):
                 yield img
 #   }}}
 
@@ -5849,11 +5851,6 @@ class HtmlConverter(object):
             name=os.path.join(path, PREAMBLE_PAGE), ext=HTML_EXT)
 
         if files:
-            if files:
-                # 生成章节中的图片
-                for img in get_images(book.content):
-                    self.append_image(files, img)
-
             files["html"].append({
                 "filename": filename,
                 "content":  u"".join((
@@ -5866,6 +5863,28 @@ class HtmlConverter(object):
 
     # }}}
 
+    # {{{ ---- func create_chapter_images
+    def create_chapter_images(self, files, chapter):
+        if chapter.cover:
+            # 要检查一下封面是否确实可用
+            if not chapter.cover.is_valid():
+                chapter.cover = None
+            else:
+                # 加入封面图片
+                self.append_image(files, chapter.cover)
+
+        # 生成章节中的图片
+        for img in get_images(chapter.intro, chapter.content):
+            try:
+                self.append_image(files, img)
+            except Exception as e:
+                if not options.skip_bad_img:  # 允许跳过图片错误
+                    raise
+
+        for c in chapter.subchapters:
+            self.create_chapter_images(files, c)
+    # }}}
+
     # {{{ ---- func create_chapter_files
     def create_chapter_files(self, files, path, book, chapters):
         """
@@ -5874,33 +5893,24 @@ class HtmlConverter(object):
         first_chapter_page = ""     # chapters中，首个chapter所在的文件名，上层章节可能会合并到这个文件
 
         for chapter in chapters:
-            if chapter.cover:
-                # 要检查一下封面是否确实可用
-                if not chapter.cover.is_valid():
-                    chapter.cover = None
-                else:
-                    # 加入封面图片
-                    if files:
-                        self.append_image(files, chapter.cover)
+            if chapter.cover and chapter.cover.height() > MAX_EMBED_COVER_HEIGHT:
+                # 有大封面，生成单独的封面页
+                cover_page_filename = u"{name}{ext}".format(
+                    name=os.path.join(path, CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
 
-                    if chapter.cover.height() > MAX_EMBED_COVER_HEIGHT:
-                        # 有大封面，生成单独的封面页
-                        cover_page_filename = u"{name}{ext}".format(
-                            name=os.path.join(path, CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
+                if not chapter.entry_file:
+                    chapter.entry_file = cover_page_filename
 
-                        if not chapter.entry_file:
-                            chapter.entry_file = cover_page_filename
-
-                        if files:
-                            files["html"].append({
-                                "filename": cover_page_filename,
-                                "content":  u"".join((
-                                    self.html_header(cover_page_filename, chapter.title, cssfile=CSS_FILE),
-                                    self.chapter_cover_page(files, cover_page_filename, chapter),
-                                    self.html_footer(cover_page_filename, book),
-                                    )).encode("utf-8"),
-                                "id":       CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id),
-                                })
+                if files:
+                    files["html"].append({
+                        "filename": cover_page_filename,
+                        "content":  u"".join((
+                            self.html_header(cover_page_filename, chapter.title, cssfile=CSS_FILE),
+                            self.chapter_cover_page(files, cover_page_filename, chapter),
+                            self.html_footer(cover_page_filename, book),
+                            )).encode("utf-8"),
+                        "id":       CHAPTER_COVER_PAGE_ID_FORMAT.format(chapter.id),
+                        })
 
             if chapter.level == CHAPTER_TOP_LEVEL and chapter.subchapters:
                 # 顶层章节，且有子章节，生成标题页。无子章节的顶层章节也不需要生成标题页
@@ -5921,16 +5931,6 @@ class HtmlConverter(object):
                             )).encode("utf-8"),
                         "id":       CHAPTER_TITLE_PAGE_ID_FORMAT.format(chapter.id),
                         })
-
-
-            if files:
-                # 生成章节中的图片
-                for img in get_images(chapter.content):
-                    try:
-                        self.append_image(files, img)
-                    except Exception as e:
-                        if not options.skip_bad_img:  # 允许跳过图片错误
-                            raise
 
             if chapter.subchapters:
                 # 有子章节，生成章节目录
@@ -6018,6 +6018,8 @@ class HtmlConverter(object):
                 self.append_image(files, book.cover, COVER_IMAGE_NAME)
             else:
                 book.cover = None
+
+        self.create_chapter_images(files, book)
 
         # 先决定各章节中用到的文件名（保存到chapter中）
         self.create_preamble_files(None, "", book)
@@ -6808,7 +6810,7 @@ def convert_book(path, output=u""):
 
         # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
         if not options.offline and book.title and (not book.author or not book.category or not book.cover):
-            logging.info(u"Searching book information from internet...")
+            logging.info(u"Searching book information from internet for '{0}' ...".format(book.title))
 
             bookinfo = {
                 "title"  : book.title,
