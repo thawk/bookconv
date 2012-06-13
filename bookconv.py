@@ -3255,7 +3255,7 @@ class HtmlBuilderParser(Parser):
                                 for subchapter in chapter.subchapters:
                                     subchapter.parent = chapter
 
-                                logging.info(u"  {indent}{title}: {has_cover}".format(
+                                logging.info(u"    {indent}{title}: {has_cover}".format(
                                     indent="  "*(chapter_stack[-1].level + 1), title=chapter_title,
                                     has_cover = chapter.cover and u"Has cover" or "No cover"))
 
@@ -3643,7 +3643,7 @@ class EasyChmParser(Parser):
                                 u"txt/0{0}.jpg".format(top_title_count)], inputter)
 
                     if lvl > 1:
-                        logging.info(u"  {indent}{title}: {has_cover}".format(
+                        logging.info(u"    {indent}{title}: {has_cover}".format(
                             indent="  "*(max_title_level-lvl), title=chapter.title,
                             has_cover = chapter.cover and u"Has cover" or "No cover"))
 
@@ -3655,7 +3655,7 @@ class EasyChmParser(Parser):
                     chapter.parent.subchapters.append(chapter)
                     chapter_stack.append(chapter)
 
-                    logging.debug(u"{indent}    {title}{content}{cover}{intro}".format(
+                    logging.debug(u"{indent}      {title}{content}{cover}{intro}".format(
                         indent=u"  "*(3*inputter.nested_level+max_title_level-chapter.level+1), title=chapter.title,
                         content=u"" if chapter.content else u" w/o content",
                         cover=u" w/ cover" if chapter.cover else u"", intro=u" w/ intro" if chapter.intro else u""))
@@ -4298,7 +4298,7 @@ class NbweeklyParser(Parser):
                     chapter.author = title_normalize_from_html(d['author'])
 
                 chapter.parent = parent
-                logging.debug(u"      {indent}Chapter: {title}".format(indent=u"  "*idx, title=chapter.title))
+                logging.debug(u"        {indent}Chapter: {title}".format(indent=u"  "*idx, title=chapter.title))
 
             # 如果有content，则表示有子章节，放到待处理列表中，进入下一轮处理
             if d.has_key('content') and idx + 1 < len(levels):
@@ -4832,7 +4832,7 @@ class TxtParser(Parser):
                         curr_chapter = Chapter()
                         curr_chapter.title = title_normalize(m.group("title"))
                         curr_chapter.level = level
-                        logging.debug(u"{indent}  Level {level} toc: {title}".format(
+                        logging.debug(u"{indent}    Level {level} toc: {title}".format(
                             indent=u"  "*(curr_chapter.level+3*inputter.nested_level), level=curr_chapter.level, title=curr_chapter.title))
 
                         # 标题行
@@ -5004,7 +5004,7 @@ class CollectionParser(Parser):
                         if parsed_files.has_key(subpath):
                             continue;
 
-                        logging.info(u"{indent}    Found sub book: {path}: {title}{author_info}{cover_info}".format(
+                        logging.info(u"{indent}Found sub book: {path}: {title}{author_info}{cover_info}".format(
                             indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title,
                             author_info=u"/" + author if author else u"",
                             cover_info=u" with cover" if cover else u""))
