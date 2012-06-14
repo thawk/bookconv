@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120622"
+VERSION=u"20120703"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -1238,6 +1238,8 @@ class ChapterInfo:
         self.publish_date = u""
         self.publish_ver  = u""
 
+        self.toc_file     = u""      # 本章节的章节目录的路径（如果有的话）
+
         self.content      = list()   # list of lines，对于chapter是章节正文，对于book可以是前言（相当于正文前无标题的章节）
 #   }}}
 
@@ -1254,7 +1256,6 @@ class Chapter(ChapterInfo):
         self.next         = None     # 同层的下一章节
 
         self.entry_file   = u""      # 本章节的第一个文件的路径
-        self.toc_file     = u""      # 本章节的章节目录的路径（如果有的话）
         self.content_file = u""      # 本章节的内容的路径（如果有的话）
 #   }}}
 
@@ -6121,6 +6122,7 @@ class HtmlConverter(object):
         }]
 
         filename = TOC_PAGE + HTML_EXT
+        book.toc_file = filename
         files["html"][1:0] = [{
             "filename": filename,
             "content":  u"".join((
@@ -6191,7 +6193,7 @@ class EpubConverter(Converter):
 
         return playOrder
 
-    def create_navpoint(self, xml, parent, chapters):
+    def create_navpoint(self, xml, parent, chapter):
         def new_navpoint_elem(id, title, src):
             navPointElem = xml.createElement("navPoint")
             navPointElem.setAttribute("id", unicode(id))
@@ -6207,56 +6209,76 @@ class EpubConverter(Converter):
 
             return navPointElem
 
-        def rearrange_toc_tree(navPointElems, maxSubToc):
+        def rearrange_toc_tree(elems, maxSubToc):
             originIdx = 0
-            while len(navPointElems) > maxSubToc:
+            while len(elems) > maxSubToc:
                 # 如果所有子节点都已经是二级节点，那么就从第0项重新开始，再加入一层
-                if (originIdx >= len(navPointElems)):
+                if (originIdx >= len(elems)):
                     originIdx = 0
 
                 firstIdx = originIdx
-                lastIdx  = originIdx + maxSubToc - 1 if originIdx + maxSubToc <= len(navPointElems) else len(navPointElems) - 1
-                firstLabel = navPointElems[firstIdx]["firstLabel"]
-                lastLabel  = navPointElems[lastIdx]["lastLabel"]
-                src = navPointElems[firstIdx]["src"]
+                lastIdx  = originIdx + maxSubToc - 1 if originIdx + maxSubToc <= len(elems) else len(elems) - 1
+                firstLabel = elems[firstIdx]["firstLabel"] if elems[firstIdx].has_key("firstLabel") else elems[firstIdx]["title"]
+                lastLabel  = elems[lastIdx]["lastLabel"] if elems[lastIdx].has_key("lastLabel") else elems[lastIdx]["title"]
+                src = elems[firstIdx]["src"]
 
-                newNavPointElem = new_navpoint_elem(
-                    navPointElems[firstIdx]["elem"].getAttribute(u"id") + "m",      # 不断加入'm'作为后缀，生成新的ID
-                    u"{firstLabel} .. {lastLabel}".format(firstLabel=firstLabel, lastLabel=lastLabel),
-                    src)
+                newElem = {
+                    "id": elems[firstIdx]["id"] + "m",      # 不断加入'm'作为后缀，生成新的ID
+                    "title": u"{firstLabel} .. {lastLabel}".format(firstLabel=firstLabel, lastLabel=lastLabel),
+                    "src": src,
+                    "firstLabel": firstLabel,
+                    "lastLabel": lastLabel,
+                    "children": list(),
+                }
 
                 for i in xrange(firstIdx, lastIdx + 1):
-                    newNavPointElem.appendChild(navPointElems.pop(originIdx)["elem"])
+                    newElem["children"].append(elems.pop(originIdx))
 
-                navPointElems[originIdx:originIdx] = [{"elem":newNavPointElem, "firstLabel":firstLabel, "lastLabel":lastLabel, "src":src}]
+                elems[originIdx:originIdx] = (newElem,)
                 originIdx += 1
 
-        if chapters:
+        def generate_navpoint(chapter, create_toc=False):
             elems = list()
-            for chapter in chapters:
+
+            if create_toc and chapter.toc_file:
+                elems.append({
+                    "id": TOC_PAGE,
+                    "title": u"目录",
+                    "src": os.path.join(CONTENT_DIR, chapter.toc_file),
+                })
+
+            for subchapter in chapter.subchapters:
                 # 有title才生成目录项
-                if chapter.title:
-                    src = os.path.join(CONTENT_DIR, chapter.entry_file)
+                if subchapter.title:
+                    src = os.path.join(CONTENT_DIR, subchapter.entry_file)
 
-                    title = TOC_INDENT_CHAR * options.toc_indent * (chapter.level - CHAPTER_TOP_LEVEL) + chapter.title
-
-                    navPointElem = new_navpoint_elem(chapter.id, title, src)
-
-                    if options.plain_toc:
-                        # 全放在同一层，直接加入到parent中
-                        parent.appendChild(navPointElem)
-                        self.create_navpoint(xml, parent, chapter.subchapters)
-                    else:   # 可能需要重排，先放入数组，后面再加入parent中
-                        elems.append({"elem":navPointElem, "firstLabel":unicode(chapter.title), "lastLabel":unicode(chapter.title), "src":src})
-                        self.create_navpoint(xml, navPointElem, chapter.subchapters)
-            
+                    elems.append({
+                        "id": subchapter.id,
+                        "title": subchapter.title,
+                        "src": src,
+                        "children": generate_navpoint(subchapter),
+                    })
+                        
             if not options.plain_toc:
                 if options.rearrange_toc:
                     # 调整TOC，使每层的TOC不超过指定的数量
                     rearrange_toc_tree(elems, DEFAULT_MAX_EPUB_SUB_TOC)
 
-                for e in elems:
-                    parent.appendChild(e["elem"])
+            return elems
+
+        def create_navpoints(elems, parent, indent):
+            for elem in elems:
+                newNavPointElem = new_navpoint_elem(
+                    elem["id"], 
+                    TOC_INDENT_CHAR * options.toc_indent * indent + elem["title"],
+                    elem["src"])
+
+                parent.appendChild(newNavPointElem)
+                if elem.has_key("children") and elem["children"]:
+                    create_navpoints(elem["children"], newNavPointElem, indent + 1)
+
+        elems = generate_navpoint(chapter, create_toc=True)
+        create_navpoints(elems, parent, 0)
 
     def generate_ncx(self, book, identifier):
         xml = minidom.Document()
@@ -6319,7 +6341,7 @@ class EpubConverter(Converter):
         ncxElem.appendChild(navMapElem)
 
         # 生成各navPoint
-        self.create_navpoint(xml, navMapElem, book.subchapters)
+        self.create_navpoint(xml, navMapElem, book)
         self.add_playorder_to_navpoint(navMapElem)
 
         # /ncx/head/meta[name=depth]
@@ -6482,7 +6504,7 @@ class EpubConverter(Converter):
             guideElem.appendChild(coverReferenceElem)
 
         tocReferenceElem = xml.createElement("reference")
-        tocReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, TOC_PAGE + HTML_EXT))
+        tocReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, book.toc_file))
         tocReferenceElem.setAttribute("type", "toc")
         tocReferenceElem.setAttribute("title", u"目录")
         guideElem.appendChild(tocReferenceElem)
