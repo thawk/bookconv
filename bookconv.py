@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120613"
+VERSION=u"20120614"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2095,7 +2095,7 @@ def complete_book_info(book_info):
     )
 
     re_category_map = (
-        ( re.compile(u'合集|合辑|全集|系列|作品集|小说集', re.IGNORECASE), u'合集'),
+        ( re.compile(u'合集|合辑|全集|系列|作品集|小说集|部全', re.IGNORECASE), u'合集'),
         ( re.compile(u'恐怖', re.IGNORECASE), u'恐怖'),
         ( re.compile(u'科幻', re.IGNORECASE), u'科幻'),
         ( re.compile(u'玄幻|修真', re.IGNORECASE), u'玄幻'),
@@ -2331,7 +2331,7 @@ def complete_book_info(book_info):
 
     if not book_info['l1cat']:
         for (r,c) in re_category_map:
-            if r.search(book_info['title']):
+            if r.search(book_info['title']) or r.search(book_info['sub_title']):
                 book_info['l1cat'] = c
                 break
         
@@ -3609,7 +3609,7 @@ class EasyChmParser(Parser):
                         titles = self.re_title_sep.split(pages[idx][rule['map'][title_name]], 1)
                         chapter.title = title_normalize_from_html(titles[0])
                         if len(titles) > 1: # 有简短的前言
-                            chapter.content = content_text_normalize(titles[1])
+                            chapter.content = HtmlContentNormalizer(inputter).normalize(titles[1])
                     else:
                         subInputter = SubInputter(inputter, u"txt")
                         chapter = read_chapter(
@@ -4971,6 +4971,8 @@ class CollectionParser(Parser):
 
                         group_dict = m.groupdict()
                         author = group_dict["author"] if group_dict.has_key("author") else book_author
+                        intro = HtmlContentNormalizer(inputter).normalize(group_dict["intro"]) if group_dict.has_key("intro") else u""
+
                         cover = None
                         if group_dict.has_key("cover"):
                             if inputter.isfile(group_dict["cover"]):
@@ -5038,6 +5040,7 @@ class CollectionParser(Parser):
                             chapter.author = author if author else subbookinfo.author
                             chapter.level  = level
                             chapter.cover  = cover if cover else subbookinfo.cover
+                            chapter.intro  = intro if intro else subbookinfo.intro
                             chapter.subchapters = subbookinfo.subchapters
 
                             for subchapter in chapter.subchapters:
@@ -6851,13 +6854,15 @@ def convert_book(path, output=u""):
             logging.info(u"Searching book information from internet for '{0}' ...".format(book.title))
 
             bookinfo = {
-                "title"  : book.title,
-                "author" : book.author,
-                "l1cat"  : book.category,
-                "cover"  : cover,
+                "title"     : book.title,
+                "sub_title" : book.sub_title,
+                "author"    : book.author,
+                "l1cat"     : book.category,
+                "cover"     : cover,
             }
             complete_book_info(bookinfo)
 
+            book.sub_title = bookinfo["sub_title"]
             book.author = bookinfo["author"]
             book.category = bookinfo["l1cat"]
             book.cover = bookinfo["cover"]
