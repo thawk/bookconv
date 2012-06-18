@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120614"
+VERSION=u"20120622"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -195,6 +195,8 @@ RE_INTRO_TITLES = (
 )
 
 ASCIIDOC_ATTR_ROLE = u"role"
+ASCIIDOC_ATTR_TITLE = u"title"
+ASCIIDOC_ATTR_ALT = u"alt"
 
 # }}}
 
@@ -284,6 +286,8 @@ BOOK_DB = (
     { "l1cat": u"历史", "l2cat": u"", "title": u"明朝那些事儿", "author": u"当年明月" },
     { "l1cat": u"玄幻", "l2cat": u"", "title": u"大隐", "author": u"血珊瑚" },
     { "l1cat": u"合集", "l2cat": u"", "title": u"烟雨江南作品集", "author": u"烟雨江南" },
+    { "l1cat": u"经济", "l2cat": u"", "title": u"应该读点经济学", "author": u"常青" },
+    { "l1cat": u"历史", "l2cat": u"", "title": u"历史是个什么玩意儿", "author": u"袁腾飞" },
 )
 # }}}
 
@@ -1971,7 +1975,8 @@ def guess_title_author(filename):
         re.compile(u'［(?P<info>[^］]*)］', re.IGNORECASE),
         re.compile(u'『(?P<info>[^』]*)』', re.IGNORECASE),
         re.compile(u'【(?P<info>[^】]*)】', re.IGNORECASE),
-        re.compile(u'（(?P<info>[^）]*)）', re.IGNORECASE)
+        re.compile(u'（(?P<info>[^）]*)）', re.IGNORECASE),
+        re.compile(u'(?<=》)\s*(?P<info>v\d+(?:\.\d+)?)', re.IGNORECASE),
         )
     re_title_author_patterns = (
         re.compile(u'.*《(?P<title>[^》]+)》(?:[^:：]*[:：])?(?P<author>[^:：]+)', re.IGNORECASE),
@@ -2314,7 +2319,7 @@ def complete_book_info(book_info):
     if newinfo:
     # 把原来没有的项目拷贝过去
         for k in [ "author", "l1cat", "l2cat", "cover" ]:
-            if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
+            if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k) and newinfo[k]):
                 book_info[k] = newinfo[k]
 
     for k in [ "author", "l1cat", "cover" ]:
@@ -3336,10 +3341,11 @@ class EasyChmParser(Parser):
     #re_pages = re.compile(u"\\pages\s*\[\d+\]\s*=\s*\[\s*'(.+?)'\s*\];")
     #re_pages_field_sep = re.compile(u"'\s*,\s*'")
 
-    book_index_files = (
-        os.path.join("js", "page.js"),
-        "Home1.htm",    # 在《地球往事三部曲》中，把page.js中的内容直接放到Home1.htm中了
-        )
+    book_index_files = (    # page.js文件名及.txt文件的存放路径
+        (os.path.join("js", "page.js"), "txt"),
+        (os.path.join("index", "page.js"), "index"),
+        ("Home1.htm", "txt"),   # 在《地球往事三部曲》中，把page.js中的内容直接放到Home1.htm中了
+    )
 
     re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<page>.+?)'\]\s*;", re.IGNORECASE)
     re_pages_field_sep = re.compile(u"'\s*,\s*'")
@@ -3434,6 +3440,11 @@ class EasyChmParser(Parser):
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 5, 'author': 7 },
         },
 
+        # 《卡徒》（精校封面收藏版）作者：方想.chm: pages[0]=['1_01','第一节 以卡为生','4972','目录','卡徒·第一季','','<img src=../txt/1.jpg width=200 height=282 class=cover>',''];
+        { 'cond' : lambda idx,fields: len(fields) == 8 and fields[3] == u"目录" and len(fields[4]) > 0 and len(fields[5]) == 0 and len(fields[7]) == 0,
+         'map'  : { 'file': 0, 'title1': 1, 'title2': 4, 'title2_cover': [6] },
+        },
+
         #合并到下面，由程序对于两级相同的标题进行合并
         ## 道门世家-普通.chm.js: pages[0]=['1-1','本集简介','0','第一集','第一集','A～★航星★','<img src=../txt/01.jpg class=cover>','<br>　　我是一个平','<img src=../txt/1.jpg class=cover>','0','第一集'];
         ## 《刘猛作品集》作者：刘猛.chm: pages[0]=['1_1','第一章 提炼','40144','最后一颗子弹留给我','','A～★航星★','<img src=../txt/1.jpg class=cover>','　　这是一部关于青春和爱……','<img src=../txt/1.jpg class=cover>','40144','最后一颗子弹留给我'];
@@ -3502,6 +3513,9 @@ class EasyChmParser(Parser):
 
         def parse_intro(html, default_title=BOOK_INTRO_TITLE):
             lines = normalizer.text_only(html)
+            if not lines:
+                return u'', u''
+
             m = self.re_intro_title.match(lines[0])
             if m:
                 title = m.group("title")
@@ -3533,19 +3547,129 @@ class EasyChmParser(Parser):
 
         # 把pages.js的内容解释到pages列表中
         pages = list()
-        for book_index_file in self.book_index_files:
-            if inputter.exists(book_index_file):
-                logging.debug(u"{indent}    Checking {file}".format(
-                    file=book_index_file,
-                    indent=u"      "*inputter.nested_level))
+        for (book_index_file,txt_path) in self.book_index_files:
+            if not inputter.exists(txt_path):
+                continue
 
-                for m in self.re_pages.finditer(inputter.read_all(book_index_file)):
-                    pages.append(self.re_pages_field_sep.split(m.group(1)))
+            if not inputter.exists(book_index_file):
+                continue
 
-                if len(pages) > 0:
+            logging.debug(u"{indent}    Checking {file}".format(
+                file=book_index_file,
+                indent=u"      "*inputter.nested_level))
+
+            for m in self.re_pages.finditer(inputter.read_all(book_index_file)):
+                pages.append(self.re_pages_field_sep.split(m.group(1)))
+
+            if not pages:
+                continue
+
+            # 逐项处理pages
+            max_title_level = 0     # 最大标题层次数，只有1级为1，两级为2...
+            next_intro = None       # 有些格式中，把章节简介和封面放在前面一行
+            next_cover = None
+
+            book = Book()
+            book.title  = book_title
+            book.author = book_author
+
+            intro = None
+            root_chapter = Chapter()
+            root_chapter.level = sys.maxint
+            chapter_stack = [root_chapter]
+
+            for idx in xrange(len(pages)):
+                for rule in self.pages_rules:
+                    if not rule['cond'](idx, pages[idx]):
+                        continue
+
+                    # 滿足条件
+                    if rule['map'].has_key('book_cover'):
+                        # 提供了书本的封面
+                        cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], inputter)
+
+                        if cover:
+                            book.cover = cover
+                            logging.debug(u"{indent}  Found book cover '{filename}'".format(
+                                indent=u"      "*inputter.nested_level, filename=cover.filename()))
+            
+                    if rule['map'].has_key('book_intro'):
+                        # 提供了书本的简介
+                        intro = Chapter()
+                        intro.title, intro.content = parse_intro(pages[idx][rule['map']['book_intro']], BOOK_INTRO_TITLE)
+                        if not intro.title and not intro.content:
+                            intro = None
+
+                    if rule['map'].has_key('next_cover'):
+                        # 提供了下一章节的封面
+                        next_cover = self.parse_cover([pages[idx][i] for i in rule['map']['next_cover']], inputter)
+            
+                    if rule['map'].has_key('next_intro'):
+                        # 提供了下一章节的简介
+                        next_intro = parse_intro(pages[idx][rule['map']['next_intro']], CHAPTER_INTRO_TITLE)
+
+                    for lvl in xrange(3, 0, -1):
+                        title_name = u"title{0}".format(lvl)
+                        if not rule['map'].has_key(title_name):
+                            continue
+
+                        # 记录最大的标题层次
+                        if lvl > max_title_level:
+                            max_title_level = lvl
+
+                        if lvl > 1:
+                            chapter = Chapter()
+                            titles = self.re_title_sep.split(pages[idx][rule['map'][title_name]], 1)
+                            chapter.title = title_normalize_from_html(titles[0])
+                            if len(titles) > 1: # 有简短的前言
+                                chapter.content = HtmlContentNormalizer(inputter).normalize(titles[1])
+                        else:
+                            subInputter = SubInputter(inputter, txt_path)
+                            chapter = read_chapter(
+                                subInputter,
+                                pages[idx][rule['map']['file']] + u".txt",
+                                title_normalize_from_html(pages[idx][rule['map'][title_name]]))
+
+                        chapter.level = lvl
+
+                        if next_intro:
+                            chapter.intro = next_intro[1]
+                            next_intro = None
+
+                        if next_cover:
+                            chapter.cover = next_cover
+                            next_cover = u""
+
+                        if rule['map'].has_key(title_name + u"_intro"):
+                            chapter.intro = parse_intro(pages[idx][rule['map'][title_name + u"_intro"]], CHAPTER_INTRO_TITLE)[1]
+                            
+                        if rule['map'].has_key(title_name + u"_cover"):
+                            chapter.cover = self.parse_cover([pages[idx][i] for i in rule['map'][title_name + u"_cover"]], inputter)
+
+                        if lvl > 1:
+                            logging.info(u"    {indent}{title}: {has_cover}".format(
+                                indent="  "*(max_title_level-lvl), title=chapter.title,
+                                has_cover = chapter.cover and u"Has cover" or "No cover"))
+
+                        # 已经生成好chapter，放到适当的位置
+                        while lvl >= chapter_stack[-1].level:
+                            chapter_stack.pop()
+
+                        chapter.parent = chapter_stack[-1]
+                        chapter.parent.subchapters.append(chapter)
+                        chapter_stack.append(chapter)
+
+                        logging.debug(u"{indent}      {title}{content}{cover}{intro}".format(
+                            indent=u"  "*(3*inputter.nested_level+max_title_level-chapter.level+1), title=chapter.title,
+                            content=u"" if chapter.content else u" w/o content",
+                            cover=u" w/ cover" if chapter.cover else u"", intro=u" w/ intro" if chapter.intro else u""))
+
+                    # 处理完一条pages记录，不再尝试后续的rule
                     break
 
-        if not pages:
+            # 已经完成解释，不再尝试下一条book_index_files
+            break
+        else: # book_index_files中所有项目均不符合
             logging.debug(u"{indent}    {file} is not parseable by {parser}".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__,
                 indent=u"      "*inputter.nested_level))
@@ -3553,123 +3677,36 @@ class EasyChmParser(Parser):
             raise NotParseableError(u"{file} is not parseable by {parser}".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
 
-        # 逐项处理pages
-        max_title_level = 0     # 最大标题层次数，只有1级为1，两级为2...
-        top_title_count = 0     # 顶层标题计数，用于对应txt/目录下的jpg文件
-        next_intro = None       # 有些格式中，把章节简介和封面放在前面一行
-        next_cover = None
-
-        book = Book()
-        book.title  = book_title
-        book.author = book_author
-
-        intro = None
-        root_chapter = Chapter()
-        root_chapter.level = sys.maxint
-        chapter_stack = [root_chapter]
-
-        for idx in xrange(len(pages)):
-            for rule in self.pages_rules:
-                if not rule['cond'](idx, pages[idx]):
-                    continue
-
-                # 滿足条件
-                if rule['map'].has_key('book_cover'):
-                    # 提供了书本的封面
-                    cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], inputter)
-                    if cover:
-                        book.cover = cover
-                        logging.debug(u"{indent}  Found book cover '{filename}'".format(
-                            indent=u"      "*inputter.nested_level, filename=cover.filename()))
-        
-                if rule['map'].has_key('book_intro'):
-                    # 提供了书本的简介
-                    intro = Chapter()
-                    intro.title, intro.content = parse_intro(pages[idx][rule['map']['book_intro']], BOOK_INTRO_TITLE)
-
-                if rule['map'].has_key('next_cover'):
-                    # 提供了下一章节的封面
-                    next_cover = self.parse_cover([pages[idx][i] for i in rule['map']['next_cover']], inputter)
-        
-                if rule['map'].has_key('next_intro'):
-                    # 提供了下一章节的简介
-                    next_intro = parse_intro(pages[idx][rule['map']['next_intro']], CHAPTER_INTRO_TITLE)
-
-                for lvl in xrange(3, 0, -1):
-                    title_name = u"title{0}".format(lvl)
-                    if not rule['map'].has_key(title_name):
-                        continue
-
-                    # 记录最大的标题层次
-                    if lvl > max_title_level:
-                        max_title_level = lvl
-
-                    if lvl > 1:
-                        chapter = Chapter()
-                        titles = self.re_title_sep.split(pages[idx][rule['map'][title_name]], 1)
-                        chapter.title = title_normalize_from_html(titles[0])
-                        if len(titles) > 1: # 有简短的前言
-                            chapter.content = HtmlContentNormalizer(inputter).normalize(titles[1])
-                    else:
-                        subInputter = SubInputter(inputter, u"txt")
-                        chapter = read_chapter(
-                            subInputter,
-                            pages[idx][rule['map']['file']] + u".txt",
-                            title_normalize_from_html(pages[idx][rule['map'][title_name]]))
-
-                    chapter.level = lvl
-
-                    if next_intro:
-                        chapter.intro = next_intro[1]
-                        next_intro = None
-
-                    if next_cover:
-                        chapter.cover = next_cover
-                        next_cover = u""
-
-                    if rule['map'].has_key(title_name + u"_intro"):
-                        chapter.intro = parse_intro(pages[idx][rule['map'][title_name + u"_intro"]], CHAPTER_INTRO_TITLE)[1]
-                        
-                    if rule['map'].has_key(title_name + u"_cover"):
-                        chapter.cover = self.parse_cover([pages[idx][i] for i in rule['map'][title_name + u"_cover"]], inputter)
-
-                    # 对于最高层的标题，看看txt/目录有没有对应的封面图片
-                    if lvl == max_title_level:
-                        top_title_count += 1
-
-                        if not chapter.cover:
-                            chapter.cover = self.parse_cover([
-                                u"txt/{0}.jpg".format(top_title_count), 
-                                u"txt/0{0}.jpg".format(top_title_count)], inputter)
-
-                    if lvl > 1:
-                        logging.info(u"    {indent}{title}: {has_cover}".format(
-                            indent="  "*(max_title_level-lvl), title=chapter.title,
-                            has_cover = chapter.cover and u"Has cover" or "No cover"))
-
-                    # 已经生成好chapter，放到适当的位置
-                    while lvl >= chapter_stack[-1].level:
-                        chapter_stack.pop()
-
-                    chapter.parent = chapter_stack[-1]
-                    chapter.parent.subchapters.append(chapter)
-                    chapter_stack.append(chapter)
-
-                    logging.debug(u"{indent}      {title}{content}{cover}{intro}".format(
-                        indent=u"  "*(3*inputter.nested_level+max_title_level-chapter.level+1), title=chapter.title,
-                        content=u"" if chapter.content else u" w/o content",
-                        cover=u" w/ cover" if chapter.cover else u"", intro=u" w/ intro" if chapter.intro else u""))
-
-                # 处理完一条pages记录，不再尝试后续的rule
-                break
-
         book.subchapters = root_chapter.subchapters
         for subchapter in book.subchapters:
             subchapter.parent = None
 
+        # 对于最高层的标题，看看txt/目录有没有对应的封面图片
+        for chapter in root_chapter.subchapters:
+            if chapter.cover:
+                break   # 如果使用目录中与章节编号对应的图片作为封面的话，所有顶层章节都不应有指定的封面
+        else:   # 所有顶层章节目前都没有封面，看看目录下有没有对应编号的图片
+            top_title_count = 0     # 顶层标题计数，用于对应txt/目录下的jpg文件
+            for chapter in root_chapter.subchapters:
+                top_title_count += 1
+
+                chapter.cover = self.parse_cover([
+                    u"txt/{0}.jpg".format(top_title_count), 
+                    u"txt/0{0}.jpg".format(top_title_count)], inputter)
+
+                if not chapter.cover:   # 应该所有顶层章节都有封面图片，否则说明这些不是章节对应的封面图片
+                    for c in root_chapter.subchapters:
+                        c.cover = None
+
+                    break
+
         if intro:
             book.subchapters[0:0] = [intro]
             book.intro = u"\n".join(intro.content)
+
+        # 取第一个章节的封面作为整本书的封面
+        if not book.cover and book.subchapters and book.subchapters[0].cover:
+            book.cover = book.subchapters[0].cover
 
         return book
 #   }}}
@@ -6737,6 +6774,7 @@ def convert_book(path, output=u""):
                 chapter.originated   = chapter.subchapters[0].originated   if not chapter.originated   else chapter.originated
                 chapter.publish_date = chapter.subchapters[0].publish_date if not chapter.publish_date else chapter.publish_date
                 chapter.source       = chapter.subchapters[0].source       if not chapter.source       else chapter.source
+                chapter.content      = chapter.subchapters[0].content      if not chapter.content      else chapter.content
                 chapter.subchapters  = chapter.subchapters[0].subchapters
 
         if isinstance(chapter.intro, basestring):
@@ -6858,7 +6896,7 @@ def convert_book(path, output=u""):
                 "sub_title" : book.sub_title,
                 "author"    : book.author,
                 "l1cat"     : book.category,
-                "cover"     : cover,
+                "cover"     : book.cover,
             }
             complete_book_info(bookinfo)
 
@@ -6877,6 +6915,7 @@ def convert_book(path, output=u""):
     def print_book_info(book):
         logging.info(u"Book Info:")
         logging.info(u"  Book Title:  '{title}'".format(title=book.title))
+        logging.info(u"  Book SubTitle:  '{title}'".format(title=book.sub_title))
         logging.info(u"  Book Author: '{author}'".format(author=book.author))
         logging.info(u"  Book Category: '{category}'".format(category=book.category))
 
