@@ -7042,12 +7042,13 @@ if __name__ == "__main__":
         optparser.print_help(sys.stderr)
         sys.exit(2)
 
+    log_format = u"%(asctime)s %(levelname)s %(message)s"
     if options.silent:
-        logging.basicConfig(level=logging.WARNING)
+        logging.basicConfig(format=log_format, level=logging.WARNING)
     elif options.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(format=log_format, level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(format=log_format, level=logging.INFO)
 
     filename = args[0]
     
