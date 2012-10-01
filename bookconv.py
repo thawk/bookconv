@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20121004"
+VERSION=u"20121005"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -1989,6 +1989,9 @@ def guess_title_author(filename):
     re_title_only_patterns = (
         re.compile(u'《(?P<title>[^》]+)》', re.IGNORECASE),
         )
+    re_ignore_infos = (
+        re.compile(u'\((全本|文字全本|原创)\)', re.IGNORECASE),
+    )
 
     name = os.path.splitext(os.path.basename(filename.strip(u'/')))[0]
 
@@ -2004,6 +2007,9 @@ def guess_title_author(filename):
     for re_extra_info in re_extra_infos:
         #name = re_extra_info.sub(u" ", name)
         name = re_extra_info.sub(u"", name)
+
+    for re_ignore_info in re_ignore_infos:
+        extra_info = re_ignore_info.sub(u"", extra_info)
 
     title  = "";
     author = "";
