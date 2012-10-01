@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20120703"
+VERSION=u"20121004"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -4513,6 +4513,9 @@ class TxtParser(Parser):
             返回True表示line是属性行，包含的属性将合并到last_attrs中。
             False表示不是属性行。"""
 
+            if not line:
+                return False
+
             m = self.re_attributes.match(line)
             if m:
                 attrs = dict()
@@ -4562,13 +4565,19 @@ class TxtParser(Parser):
             return lines
         # }}}
 
+        # {{{ ------ func replacements
+        def replacements(text):
+            result = unescape(text)
+            # TODO: 对(C)等字符序列进行替换
+            return result
+
         # {{{ ------ func parse_quoted_text
         def parse_quoted_text(text):
             elements = list()
             start = 0
             for me in self.re_quoted_text.finditer(text):
                 if me.start() != start: # 匹配前的部分
-                    elements.append(text[start:me.start()])
+                    elements.append(replacements(text[start:me.start()]))
 
                 attrs = dict()
                 parse_attributes(me.group("attrs"), attrs)
@@ -4599,7 +4608,7 @@ class TxtParser(Parser):
                 start = me.end()
 
             if start != len(text):
-                elements.append(text[start:])
+                elements.append(replacements(text[start:]))
 
             return elements
         # }}}
@@ -4890,8 +4899,8 @@ class TxtParser(Parser):
                 pass
         # }}}
 
-        if not inputter.entry or inputter.entry[-4:].lower() != ".txt":
-            raise NotParseableError(u"{file} is not parseable by {parser}. Not .txt file!".format(
+        if not inputter.entry:
+            raise NotParseableError(u"{file} is not parseable by {parser}. Not asciidoc file!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
 
         root_chapter = Chapter()
@@ -6980,6 +6989,10 @@ def convert_book(path, output=u""):
                 u".epub")
 
         if os.path.splitext(bookfilename)[1].lower() == u".txt":
+            with FileSysOutputter() as outputter:
+                converter = TxtConverter(bookfilename)
+                converter.convert(outputter, book)
+        elif os.path.splitext(bookfilename)[1].lower() == u".asciidoc":
             with FileSysOutputter() as outputter:
                 converter = TxtConverter(bookfilename)
                 converter.convert(outputter, book)
