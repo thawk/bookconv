@@ -4899,7 +4899,7 @@ class TxtParser(Parser):
                 pass
         # }}}
 
-        if not inputter.entry:
+        if not inputter.entry or (inputter.entry[-4:].lower() != ".txt" and inputter.entry[-9:].lower() != ".asciidoc"):
             raise NotParseableError(u"{file} is not parseable by {parser}. Not asciidoc file!".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
 
