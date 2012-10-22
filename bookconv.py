@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20121005"
+VERSION=u"20121022"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2107,7 +2107,7 @@ def complete_book_info(book_info):
     )
 
     re_category_map = (
-        ( re.compile(u'合集|合辑|全集|系列|作品集|小说集|部全', re.IGNORECASE), u'合集'),
+        ( re.compile(u'文集|合集|合辑|全集|系列|作品集|小说集|部全', re.IGNORECASE), u'合集'),
         ( re.compile(u'恐怖', re.IGNORECASE), u'恐怖'),
         ( re.compile(u'科幻', re.IGNORECASE), u'科幻'),
         ( re.compile(u'玄幻|修真', re.IGNORECASE), u'玄幻'),
