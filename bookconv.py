@@ -2912,6 +2912,7 @@ class Parser(object):
             else:   # 也可以直接提供图片的路径
                 cover_filename = html
 
+            print inputter.fullpath(""), cover_filename,  inputter.fullpath(cover_filename) 
             if inputter.isfile(cover_filename):
                 cover = InputterImg(cover_filename, inputter)
                 if cover.width() > 0 and cover.height() > 0 and \
@@ -3350,11 +3351,12 @@ class EasyChmParser(Parser):
 
     book_index_files = (    # page.js文件名及.txt文件的存放路径
         (os.path.join("js", "page.js"), "txt"),
+        (os.path.join("js", "pages.js"), "data"),
         (os.path.join("index", "page.js"), "index"),
         ("Home1.htm", "txt"),   # 在《地球往事三部曲》中，把page.js中的内容直接放到Home1.htm中了
     )
 
-    re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<page>.+?)'\]\s*;", re.IGNORECASE)
+    re_pages = re.compile(u"\\b\w*pages\s*\[\d+\]\s*=\s*\['(?P<page>.+?)'\]\s*;", re.IGNORECASE)
     re_pages_field_sep = re.compile(u"'\s*,\s*'")
 
     re_content_first = re.compile(u"document\.write\s*\((\s*.*?)['\"]\s*\)\s*;", re.IGNORECASE | re.MULTILINE)
@@ -3410,6 +3412,10 @@ class EasyChmParser(Parser):
         { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5][0:4].lower() == u"<img" and fields[4] != fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 4, 'title3_cover': [5] },
         },
+        # 莫言作品全集：arrpages[2]=['1-3','纯文学','酒国','莫言','省人民检察院的特级侦察员丁钩儿奉命到酒国市去调查一个特殊的案子：酒国市的官员吃掉了无数婴儿。但到酒国市的人没有能经得起诱惑的，丁钩儿虽不断提醒自己不喝酒，最后却醉酒淹死在茅厕里。','finish'];
+        { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] == u"finish",
+          'map'  : { 'file': 0, 'title1': 2, 'author': 3, 'title1_intro': 4 },
+        },
         # 《徐公子胜治作品合集》.chm.js: pages[0]=['01_01','001回 阴阳一席坐，佛道两骛人','6086','第一卷 阴神篇','神游','神游'];
         { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] == fields[4] and fields[4] != fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 4 },
@@ -3431,6 +3437,11 @@ class EasyChmParser(Parser):
         # pages[0]=['01_01','第一章 血尸','3155','第一卷 七星鲁王','1','第一季·七星鲁王宫'];
         { 'cond' : lambda idx,fields: len(fields) == 6 and fields[5] != fields[4] and fields[4] != fields[3] and fields[5] != fields[3],
           'map'  : { 'file': 0, 'title1': 1, 'title2': 3, 'title3': 5 },
+        },
+
+        # 莫言作品全集：arrpages[2]=['1-3','纯文学','酒国','莫言','省人民检察院的特级侦察员丁钩儿奉命到酒国市去调查一个特殊的案子：酒国市的官员吃掉了无数婴儿。但到酒国市的人没有能经得起诱惑的，丁钩儿虽不断提醒自己不喝酒，最后却醉酒淹死在茅厕里。','finish'];
+        { 'cond' : lambda idx,fields: len(fields) == 7 and fields[5] == u"finish",
+          'map'  : { 'file': 0, 'title1': 2, 'author': 3, 'title1_intro': 4, 'title2': 6 },
         },
 
         # 《圣纹师》（实体封面版）作者：拂晓星.chm.js: pages[0]=['1-1','～第一章零之殿下～','7314','·第一集 愿望女神·','<img src=../txt/01.jpg id=...>','·第一集 愿望女神·','掌握人类命运的圣纹师，出现了前所未有的危机！<br>急剧'];
@@ -3554,11 +3565,22 @@ class EasyChmParser(Parser):
 
         # 把pages.js的内容解释到pages列表中
         pages = list()
-        for (book_index_file,txt_path) in self.book_index_files:
+        for (book_index_file, txt_path) in self.book_index_files:
+            logging.debug(u"{indent}    Trying {book_index_file}, {txt_path}...".format(
+                book_index_file=book_index_file,
+                txt_path=txt_path,
+                indent=u"      "*inputter.nested_level))
+
             if not inputter.exists(txt_path):
+                logging.debug(u"{indent}      {txt_path} not exists".format(
+                    txt_path=txt_path,
+                    indent=u"      "*inputter.nested_level))
                 continue
 
             if not inputter.exists(book_index_file):
+                logging.debug(u"{indent}      {book_index_file} not exists".format(
+                    book_index_file=book_index_file,
+                    indent=u"      "*inputter.nested_level))
                 continue
 
             logging.debug(u"{indent}    Checking {file}".format(
@@ -3585,6 +3607,8 @@ class EasyChmParser(Parser):
             root_chapter.level = sys.maxint
             chapter_stack = [root_chapter]
 
+            cover_inputter = inputter
+
             for idx in xrange(len(pages)):
                 for rule in self.pages_rules:
                     if not rule['cond'](idx, pages[idx]):
@@ -3593,7 +3617,7 @@ class EasyChmParser(Parser):
                     # 滿足条件
                     if rule['map'].has_key('book_cover'):
                         # 提供了书本的封面
-                        cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], inputter)
+                        cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], cover_inputter)
 
                         if cover:
                             book.cover = cover
@@ -3609,7 +3633,7 @@ class EasyChmParser(Parser):
 
                     if rule['map'].has_key('next_cover'):
                         # 提供了下一章节的封面
-                        next_cover = self.parse_cover([pages[idx][i] for i in rule['map']['next_cover']], inputter)
+                        next_cover = self.parse_cover([pages[idx][i] for i in rule['map']['next_cover']], cover_inputter)
             
                     if rule['map'].has_key('next_intro'):
                         # 提供了下一章节的简介
@@ -3632,10 +3656,33 @@ class EasyChmParser(Parser):
                                 chapter.content = HtmlContentNormalizer(inputter).normalize(titles[1])
                         else:
                             subInputter = SubInputter(inputter, txt_path)
-                            chapter = read_chapter(
-                                subInputter,
-                                pages[idx][rule['map']['file']] + u".txt",
-                                title_normalize_from_html(pages[idx][rule['map'][title_name]]))
+                            if subInputter.isfile(pages[idx][rule['map']['file']] + u".txt"):
+                                chapter = read_chapter(
+                                    subInputter,
+                                    pages[idx][rule['map']['file']] + u".txt",
+                                    title_normalize_from_html(pages[idx][rule['map'][title_name]]))
+                            else:
+                                title  = title_normalize_from_html(pages[idx][rule['map'][title_name]])
+                                author = pages[idx][rule['map']['author']] if rule['map'].has_key('author') else u''
+
+                                subInputter = SubInputter(subInputter, pages[idx][rule['map']['file']])
+                                logging.debug(u"{indent}      Parsing sub book '{path}'".format(
+                                    path = subInputter.fullpath(""),
+                                    indent=u"      "*inputter.nested_level))
+
+                                subbookinfo = Parser.parse_book(
+                                    subInputter,
+                                    title_normalize_from_html(pages[idx][rule['map'][title_name]]),
+                                    (pages[idx][rule['map']['author']] if rule['map'].has_key('author') else u''),
+                                    u'')
+
+                                chapter = Chapter()
+                                chapter.title  = title if title else subbookinfo.title
+                                chapter.author = author if author else subbookinfo.author
+                                chapter.subchapters = subbookinfo.subchapters
+
+                                for subchapter in chapter.subchapters:
+                                    subchapter.parent = chapter
 
                         chapter.level = lvl
 
@@ -3651,7 +3698,8 @@ class EasyChmParser(Parser):
                             chapter.intro = parse_intro(pages[idx][rule['map'][title_name + u"_intro"]], CHAPTER_INTRO_TITLE)[1]
                             
                         if rule['map'].has_key(title_name + u"_cover"):
-                            chapter.cover = self.parse_cover([pages[idx][i] for i in rule['map'][title_name + u"_cover"]], inputter)
+                            print [pages[idx][i] for i in rule['map'][title_name + u"_cover"]], cover_inputter.fullpath([pages[idx][i] for i in rule['map'][title_name + u"_cover"]])
+                            chapter.cover = self.parse_cover([pages[idx][i] for i in rule['map'][title_name + u"_cover"]], cover_inputter)
 
                         if lvl > 1:
                             logging.info(u"    {indent}{title}: {has_cover}".format(
@@ -3669,7 +3717,8 @@ class EasyChmParser(Parser):
                         logging.debug(u"{indent}      {title}{content}{cover}{intro}".format(
                             indent=u"  "*(3*inputter.nested_level+max_title_level-chapter.level+1), title=chapter.title,
                             content=u"" if chapter.content else u" w/o content",
-                            cover=u" w/ cover" if chapter.cover else u"", intro=u" w/ intro" if chapter.intro else u""))
+                            cover=u" w/ cover" if chapter.cover else u"",
+                            intro=u" w/ intro" if chapter.intro else u""))
 
                     # 处理完一条pages记录，不再尝试后续的rule
                     break
@@ -3698,8 +3747,8 @@ class EasyChmParser(Parser):
                 top_title_count += 1
 
                 chapter.cover = self.parse_cover([
-                    u"txt/{0}.jpg".format(top_title_count), 
-                    u"txt/0{0}.jpg".format(top_title_count)], inputter)
+                    u"../txt/{0}.jpg".format(top_title_count), 
+                    u"../txt/0{0}.jpg".format(top_title_count)], cover_inputter)
 
                 if not chapter.cover:   # 应该所有顶层章节都有封面图片，否则说明这些不是章节对应的封面图片
                     for c in root_chapter.subchapters:
@@ -4576,6 +4625,7 @@ class TxtParser(Parser):
             result = unescape(text)
             # TODO: 对(C)等字符序列进行替换
             return result
+        # }}}
 
         # {{{ ------ func parse_quoted_text
         def parse_quoted_text(text):
@@ -5926,14 +5976,24 @@ class HtmlConverter(object):
                 id = u'{prefix}{idx}'.format(prefix=IMAGE_PREFIX, idx=len(files["image"])+1)
 
             img.set_id(id)
-            img.resize(MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)       
 
-            files["image"][img.unique_key()] = {
-                "filename": u'{path}{id}{ext}'.format(
-                            path=IMAGE_PATH, id=img.id(), ext=img.extension()),
-                "content":  img.content(),
-                "id":       img.id(),
-            }
+            try:
+                img.resize(MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)       
+
+                files["image"][img.unique_key()] = {
+                    "filename": u'{path}{id}{ext}'.format(
+                                path=IMAGE_PATH, id=img.id(), ext=img.extension()),
+                    "content":  img.content(),
+                    "id":       img.id(),
+                }
+            except:
+                files["image"][img.unique_key()] = {
+                    "filename": u'{path}{id}{ext}'.format(
+                                path=IMAGE_PATH, id=img.id(), ext=img.extension()),
+                    "content":  "",
+                    "id":       img.id(),
+                }
+                pass
     # }}} 
 
     # {{{ ---- func create_preamble_files
