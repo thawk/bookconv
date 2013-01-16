@@ -47,7 +47,7 @@ except:
 
 PROGNAME=u"bookconv.py"
 
-VERSION=u"20121022"
+VERSION=u"20130116"
 
 # {{{ Contants
 COVER_PATHS = [
@@ -2579,8 +2579,7 @@ def title_normalize_from_html(title):
 # }}}
 
 # {{{ Inputters
-# {{{ -- Inputter
-class Inputter(object):
+class Inputter(object): # {{{
     def __init__(self, default_encoding=""):
         ## 入口文件
         #  如果指定了，就应该解释这个文件，而不是index.html等
@@ -2626,8 +2625,7 @@ class Inputter(object):
         raise NotImplementedError()
 #   }}}
 
-#   {{{ -- FileSysInputter
-class FileSysInputter(Inputter):
+class FileSysInputter(Inputter): # {{{
     def __init__(self, basedir=u"", encoding=""):
         super(FileSysInputter, self).__init__(encoding)
 
@@ -2669,8 +2667,7 @@ class FileSysInputter(Inputter):
 #   }}}
 
 g_idx = 0
-#   {{{ -- ChmInputter
-class ChmInputter(Inputter):
+class ChmInputter(Inputter): # {{{
     def __init__(self, filename, encoding=""):
         def callback(cf,ui,lst):
             lst.append(ui.path)
@@ -2750,8 +2747,7 @@ class ChmInputter(Inputter):
 
 #   }}}
 
-#   {{{ -- UrlInputter
-class UrlInputter(Inputter):
+class UrlInputter(Inputter): # {{{
     def __init__(self, baseurl=u"", encoding=""):
         super(UrlInputter, self).__init__(encoding)
 
@@ -2846,8 +2842,7 @@ class UrlInputter(Inputter):
 
 #   }}}
 
-#   {{{ -- SubInputter
-class SubInputter(Inputter):
+class SubInputter(Inputter): # {{{
     def __init__(self, inputter, root):
         super(SubInputter, self).__init__(inputter.default_encoding)
 
@@ -2891,28 +2886,45 @@ class SubInputter(Inputter):
 # }}}
 
 # {{{ Parsers
-#   {{{ -- Parser
-class Parser(object):
+class Parser(object): # {{{
     re_cover = re.compile(u"<img\s*src=(?P<quote1>['\"])?(?P<src>.*?)(?(quote1)(?P=quote1)|(?=\s|>))", re.IGNORECASE)
 
     def parse(self, inputter, book_title=u"", book_author=u""):
         raise NotImplementedError(u"Parser::parse() is not implemented!")
 
-    # 如果有多张封面，使用最大的一张
-    def parse_cover(self, htmls, inputter):
+    def extract_image_path(self, htmls):
+        """ 从html中提取出img的路径
+
+        Args:
+            htmls - html片段或者路径，可以为数组或者字符串
+
+        Returns:
+            htmls中各项对应的路径。如果htmls是数组则返回相同长度的数组，否则将返回单个字符串
+        """
+        is_list = True
         if isinstance(htmls, basestring):
             htmls = [htmls,]
+            is_list = False
 
-        covers = list()
+        image_paths = list()
 
         for html in htmls:
             m = self.re_cover.match(html)
             if m:
-                cover_filename = os.path.join("js", m.group("src"))
+                image_paths.append(m.group("src"))
             else:   # 也可以直接提供图片的路径
-                cover_filename = html
+                image_paths.append(html)
 
-            print inputter.fullpath(""), cover_filename,  inputter.fullpath(cover_filename) 
+        return image_paths if is_list else image_paths[0]
+
+    # 如果有多张封面，使用最大的一张
+    def parse_cover(self, paths, inputter):
+        if isinstance(paths, basestring):
+            paths = [paths,]
+
+        covers = list()
+
+        for cover_filename in paths:
             if inputter.isfile(cover_filename):
                 cover = InputterImg(cover_filename, inputter)
                 if cover.width() > 0 and cover.height() > 0 and \
@@ -2991,8 +3003,7 @@ class Parser(object):
 
 #   }}}
 
-#   {{{ -- HtmlBuilderParser
-class HtmlBuilderParser(Parser):
+class HtmlBuilderParser(Parser): # {{{
     re_idx_comment = re.compile(u"<!--.*?-->")
     re_idx_toc     = re.compile(u".*<font class=f3>[^<]+", re.IGNORECASE)
     re_idx_intro   = re.compile(u".*<td\s+[^>]*\\bclass=m5\\b>(.+?)</td>", re.IGNORECASE)
@@ -3342,8 +3353,7 @@ class HtmlBuilderParser(Parser):
         return book
 #   }}}
 
-#   {{{ -- EasyChmParser
-class EasyChmParser(Parser):
+class EasyChmParser(Parser): # {{{
     #re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<filename>[^']+)'\s*,\s*'(?P<chapter_title>[^']*)'\s*,\s*'([^']*)'\s*(?:,\s*'(?P<l1title>[^']*)')?(?:,\s*'(?P<chapter_intro>[^']*)')?.*?\]\s*;", re.IGNORECASE)
     #re_pages = re.compile(u"\\bpages\s*\[\d+\]\s*=\s*\['(?P<filename>[^']+)'\s*,\s*'(?P<chapter_title>[^']*)'\s*,\s*'([^']*)'\s*(?<upper_titles>(?:,\s*'(?P<l1title>[^']*)')*)(?:,\s*'(?P<chapter_intro>[^']*)')?.*?\]\s*;", re.IGNORECASE)
     #re_pages = re.compile(u"\\pages\s*\[\d+\]\s*=\s*\[\s*'(.+?)'\s*\];")
@@ -3500,10 +3510,10 @@ class EasyChmParser(Parser):
     ]
     # }}}
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, book_title, book_author): # {{{
         normalizer = HtmlContentNormalizer(inputter=inputter)
 
-        def read_chapter(inputter, filename, title):
+        def read_chapter(inputter, filename, title): # {{{
             chapter = Chapter()
             content = u"".join(inputter.read_lines(filename))
 
@@ -3528,8 +3538,9 @@ class EasyChmParser(Parser):
             chapter.title = title
 
             return chapter
+        # }}}
 
-        def parse_intro(html, default_title=BOOK_INTRO_TITLE):
+        def parse_intro(html, default_title=BOOK_INTRO_TITLE): # {{{
             lines = normalizer.text_only(html)
             if not lines:
                 return u'', u''
@@ -3553,6 +3564,7 @@ class EasyChmParser(Parser):
                     content.append(line)
 
             return title, content
+        # }}}
 
 #        # 如果有入口文件，则入口文件只能是start.htm
 #        if inputter.entry and inputter.entry != u"start.htm":
@@ -3607,7 +3619,7 @@ class EasyChmParser(Parser):
             root_chapter.level = sys.maxint
             chapter_stack = [root_chapter]
 
-            cover_inputter = inputter
+            cover_inputter = SubInputter(inputter, os.path.dirname(book_index_file))
 
             for idx in xrange(len(pages)):
                 for rule in self.pages_rules:
@@ -3617,7 +3629,12 @@ class EasyChmParser(Parser):
                     # 滿足条件
                     if rule['map'].has_key('book_cover'):
                         # 提供了书本的封面
-                        cover = self.parse_cover([pages[idx][i] for i in rule['map']['book_cover']], cover_inputter)
+                        cover = self.parse_cover(
+                            self.extract_image_path([pages[idx][i] for i in rule['map']['book_cover']])
+                            # 有可能是相对于根js进行定位，因此尝试只要最后的部分
+                            + [os.path.join(txt_path, os.path.basename(self.extract_image_path(pages[idx][i]))) for i in rule['map']['book_cover']]
+                            + [os.path.join(u"..", txt_path, os.path.basename(self.extract_image_path(pages[idx][i]))) for i in rule['map']['book_cover']],
+                            cover_inputter)
 
                         if cover:
                             book.cover = cover
@@ -3633,7 +3650,9 @@ class EasyChmParser(Parser):
 
                     if rule['map'].has_key('next_cover'):
                         # 提供了下一章节的封面
-                        next_cover = self.parse_cover([pages[idx][i] for i in rule['map']['next_cover']], cover_inputter)
+                        next_cover = self.parse_cover(
+                            self.extract_image_path([pages[idx][i] for i in rule['map']['next_cover']]),
+                            cover_inputter)
             
                     if rule['map'].has_key('next_intro'):
                         # 提供了下一章节的简介
@@ -3680,6 +3699,7 @@ class EasyChmParser(Parser):
                                 chapter.title  = title if title else subbookinfo.title
                                 chapter.author = author if author else subbookinfo.author
                                 chapter.subchapters = subbookinfo.subchapters
+                                chapter.cover = subbookinfo.cover
 
                                 for subchapter in chapter.subchapters:
                                     subchapter.parent = chapter
@@ -3698,8 +3718,9 @@ class EasyChmParser(Parser):
                             chapter.intro = parse_intro(pages[idx][rule['map'][title_name + u"_intro"]], CHAPTER_INTRO_TITLE)[1]
                             
                         if rule['map'].has_key(title_name + u"_cover"):
-                            print [pages[idx][i] for i in rule['map'][title_name + u"_cover"]], cover_inputter.fullpath([pages[idx][i] for i in rule['map'][title_name + u"_cover"]])
-                            chapter.cover = self.parse_cover([pages[idx][i] for i in rule['map'][title_name + u"_cover"]], cover_inputter)
+                            chapter.cover = self.parse_cover(
+                                self.extract_image_path([pages[idx][i] for i in rule['map'][title_name + u"_cover"]]),
+                                cover_inputter)
 
                         if lvl > 1:
                             logging.info(u"    {indent}{title}: {has_cover}".format(
@@ -3765,10 +3786,10 @@ class EasyChmParser(Parser):
             book.cover = book.subchapters[0].cover
 
         return book
+    # }}}
 #   }}}
 
-#   {{{ -- IFengBookParser
-class IFengBookParser(Parser):
+class IFengBookParser(Parser): # {{{
     re_info = re.compile(
         u"<div [^>]*\"infoTab\d*\"[^>]*>\s*" +
         u"<table[^>]*>\s*" +
@@ -3935,9 +3956,9 @@ class IFengBookParser(Parser):
         return book
 #   }}}
 
-#   {{{ -- InfzmParser
-# 南方周末
-class InfzmParser(Parser):
+class InfzmParser(Parser): # {{{
+    """ 南方周末解释器
+    """
     re_info = re.compile(
         u'<div id="contents">\s*' +
         u'<div id="enews_header">\s*' +
@@ -4198,9 +4219,9 @@ class InfzmParser(Parser):
         return book
 #   }}}
 
-#   {{{ -- NbweeklyParser
-# 南都周刊
-class NbweeklyParser(Parser):
+class NbweeklyParser(Parser): # {{{
+    """ 南都周刊
+    """
     # 层层深入，下一层将在上一层的content范围内查找
     re_info = [
         # 圈定一个范围
@@ -4457,8 +4478,7 @@ class NbweeklyParser(Parser):
         return book
 #   }}}
 
-#   {{{ -- TxtParser
-class TxtParser(Parser):
+class TxtParser(Parser): # {{{
     # {{{ ---- Regexs
     re_image1 = re.compile(r"^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)")
     re_image2 = re.compile(r"^image:(?P<src>[^ \t　[]+)(?P<attrs>\[[^]]*\])")
@@ -4990,8 +5010,7 @@ class TxtParser(Parser):
 #   }}}
 
 #   {{{ -- CollectionParsers
-#     {{{ ---- CollectionParser
-class CollectionParser(Parser):
+class CollectionParser(Parser): # {{{
     default_entrys = ()     # 缺省入口文件，可以被调用者通过inputer中指定来覆盖
     force_entrys = ()       # 本Parser只能使用此入口文件，会覆盖inputter.entry
 
@@ -5268,8 +5287,7 @@ class CollectionParser(Parser):
         return book
 #     }}}
 
-#     {{{ ---- HtmlBuilderCollectionParser
-class HtmlBuilderCollectionParser(CollectionParser):
+class HtmlBuilderCollectionParser(CollectionParser): # {{{
     default_entrys = ( u"cover.html", u"cover.htm", u"index.htm" )
 
     re_auto_levels  = (
@@ -5301,8 +5319,7 @@ class HtmlBuilderCollectionParser(CollectionParser):
     )
 #     }}}
 
-#     {{{ ---- EasyChmCollectionParser
-class EasyChmCollectionParser(CollectionParser):
+class EasyChmCollectionParser(CollectionParser): # {{{
     default_entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
     re_links = (
@@ -5317,8 +5334,7 @@ class EasyChmCollectionParser(CollectionParser):
 
 #     }}}
 
-#     {{{ ---- EasyChmCollectionParser2
-class EasyChmCollectionParser2(CollectionParser):
+class EasyChmCollectionParser2(CollectionParser): # {{{
     force_entrys = ( u"index/js/book.js", u"js/book.js")
 
     re_links = (
@@ -5334,8 +5350,7 @@ class EasyChmCollectionParser2(CollectionParser):
 #     }}}
 #   }}}
 
-#   {{{ -- RedirectParser
-class RedirectParser(Parser):
+class RedirectParser(Parser): # {{{
     re_redirects = (
         re.compile(
             u"<frameset\srows=\"\d+,\*\"[^>]*>\s*" +
@@ -5548,15 +5563,13 @@ def get_images(*args):
                 yield img
 #   }}}
 
-#   {{{ -- Converter
-class Converter(object):
+class Converter(object): # {{{
     def convert(self, outputter, book):
         raise NotImplementedError()
 
 #   }}}
 
-#   {{{ -- HtmlConverter
-class HtmlConverter(object):
+class HtmlConverter(object): # {{{
     def __init__(self, style=HTML_STYLE):
         self.style   = style
 
@@ -6235,8 +6248,7 @@ class HtmlConverter(object):
     # }}}
 #   }}}
 
-# {{{ -- EpubConverter
-class EpubConverter(Converter):
+class EpubConverter(Converter): # {{{
     def __init__(self):
         super(EpubConverter, self).__init__()
 
@@ -6673,8 +6685,7 @@ class EpubConverter(Converter):
         logging.info(u"  EPUB generated.")
 # }}}
 
-#   {{{ -- TxtConverter
-class TxtConverter(object):
+class TxtConverter(object): # {{{
     def __init__(self, filename):
         super(TxtConverter, self).__init__()
         self.filename = filename
@@ -6749,8 +6760,7 @@ class TxtConverter(object):
 # }}}
 
 # {{{ Outputters
-#   {{{ -- Outputter
-class Outputter(object):
+class Outputter(object): # {{{
     def __init__(self):
         self.is_closed = False
 
@@ -6768,8 +6778,7 @@ class Outputter(object):
 
 #   }}}
 
-#   {{{ -- MemOutputter
-class MemOutputter(Outputter):
+class MemOutputter(Outputter): # {{{
     def __init__(self):
         super(MemOutputter, self).__init__()
         self.files = list()
@@ -6786,15 +6795,13 @@ class MemOutputter(Outputter):
         self.files.append(file)
 #   }}}
 
-#   {{{ -- FileSysOutputter
-class FileSysOutputter(Outputter):
+class FileSysOutputter(Outputter): # {{{
     def add_file(self, path, content, **properties):
         with open(path, 'w+b') as f:
             f.write(content)
 #   }}}
 
-#   {{{ -- ZipOutputter
-class ZipOutputter(Outputter):
+class ZipOutputter(Outputter): # {{{
     def __init__(self, outputter, filename):
         super(ZipOutputter, self).__init__()
 
