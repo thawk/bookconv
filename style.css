@@ -1,0 +1,663 @@
+@page {
+    margin: none;
+    padding: none;
+    border-width: none;
+}
+
+body {
+	padding: none;
+    margin: none;
+    border-width: none;
+
+	line-height:130%;
+	text-align: justify;
+	font-family:"zw";
+	font-size:100%;
+}
+div {
+	margin:0px;
+	padding:0px;
+	line-height:130%;
+	text-align: justify;
+	font-family:"zw";
+}
+
+p, .p, p.p {
+	text-align: justify;
+    text-indent: 2em;
+	line-height:130%;
+    margin-top: 0em;
+    margin-bottom: 0.3em;
+	/*margin-bottom:-0.9em;*/
+}
+
+.zw {
+	font-family: "zw","宋体","明体",serif;
+}
+.st, .songti {
+	font-family: "zw","宋体","明体",serif;
+}
+.fs, .fangsong {
+	font-family: "fs","仿宋","仿宋_gb2312",serif;
+}
+.kt, .kaiti {
+	font-family: "kt","楷体","楷体_gb2312","zw",serif;
+}
+.ktpy, .kaitipinyin {
+	font-family: "ktpy","楷体","楷体_gb2312","zw",serif;
+}
+.ht, .heiti {
+	font-family: "ht","微软雅黑","黑体","zw",sans-serif;
+}
+.yt, .yuanti {
+	font-family: "yt","圆体","zw",sans-serif;
+}
+.h1 {
+	font-family: "h1","方正兰亭特黑长_GBK","方正兰亭特黑长简体","方正兰亭特黑长繁体","微软雅黑","黑体","zw",sans-serif;
+}
+.h2 {
+	font-family: "h2","方正大标宋_GBK","方正大标宋简体","方正大标宋繁体","微软雅黑","黑体","zw",sans-serif;
+}
+.h3 {
+	font-family: "h3","方正华隶_GBK","方正行黑简体","方正行黑繁体","仿宋","仿宋_gb2312","微软雅黑","黑体","zw",sans-serif;
+}
+
+table p, li p, .literal p, blockquote p {
+	text-indent: 0em!important; /* no indent inside table/literal/blockquote */
+}
+
+a {
+    text-decoration:none;
+}
+
+.cover {
+	/*width:100%;*/
+	height:100%;
+	text-align:center;
+	padding:0px;
+}
+
+
+/*版权页*/
+.copyright {
+	margin-top:50px;
+	margin-left:20%;
+	padding:0px;
+	/*line-height:100%;*/
+	text-align: justify;
+	font-family:"ht","zw";
+	font-size:9pt;
+}
+
+
+.center p, .center .p, .center p.p {
+	text-align: center;
+	margin-left: 0%;
+	margin-right: 0%;
+}
+.left p, .left .p, .left p.p {
+	text-align: left;
+	margin-left: 0%;
+	margin-right: 0%;
+}
+
+.right p, .right .p, .right p.p {
+	text-align: right;
+	margin-left: 0%;
+	margin-right: 0%;
+}
+.heavy {
+	font-family:"ht","zw";
+	/*color:#268bd2;*/  /* blue */
+	font-weight:bold;
+	/*font-size:10.5pt;*/
+}
+/*.author {
+	font-family:"kt","zw";
+	color:white;
+	font-size:10.5pt;
+}*/
+.preface {
+	font-family:"fs","zw";
+}
+.h1note {
+	margin-top:5pt;
+	margin-bottom:20pt;
+	margin-left:38.2%;
+	border-style: none none none solid;
+	border-width: 0px 0px 0px 10px;
+	border-color: #268bd2 #b58900;   /* blue yellow */
+	font-family:"ht","zw";
+	font-size:9pt;
+}
+.h2note {
+	margin-top:50pt;
+	margin-bottom:20pt;
+	margin-left:0.58in;
+	border-style: none none none solid;
+	border-width: 0px 0px 0px 10px;
+	border-color: #268bd2 #b58900;   /* blue yellow */
+	font-family:"ht","zw";
+	font-size:9pt;
+	padding: 5px 5px 5px 5px;
+}
+h1 {
+	/*color:#268bd2;*/  /* blue */
+	margin-top:61.8%;
+	margin-left:33%;
+	line-height:100%;
+	text-align: center;
+    border: none;
+	font-weight:bold;
+	font-size:173%;
+	font-family:"h1","ht","zw";
+}
+.chapter_content_begin h1 {
+	/*color:#268bd2;*/  /* blue */
+    margin: 0px 0px 0.5em 1.16em;
+	line-height:100%;
+	text-align: justify;
+    border-style: none none solid none;
+	border-width: 0px 0px 1px 0px;
+    border-color: gray;
+	background: none;
+	padding: 1em 0px 0.2em 0px;
+	font-weight:bold;
+	font-size:173%;
+	font-family:"h1","ht","zw";
+}
+h2 {
+	color:white;
+    margin: 0 0 0.2em 0;
+	line-height:100%;
+	text-align: justify;
+	border-style: none double none solid;
+	border-width: 0px 5px 0px 20px;
+	border-color: #2aa198; /* green */
+	background-color: gray;
+	padding: 100px 5px 0.5em 5px;
+	font-weight:bold;
+	font-size:144%;
+	font-family:"h2","ht","zw";
+}
+
+/*副标题*/
+.h2sub {
+	color:orange;
+	margin-top:-26px;
+	line-height:100%;
+	text-align: justify;
+	border-style: none double none solid;
+	border-width: 0px 5px 0px 20px;
+	border-color: #268bd2;  /* blue */
+	border-left-color: #268bd2;  /* blue */
+	font-weight:bold;
+	font-size:medium;
+	font-family:"ht","zw";
+}
+
+h3 {
+	/*color:#268bd2;*/  /* blue */
+	line-height:130%;
+	text-align: justify;
+	font-weight:bold;
+	font-size:120%;
+	font-family:"fs","kt","ht","zw";
+    margin-botton: 0.5em;
+	border-style: none none solid none;
+	border-width: 0px 0px 1px 0px;
+	border-color: #2aa198; /* green */
+}
+h4 {
+	line-height:130%;
+	text-align: justify;
+	font-weight:bold;
+	font-size:115%;
+	font-family:"ht","zw";
+    margin-botton: 0.5em;
+}
+h5 {
+	line-height:130%;
+	text-align: justify;
+	font-weight:bold;
+	font-size:115%;
+	font-family:"kt","zw";
+    margin-botton: 0.5em;
+}
+h6 {
+	line-height:130%;
+	text-align: justify;
+	font-weight:bold;
+	font-size:115%;
+	font-family:"kt","zw";
+    margin-botton: 0.5em;
+}
+
+/*正文中的分隔线*/
+.divline {
+	text-align: center;
+	color:gray;
+}
+	
+
+/*文末签名*/
+.signature {
+	padding-left:40%;
+	font-family:"kt","zw";
+	color:#268bd2;  /* blue */
+}
+.date {
+	padding-left:40%;
+	font-family:"kt","zw";
+	color:#268bd2;  /* blue */
+}
+.from {
+	font-family: "kt","zw";
+	color: #800000;
+}
+
+li {
+	list-style-type:none;
+}
+.nostyle {
+  list-style-type: none;
+}
+
+/** 书名页 **/
+.title_page {
+	/*page-break-before:always;*/
+    position: relative;
+}
+
+.title_cover_page .cover {
+    margin-top:7%;
+    height: 50%;
+    text-align: center;
+}
+
+.book .cover img {
+    height: 100%;
+    max-width: 100%;
+}
+
+.title_page .title {
+	/*color:#268bd2;*/  /* blue */
+    margin: 61.8% 0 0 0;
+	line-height:100%;
+	text-align: center;
+    border: none;
+	font-weight:bold;
+	font-size:173%;
+	font-family:"h1","ht","zw";
+}
+
+.title_page .sub_title {
+	/*color:#268bd2;*/  /* blue */
+    margin: 20px 0 10% 0;
+	line-height:100%;
+	text-align: center;
+    border: none;
+    padding: none;
+	font-weight:normal;
+	font-size:140%;
+	font-family:"h2","ht","zw";
+	page-break-before:avoid;
+}
+
+.title_page_with_sub_title .title {
+	margin-top:38.2%;
+}
+
+.title_cover_page .title {
+    margin-top: 4.8%;
+}
+
+.title_page .author {
+	color:gray;
+    margin: 1em 0 0 0;
+	line-height:100%;
+	text-align: center;
+    padding: none;
+	page-break-before:avoid;
+	font-weight:bold;
+	font-size:120%;
+	font-family:"fs","zw";
+}
+
+.chapter .cover_page img {
+    height: 100%;
+    max-width: 100%;
+}
+
+.chapter .title_page .cover {
+    margin-top:7%;
+    height: 50%;
+    text-align: center;
+}
+
+.chapter .title_cover_page .title {
+    margin-top: 4.8%;
+}
+
+.toc_page .toc_title {
+    display: block;
+    text-align: center;
+    font-size: 1.6em;
+    font-weight: bold;
+    line-height: 1.2;
+    margin: 0 0;
+}
+
+.toc_page .toc_author {
+    color: #2aa198; /* cyan */
+    display: block;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: normal;
+    line-height: 1.2;
+    margin: 0 0;
+	font-family:"fs","zw";
+}
+
+.toc_page .toc_list {
+    display: block;
+    list-style-type: disc;
+    margin-bottom: 1em;
+    margin-right: 0;
+    margin-top: 1em;
+    font-size: 1em;
+    line-height: 1.2;
+}
+    
+.toc_page .toc_list li {
+    padding-bottom: 0.5em;
+    clear: both;
+    position: relative;
+}
+
+.toc_page .toc_list li .info {
+    display: block;
+    /*position: relative;*/
+    /*text-align: right;*/
+    margin-bottom: 0.5em;
+
+    /* 使得info的高度为title/author的最大者 */
+    /*height: 1%;*/
+    /*overflow: hidden;*/
+}
+
+.toc_page .toc_list li a {
+    color: #268bd2;  /* blue */
+    cursor: pointer;
+    font-size: 1.2em;
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.toc_page .toc_list .cover img {
+    display: block;
+    float: left;
+    width: 150px;
+    height: auto;
+    max-height: 200px;
+    margin: 0 0.5em 0.5em 0;
+}
+
+.toc_page .toc_list li .title {
+    display: block;
+    width: 100%;
+    text-align: left;
+	font-family: "ht","zw";
+}
+
+.toc_page .toc_list li .author {
+    display: block;
+    color: #2aa198; /* cyan */
+    font-size: 0.9em;
+    width: 100%;
+    text-align: right;
+	font-family: "kt","fs","zw";
+}
+
+.toc_page .toc_list li .intro {
+    display: block;
+    font-size: 0.8em;
+    text-indent: 0;
+}
+
+.toc_page .toc_list li .intro p {
+    line-height: normal;
+    padding: none;
+    margin: none;
+}
+
+.chapter_cover_header .cover {
+    margin-top:7%;
+    height: 50%;
+    text-align: center;
+}
+
+.chapter_cover_header h1 {
+    margin-top: 4.8%;
+}
+
+.chapter_navbar {
+    display: oeb-page-head;
+    font-family: "kt", "zw";
+    font-size: 0.7em;
+}
+
+.chapter_navbar a {
+    color: #268bd2;  /* blue */
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.chapter_navbar hr {
+    /*border: 1px inset;*/
+    color: gray;
+    /*display: block;*/
+    height: 1px;
+    margin: 0em 0em 0.5em 0em;
+}
+
+.chapter_navbar table {
+    width: 100%;
+    border: none;
+}
+
+.chapter_navbar td {
+    text-align: center;
+    border: none;
+}
+
+/*目录页*/
+.contents {
+	margin-left:20%;
+	padding:0px;
+	line-height:130%;
+	text-align: justify;
+	font-family:"ht","zw";
+}
+
+
+/*目录页文章作者*/
+.contentauthor {
+	padding-left: 20%;
+	text-align: right;
+	font-family:"kt","zw";
+}
+
+.chapter_intro {
+    margin: 1em;
+	text-align: justify;
+	font-family:"kt","zw";
+    font-size:70%;
+    line-height: 100%;
+}
+
+.chapter_content_begin_h1 {
+	/*page-break-before: always;*/
+    /*page-break-after: always;*/
+}
+
+.chapter_content_begin_h2 {
+	/*page-break-before:always;*/
+}
+
+.chapter_sub_title {
+    font-family: "kt", "zw";
+    text-align: justify;
+	text-indent: 0em!important;
+    margin-bottom: 1em;
+}
+
+.chapter_author {
+    font-family: "kt", "zw";
+    text-align: right;
+}
+
+.chapter_content_begin_h1 .chapter_author {
+	color:gray;
+    border:none;
+    margin: 0.5em 0 0 33%;
+	line-height:100%;
+	text-align: justify;
+    padding: 0px 5px 0px 20px;
+	page-break-before:avoid;
+	font-weight:bold;
+	font-size:120%;
+	font-family:"fs","zw";
+}
+
+.chapter_content_begin_h2 {
+    margin-bottom: 1em;
+}
+
+.chapter_content_begin_h2 .chapter_author,
+.chapter_content_begin_h2 .chapter_originated,
+.chapter_content_begin_h2 .chapter_publish_date,
+.chapter_content_begin_h2 .chapter_source
+{
+	color:#268bd2;  /* blue */
+	margin-top:0;
+    margin-bottom: 0;
+	line-height:100%;
+	text-align: right;
+	border-style: none double none solid;
+	border-width: 0px 5px 0px 20px;
+	border-color: gray;
+	background-color: silver;
+	padding: 5px 5px 5px 5px;
+	font-weight:bold;
+	font-size:90%;
+	font-family:"kt","zw";
+}
+
+.section_title {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+	font-family:"ht","kt","zw";
+    font-weight:bold;
+    font-size: 105%;
+    page-break-after:avoid;
+}
+
+/* 引用 */
+.literal {
+    margin: 1em 1em 1em 2em;
+    border: none;
+    padding: 0px 0px 0px 5px;
+    color: #333333;
+    font-size:100%;
+	font-family:"kt","zw";
+    text-align: left;
+}
+
+.literal p {
+    line-height: 100%;
+    font-style: italic;
+}
+
+/* 引用 */
+blockquote {
+    margin: 1em 1em 1em 2em;
+    padding-left: 0.5em;
+	border-style: none none none solid;
+	border-width: 0px 0px 0px 5px;
+	border-color: #F0F0F0;
+    color: #333333;
+    font-size:100%;
+	font-family:"kt","zw";
+}
+
+.attribution {
+    margin: 1em 1em 1em 2em;
+    color: #333333;
+    font-size:100%;
+	font-family:"kt","zw";
+    text-align: right;
+}
+
+.citetitle {
+    margin: 1em 1em 1em 2em;
+    color: navy;
+    font-size:100%;
+	font-family:"ht","zw";
+    text-align: right;
+}
+
+.strong {
+    /*font-weight: bold;*/
+	font-family:"ht","zw";
+}
+
+.emphasized {
+    font-style: italic;
+}
+
+.monospaced {
+    font-family: "monospace", "zw";
+}
+
+.underline {
+    text-decoration: underline;
+}
+
+.overline {
+    text-decoration: overline;
+}
+
+.line-through {
+    text-decoration: line-through;
+}
+
+.img {
+    text-align: center;
+}
+
+.img .desc {
+    margin: 0.2em 0 0.5em 0;
+    page-break-before:avoid;
+    text-align: center;
+	font-family:"kt","zw";
+    font-size: 80%;
+    color: #666666;
+}
+
+.img img {
+    page-break-after:avoid;
+    max-height: 85%;
+    max-width: 100%;
+}
+
+table.normal {
+    border: 3px solid #527BBD;
+    border-collapse: collapse;
+}
+
+table.normal td {
+    padding: 4px;
+    border: 1px solid black;
+}
