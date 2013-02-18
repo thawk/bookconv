@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130207"
+VERSION = u"20130218"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -199,7 +199,6 @@ RE_INTRO_TITLES = (
     re.compile(u'简介|内容简介|内容提要|故事梗概', re.IGNORECASE),
 )
 
-ASCIIDOC_ATTR_ROLE = u"role"
 ASCIIDOC_ATTR_TITLE = u"title"
 ASCIIDOC_ATTR_ALT = u"alt"
 
@@ -2118,7 +2117,7 @@ class Parser(object): # {{{
 
                         raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
                     
-        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), TxtParser(), EasyChmParser(), HtmlBuilderParser(), RedirectParser()):
+        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), AsciidocParser(), EasyChmParser(), HtmlBuilderParser(), RedirectParser()):
             logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
                 path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
@@ -3632,7 +3631,7 @@ class NbweeklyParser(Parser): # {{{
         return book
 #   }}}
 
-class TxtParser(Parser): # {{{
+class AsciidocParser(Parser): # {{{
     # {{{ ---- Regexs
     re_image1 = re.compile(r"^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)")
     re_image2 = re.compile(r"^image:(?P<src>[^ \t　[]+)(?P<attrs>\[[^]]*\])")
@@ -3662,7 +3661,7 @@ class TxtParser(Parser): # {{{
 
     re_section_title = re.compile("^(?P<leading_char>=+)\s+(?P<title>.*?)(?:\s+(?P=leading_char))?\s*$")
 
-    re_delimited_block = re.compile("^(?P<delimit_char>[/\+-.\*_=])(?P=delimit_char){3,}\s*$")
+    re_delimited_block = re.compile("^(?P<delimit_char>[/\+-.\*_=])(?P=delimit_char){4,}\s*$")
     # }}}
 
     # {{{ ---- 在文件header中的属性名与ChapterInfo中字段的对应关系
@@ -4010,22 +4009,24 @@ class TxtParser(Parser): # {{{
 
         # {{{ ------ func parse_paragraph
         def parse_paragraph(line_holder, content, last_attrs):
-            if last_attrs.has_key(0) and last_attrs[0] == "quote":
-                # 开始一个引用块
-                attribution = last_attrs[1] if last_attrs.has_key(1) else u""
-                citetitle = last_attrs[2] if last_attrs.has_key(2) else u""
+            if last_attrs.has_key(0):
+                role = last_attrs[0]
+                if role == "quote":
+                    # 开始一个引用块
+                    attribution = last_attrs[1] if last_attrs.has_key(1) else u""
+                    citetitle = last_attrs[2] if last_attrs.has_key(2) else u""
 
-                content.append(
-                    Quote(
-                        [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder) ],
-                    attribution,
-                    citetitle))
-            elif last_attrs.has_key(ASCIIDOC_ATTR_ROLE) and last_attrs[ASCIIDOC_ATTR_ROLE]:
-                # 指定了class
-                content.append(
-                    StyledBlock(
-                        last_attrs[ASCIIDOC_ATTR_ROLE],
-                        [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder)]))
+                    content.append(
+                        Quote(
+                            [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder) ],
+                        attribution,
+                        citetitle))
+                else:
+                    # 指定了class
+                    content.append(
+                        StyledBlock(
+                            role,
+                            [ Line(parse_quoted_text(l)) for l in get_paragraph(line_holder)]))
             else:
                 for l in get_paragraph(line_holder):
                     content.append(Line(parse_quoted_text(l)))
