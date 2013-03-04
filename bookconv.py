@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130218"
+VERSION = u"20130304"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -2181,6 +2181,8 @@ class HtmlBuilderParser(Parser): # {{{
         #re.compile(u"<td[^>]*>\s*(?:</?font[^>]*>(?:&nbsp;|　|\s)*)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:</?font[^>]*>\s*)*(?P<title>.+?)(?:</?font[^>]*>\s*)*</A>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?(?:</?font[^>]*>\s*)*</td>", re.IGNORECASE | re.DOTALL),
         # <font color="#000000">·</font><A HREF="mydoc001.htm" >第02章 春雪</A><BR>
         re.compile(u".*?</font><A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)?(?P<title>.+?)(?:</font[^>]*>(?:&nbsp;|　|\s)*)?</A>", re.IGNORECASE),
+        # <a href=index1.html class=f5 title=卷一☆点击进入>灵魂上载</a><br>
+        re.compile(u".*<A[^>]*HREF=(?P<quote1>['\"])?(?P<url>.+?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*?title=(?P<quote2>['\"])?(?:.+?点击进入)(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*(?P<title>.+?)</A>\s*<BR>", re.IGNORECASE),
     )
 
     re_title = re.compile(r"\s*<title>\s*([^<]+)\s*", re.IGNORECASE)
