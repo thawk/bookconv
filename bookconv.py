@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130304"
+VERSION = u"20130424"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -391,6 +391,7 @@ class ChapterInfo:
         self.publish_date = u""
         self.publish_ver  = u""
 
+        self.parent       = None     # 父章节
         self.toc_file     = u""      # 本章节的章节目录的路径（如果有的话）
 
         self.content      = list()   # list of lines，对于chapter是章节正文，对于book可以是前言（相当于正文前无标题的章节）
@@ -404,7 +405,6 @@ class Chapter(ChapterInfo):
         self.id           = u""
         self.level        = CHAPTER_TOP_LEVEL - 1   # 设为比最小有效值小一
 
-        self.parent       = None     # 父章节
         self.prev         = None     # 同层的上一章节
         self.next         = None     # 同层的下一章节
 
@@ -1544,7 +1544,7 @@ class HtmlContentNormalizer(object):
         re.IGNORECASE | re.DOTALL)
         
     re_quote = re.compile(
-        ur"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
+        r"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
         re.IGNORECASE | re.DOTALL)
     #       }}}
 
@@ -2305,6 +2305,7 @@ class HtmlBuilderParser(Parser): # {{{
         while i < len(index_filenames):
             file_content = inputter.read_all(index_filenames[i]["url"])
             for re_redirect in self.re_redirects:
+                logging.debug(u"    Checking '{0}' against redirect '{1}'...".format(index_filenames[i]["url"], re_redirect.pattern))
                 m = re_redirect.search(file_content)
                 if m:   # 这个文件是重定向文件，以重定向后的文件为准
                     url = m.group("url")
@@ -4233,8 +4234,9 @@ class CollectionParser(Parser): # {{{
                     need_read_next_line = True
 
                     for re_alt_entry_link in self.re_alt_entry_links:
-                        m = re_alt_entry_link.match(line)
+                        m = re_alt_entry_link.search(line)
                         if m:
+                            logging.debug(u"      Match alt_entry '{0}'...".format(re_alt_entry_link.pattern))
                             alt_entry_links.add(m.group("root"))
 
                     #print line
@@ -4472,7 +4474,8 @@ class HtmlBuilderCollectionParser(CollectionParser): # {{{
     # 在找不到links的情况下，可以跟随这里的链接去尝试一下
     re_alt_entry_links = (
         # 若花燃燃作品集:<td><a href=cover.html class=fl><img src=image/back.gif border=0 alt=上页><img src=image/return.gif border=0 alt=封面></a><a href=1/index.html class=fl><img src=image/next.gif border=0 alt=下页></a></td>
-        re.compile(u".*<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>.*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
+        re.compile(u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>.*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
+        re.compile(u"<a[^>]+href=(?P<quote1>[\"'])?(?P<root>.*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*title=(?P<quote2>['\"])?点击进入(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*封面图片欣赏\s*</a>", re.IGNORECASE | re.DOTALL),
     )
 #     }}}
 
@@ -6292,7 +6295,7 @@ if __name__ == "__main__":
         optparser.print_help(sys.stderr)
         sys.exit(2)
 
-    log_format = u"%(asctime)s %(levelname)s %(message)s"
+    log_format = u"%(asctime)s %(lineno)d %(levelname)s %(message)s"
     if options.silent:
         logging.basicConfig(format=log_format, level=logging.WARNING)
     elif options.verbose:
