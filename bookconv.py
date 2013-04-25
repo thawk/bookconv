@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130424"
+VERSION = u"20130425"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -566,7 +566,7 @@ class Quote(BlockContainer):
         text += BlockContainer.to_asciidoc(self)
         return text
 
-    def to_asciidoc(self):
+    def to_text(self):
         text = BlockContainer.to_text(self)
 
         ref = ""
@@ -587,6 +587,23 @@ class Quote(BlockContainer):
 
         return text
 #   }}}
+
+#   {{{ -- class Ruler
+class Ruler(BlockContainer):
+    """ <hr> """
+    def __init__(self):
+        BlockContainer.__init__(self)
+
+    def to_html(self, img_resolver):
+        return "<hr />"
+
+    def to_asciidoc(self):
+        return "'''''''''''''''''''''''''''''''''''\n\n"
+
+    def to_text(self):
+        return "--------------------\n"
+#   }}}
+
 #  }}}
 
 #  {{{ InlineContainer and subclasses
@@ -3664,7 +3681,9 @@ class AsciidocParser(Parser): # {{{
 
     re_section_title = re.compile("^(?P<leading_char>=+)\s+(?P<title>.*?)(?:\s+(?P=leading_char))?\s*$")
 
-    re_delimited_block = re.compile("^(?P<delimit_char>[/\+-.\*_=])(?P=delimit_char){4,}\s*$")
+    re_delimited_block = re.compile("^(?P<delimit_char>[/\+-.\*_=])(?P=delimit_char){3,}\s*$")
+
+    re_ruler = re.compile("^'{3,}\s*$")
     # }}}
 
     # {{{ ---- 在文件header中的属性名与ChapterInfo中字段的对应关系
@@ -4000,7 +4019,19 @@ class AsciidocParser(Parser): # {{{
             lh = self.LineHolder(lines)
             if delimit_char == "_":
                 # quote block
-                content.append(Quote(parse_blocks(self.LineHolder(lines))))
+                attribution = u""
+                citetitle = u""
+
+                if last_attrs.has_key(0) and last_attrs[0] == "quote":
+                    # 开始一个引用块
+                    attribution = last_attrs[1] if last_attrs.has_key(1) else u""
+                    citetitle = last_attrs[2] if last_attrs.has_key(2) else u""
+
+                content.append(
+                    Quote(
+                        parse_blocks(self.LineHolder(lines)),
+                        attribution,
+                        citetitle))
             elif delimit_char == ".":
                 # literal block
                 content.append(Literal(lines))
@@ -4061,6 +4092,11 @@ class AsciidocParser(Parser): # {{{
                 return
 
             if handle_delimited_block(line, line_holder, content, last_attrs):
+                return
+
+            if self.re_ruler.match(line):
+                # 插入<hr>
+                content.append(Ruler())
                 return
 
             line_holder.push_back(line)
@@ -5119,7 +5155,7 @@ class HtmlConverter(object): # {{{
             styles += "<style type='text/css'>{0}</style>".format(style)
 
         return u"""\
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
