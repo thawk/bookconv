@@ -191,6 +191,8 @@ h2 {
 	border-width: 0px 5px 0px 20px;
 	border-color: #268bd2;  /* blue */
 	border-left-color: #268bd2;  /* blue */
+	background-color: gray;
+	padding: 100px 5px 0.5em 5px;
 	font-weight:bold;
 	font-size:medium;
 	font-family:"ht","zw";
@@ -569,7 +571,7 @@ li {
     margin: 1em 1em 1em 2em;
     border: none;
     padding: 0px 0px 0px 5px;
-    color: #333333;
+    color: gray;
     font-size:100%;
 	font-family:"kt","zw";
     text-align: left;
@@ -587,14 +589,14 @@ blockquote {
 	border-style: none none none solid;
 	border-width: 0px 0px 0px 5px;
 	border-color: #F0F0F0;
-    color: #333333;
+    color: gray;
     font-size:100%;
 	font-family:"kt","zw";
 }
 
 .attribution {
     margin: 1em 1em 1em 2em;
-    color: #333333;
+    color: gray;
     font-size:100%;
 	font-family:"kt","zw";
     text-align: right;
@@ -643,7 +645,7 @@ blockquote {
     text-align: center;
 	font-family:"kt","zw";
     font-size: 80%;
-    color: #666666;
+    color: gray;
 }
 
 .img img {
