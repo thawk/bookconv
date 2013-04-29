@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130425"
+VERSION = u"20130429"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -654,13 +654,20 @@ class InlineContainer(ContentElement):
 
     def to_asciidoc(self):
         text = u""
-        for e in self.sub_elements:
-            if isinstance(e, basestring):
-                text += escape(e)
-            elif isinstance(e, InlineContainer):
-                text += e.to_asciidoc()
-            else:
-                raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
+        try:
+            for e in self.sub_elements:
+                if isinstance(e, basestring):
+                    text += escape(e)
+                elif isinstance(e, InlineContainer):
+                    text += e.to_asciidoc()
+                else:
+                    raise TypeError("Need string or InlineContainer type, no {0} type".format(type(e)))
+        finally:
+            text = u"[{style_class}]##"
+            if text:
+                text = u"[{style_class}]##{text}##".format(
+                    style_class=self.style_class,
+                    text=text)
 
         return text
 
@@ -682,6 +689,41 @@ class InlineContainer(ContentElement):
     def get_images(self):
         for img in get_images(self.sub_elements):
             yield img
+#   }}}
+
+class FootNote(InlineContainer):
+    def __init__(self, text):
+        self.footnote_text = text
+        InlineContainer.__init__(self, u"")
+
+    def to_html(self, img_resolver):
+        return u'<span class="inline-footnote">【注：{text}】</span>'.format(
+            text=self.footnote_text)
+
+    def to_asciidoc(self):
+        return u" footnote:[{0}]".format(self.footnote_text)
+
+    def to_text(self, img_resolver):
+        return u'【注：{text}】'.format(text=to_text(self.tfootnote_text))
+
+#   {{{ -- class StyledText
+class StyledText(InlineContainer):
+    """ 带样式的文本 """
+    def __init__(self, style_class, sub_elements=None):
+        InlineContainer.__init__(self, style_class)
+        self.append_elements(sub_elements)
+#   }}}
+
+#   {{{ -- class QuotedText
+class QuotedText(InlineContainer):
+    """ 带样式的文本 """
+    def __init__(self, style_class, quote_char, sub_elements=None):
+        InlineContainer.__init__(self, style_class)
+        self.quote_char = quote_char
+        self.append_elements(sub_elements)
+
+    def to_asciidoc(self):
+        return self.quote_char + InlineContainer.to_asciidoc(self) + self.quote_char
 #   }}}
 
 #   {{{ -- class Line
@@ -711,36 +753,27 @@ class SectionTitle(InlineContainer):
 #   }}}
 
 #   {{{ -- class Strong
-class Strong(InlineContainer):
+class Strong(QuotedText):
     """ 加粗 """
     def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"strong")
+        QuotedText.__init__(self, u"strong", u"**")
         self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"**" + InlineContainer.to_asciidoc(self) + u"**"
 #   }}}
 
 #   {{{ -- class Emphasized
-class Emphasized(InlineContainer):
+class Emphasized(QuotedText):
     """ 强调 """
     def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"emphasized")
+        QuotedText.__init__(self, u"emphasized", u"__")
         self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"__" + InlineContainer.to_asciidoc(self) + u"__"
 #   }}}
 
 #   {{{ -- class Monospaced
-class Monospaced(InlineContainer):
+class Monospaced(QuotedText):
     """ 等宽 """
     def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"monospaced")
+        QuotedText.__init__(self, u"monospaced", u"++")
         self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"++" + InlineContainer.to_asciidoc(self) + u"++"
 #   }}}
 
 #   {{{ -- class Superscript
@@ -769,39 +802,6 @@ class Subscript(InlineContainer):
 
     def to_asciidoc(self):
         return u"~" + InlineContainer.to_asciidoc(self) + u"~"
-#   }}}
-
-#   {{{ -- class Underline
-class Underline(InlineContainer):
-    """ 下划线 """
-    def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"underline")
-        self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"[underline]##" + InlineContainer.to_asciidoc(self) + u"##"
-#   }}}
-
-#   {{{ -- class Overline
-class Overline(InlineContainer):
-    """ 上划线 """
-    def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"overline")
-        self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"[overline]##" + InlineContainer.to_asciidoc(self) + u"##"
-#   }}}
-
-#   {{{ -- class LineThrough
-class LineThrough(InlineContainer):
-    """ 上划线 """
-    def __init__(self, sub_elements=None):
-        InlineContainer.__init__(self, u"line-through")
-        self.append_elements(sub_elements)
-
-    def to_asciidoc(self):
-        return u"[line-through]##" + InlineContainer.to_asciidoc(self) + u"##"
 #   }}}
 #  }}}
 
@@ -3656,6 +3656,8 @@ class AsciidocParser(Parser): # {{{
     re_image1 = re.compile(r"^!(?:\[(?P<alt>[^]]*)\])?\((?P<src>[^ )]+)(?:\s+\"(?P<title>[^\"]*)\")?\s*\)")
     re_image2 = re.compile(r"^image:(?P<src>[^ \t　[]+)(?P<attrs>\[[^]]*\])")
 
+    re_footnote = re.compile(r"\s*\bfootnote:\[(?P<text>[^]]*)\]")
+
     re_block_titles = [
         re.compile(r"^\.(?P<title>[^. \t　].*)"),
     ]
@@ -3819,7 +3821,40 @@ class AsciidocParser(Parser): # {{{
         def replacements(text):
             result = unescape(text)
             # TODO: 对(C)等字符序列进行替换
+            trans_pairs= (
+                (u"(C)",  u"©"),
+                (u"(TM)", u"™"),
+                (u"(R)",  u"®"),
+                (u"--",   u"—"),
+                (u"...",  u"…"),
+                (u"->",   u"→"),
+                (u"<-",   u"←"),
+                (u"=>",   u"⇒"),
+                (u"<=",   u"⇐"),
+            )
+
+            for f, t in trans_pairs:
+                result = result.replace(f, t)
+
             return result
+        # }}}
+
+        # {{{ ------ func parse_footnote
+        def parse_footnote(text):
+            elements = list()
+            start = 0
+            for me in self.re_footnote.finditer(text):
+                if me:
+                    if me.start() != start: # 匹配前的部分
+                        elements.append(replacements(text[start:me.start()]))
+
+                    elements.append(FootNote(me.group("text")))
+                    start = me.end()
+
+            if start != len(text):
+                elements.append(replacements(text[start:]))
+
+            return elements
         # }}}
 
         # {{{ ------ func parse_quoted_text
@@ -3828,7 +3863,7 @@ class AsciidocParser(Parser): # {{{
             start = 0
             for me in self.re_quoted_text.finditer(text):
                 if me.start() != start: # 匹配前的部分
-                    elements.append(replacements(text[start:me.start()]))
+                    elements.extend(parse_footnote(text[start:me.start()]))
 
                 attrs = dict()
                 parse_attributes(me.group("attrs"), attrs)
@@ -3847,19 +3882,17 @@ class AsciidocParser(Parser): # {{{
                 else:
                     keyword = attrs[0] if attrs.has_key(0) else u""
 
-                    if keyword == "underline":
-                        elements.append(Underline(parse_quoted_text(me.group("text"))))
-                    elif keyword == "overline":
-                        elements.append(Overline(parse_quoted_text(me.group("text"))))
-                    elif keyword == "line-through":
-                        elements.append(LineThrough(parse_quoted_text(me.group("text"))))
+                    if keyword:
+                        elements.append(StyledText(
+                            keyword,
+                            parse_quoted_text(me.group("text"))))
                     else:
-                        elements.append(parse_quoted_text(me.group("text")))
+                        elements.extend(parse_quoted_text(me.group("text")))
 
                 start = me.end()
 
             if start != len(text):
-                elements.append(replacements(text[start:]))
+                elements.extend(parse_footnote(text[start:]))
 
             return elements
         # }}}

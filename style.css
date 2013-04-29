@@ -635,6 +635,10 @@ blockquote {
     text-decoration: line-through;
 }
 
+.inline-footnote {
+    font-family: "kt", "ht", "zw";
+}
+
 .img {
     text-align: center;
 }
