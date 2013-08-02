@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130429"
+VERSION = u"20130802"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -62,6 +62,7 @@ COVER_PATHS = [
 
 COVER_PATTERNS = [
     u"{title}-{author}",
+    u"{title} - {author}",
 ]
 
 TITLE_ONLY_COVER_PATTERNS = [
