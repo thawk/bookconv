@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130802"
+VERSION = u"20130819"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -2189,6 +2189,7 @@ class HtmlBuilderParser(Parser): # {{{
         ( re.compile(u".*<td[^>]*class=m2[^>]*>(?P<title>[^<]+)</td>", re.IGNORECASE), ),
     )
     re_idx_details  = (
+        re.compile(u".*?<td[^>]*>\s*(?:<font[^>]*>(?:&nbsp;|　|\s)*)<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>\S[^<]*?)<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*>\s*</A>.*?</td>", re.IGNORECASE),
         re.compile(u".*?<td[^>]*>(?:&nbsp;|　|\s)*<A[^>]*HREF=['\"](?P<url>[^\"']+)['\"][^>]*>\s*(?P<title>\S[^<]+)</A>.*?</td>", re.IGNORECASE),
         # <td><font size="2"> <A HREF="刘慈欣003.htm" > <font color="#800000">【1】远航！远航！</font></A></font></td>
         # <td width="217"><font size="2"> <A HREF="刘慈欣004.htm" > <font color="#800000">【2】<span style="letter-spacing: -1pt">《东京圣战》和《冷酷的方程式》</span></font></A></font></td>
@@ -2412,12 +2413,13 @@ class HtmlBuilderParser(Parser): # {{{
                         continue
 
                 process_next_line = False
-                for r in self.re_idx_details:
+                for idx,r in enumerate(self.re_idx_details):
                     m = r.match(file_content)
                     if m:
                         chapter_filename = m.group("url")
                         chapter_title    = title_normalize_from_html(m.group("title"))
 
+                        logging.debug(u"    match #{idx} '{re}'".format(idx=idx, re=r.pattern))
                         if chapter_filename == "#":
                             continue
 
@@ -2443,11 +2445,15 @@ class HtmlBuilderParser(Parser): # {{{
                         except NotParseableError as e:
                             # 有些书使用re_idx_details来作为子书的链接，因此也要试一下
                             try:
+                                logging.debug("    Trying subbook...")
                                 subbookinfo = Parser.parse_book(SubInputter(chapter_inputter, chapter_filename), u"", book_author)
                                 assert(subbookinfo)
 
                                 chapter = Chapter()
                                 chapter.cover  = subbookinfo.cover
+                                if not chapter.cover and m.groupdict().has_key("cover"):
+                                    chapter.cover = InputterImg(m.group("cover"), chapter_inputter)
+
                                 chapter.subchapters = subbookinfo.subchapters
 
                                 for subchapter in chapter.subchapters:
@@ -2863,6 +2869,7 @@ class EasyChmParser(Parser): # {{{
                                     path = subInputter.fullpath(""),
                                     indent=u"      "*inputter.nested_level))
 
+                                logging.debug("    Trying subbook...")
                                 subbookinfo = Parser.parse_book(
                                     subInputter,
                                     title_normalize_from_html(pages[idx][rule['map'][title_name]]),
@@ -4383,6 +4390,7 @@ class CollectionParser(Parser): # {{{
                                 break
                         else:
                             # 该链接未出现过
+                            logging.debug("    Trying subbook...")
                             subbookinfo = Parser.parse_book(subinputter, title, author, cover)
                             assert(subbookinfo)
 
@@ -4473,6 +4481,7 @@ class CollectionParser(Parser): # {{{
                         if parsed_files.has_key(subpath):
                             continue;
 
+                        logging.debug("    Trying subbook...")
                         subbookinfo = Parser.parse_book(subinputter, u"", book_author)
 
                         root_chapter.cover  = subbookinfo.cover
@@ -4559,6 +4568,9 @@ class EasyChmCollectionParser(CollectionParser): # {{{
         # <span class="STYLE27">1. <a href="魔法学徒/start.htm" target="main_r">《魔法学徒》（封面全本）作者：蓝晶</a><br>
         # 2. <a href="魔盗/start.htm" target="main_r">《魔盗》（珍藏全本）作者：血珊瑚</a></span><span class="STYLE27"><br>
         re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+	    # <font face="宋体" size="2"><a href="3/start.htm">《独闯天涯》
+	    # <img src="3.jpg" class="image" width="100" height="125" style="border: 3px solid #FFFFFF"></a></font></td>
+        re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
         re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
     )
 
