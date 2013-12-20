@@ -47,7 +47,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20130819"
+VERSION = u"20131220"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -6392,7 +6392,6 @@ if __name__ == "__main__":
         output = args[1]
 
     if options.parse_filename:
-    # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
         l1cat = options.category
         l2cat = ""
         fileinfo = parse_filename(filename, options.title, options.author)
@@ -6407,6 +6406,9 @@ if __name__ == "__main__":
             "l2cat"  : l2cat
         }
 
+        options.offline = True  # online书本信息已失效
+
+        # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
         if not options.offline and title and (not author or not l1cat):
             complete_book_info(bookinfo)
 
