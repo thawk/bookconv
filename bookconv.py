@@ -21,7 +21,6 @@ import sys
 import tempfile
 import uuid
 import zipfile
-import Image
 import time
 from cStringIO import StringIO
 from exceptions import TypeError
@@ -43,11 +42,15 @@ try:
 except:
     pass
 
+try:    # 先尝试PIL，再尝试pillow
+    import Image
+except:
+    from PIL import Image
 # }}}
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20131220"
+VERSION = u"20140208"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -4534,13 +4537,13 @@ class HtmlBuilderCollectionParser(CollectionParser): # {{{
         )
 
     re_links = (
-        re.compile(u".*<td[^>]*>[ \t　]*<A[^>]*HREF=['\"](?P<root>[^\"']+)/index\.html?['\"]\s+title=进入阅读[^>]*>(?P<title>[^<]+)</A>.*", re.IGNORECASE),
+        re.compile(u".*<td[^>]*>[ \t　]*<A[^>]*HREF=['\"](?P<root>[^\"'<>]+)/index\.html?['\"]\s+title=进入阅读[^>]*>(?P<title>[^<]+)</A>.*", re.IGNORECASE),
         # <td align="center" style="border: 1 dotted #996600"><a href="zw8/index.htm"><img src="zw8.jpg" width="150" height="220" border="0" alt="异变"></a></td>
-        re.compile(u".*<td[^>]*>\s*<a[^>]+href=\"(?P<root>[^\"]+)/index\.html?\"[^>]*>\s*<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*alt=\"(?P<title>[^\"]+)\"[^>]*>\s*</a>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>.*", re.IGNORECASE),
+        re.compile(u".*<td[^>]*>\s*<a[^>]+href=\"(?P<root>[^\"<>]+)/index\.html?\"[^>]*>\s*<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*alt=\"(?P<title>[^\"]+)\"[^>]*>\s*</a>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>.*", re.IGNORECASE),
         re.compile(
             u".*" +
             u"<td[^>]*>" +
-            u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>.*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*>" +
+            u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*>" +
             u"<img src=(?P<quote2>['\"])?(?P<cover>.*?)(?(quote2)(?P=quote2)|(?=\s|>))[^>]*\s" +
             u"alt=(?P<quote3>['\"])?(?P<title>.*?)☆进入阅读[^>]*>" + 
             u"</a>" +
@@ -4553,8 +4556,8 @@ class HtmlBuilderCollectionParser(CollectionParser): # {{{
     # 在找不到links的情况下，可以跟随这里的链接去尝试一下
     re_alt_entry_links = (
         # 若花燃燃作品集:<td><a href=cover.html class=fl><img src=image/back.gif border=0 alt=上页><img src=image/return.gif border=0 alt=封面></a><a href=1/index.html class=fl><img src=image/next.gif border=0 alt=下页></a></td>
-        re.compile(u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>.*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
-        re.compile(u"<a[^>]+href=(?P<quote1>[\"'])?(?P<root>.*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*title=(?P<quote2>['\"])?点击进入(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*封面图片欣赏\s*</a>", re.IGNORECASE | re.DOTALL),
+        re.compile(u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
+        re.compile(u"<a[^>]+href=(?P<quote1>[\"'])?(?P<root>[^<>]*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*title=(?P<quote2>['\"])?点击进入(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*封面图片欣赏\s*</a>", re.IGNORECASE | re.DOTALL),
     )
 #     }}}
 
@@ -4562,16 +4565,16 @@ class EasyChmCollectionParser(CollectionParser): # {{{
     default_entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
     re_links = (
-        re.compile(u"\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+        re.compile(u"\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^<>\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
 		# <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
         re.compile(u"\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
         # <span class="STYLE27">1. <a href="魔法学徒/start.htm" target="main_r">《魔法学徒》（封面全本）作者：蓝晶</a><br>
         # 2. <a href="魔盗/start.htm" target="main_r">《魔盗》（珍藏全本）作者：血珊瑚</a></span><span class="STYLE27"><br>
-        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
 	    # <font face="宋体" size="2"><a href="3/start.htm">《独闯天涯》
 	    # <img src="3.jpg" class="image" width="100" height="125" style="border: 3px solid #FFFFFF"></a></font></td>
-        re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
-        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+        re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
     )
 
 #     }}}
@@ -4581,9 +4584,9 @@ class EasyChmCollectionParser2(CollectionParser): # {{{
 
     re_links = (
         #booklist[0]=['噩盡島Ⅱ','<img src=../bookcover/01.jpg class=cover1>','1_1','莫仁','　　仙界回归百年，地球版图早已重划，……'];
-        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^']+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
         #booklist[0]=['神游','天涯凝望','1','徐公子胜治','　　面对文学与传说中的玄幻纷呈时，你是否也梦想拥有这份神奇的精彩人生？其实不必去遐想仙界与异星，玄妙的世界就在你我的身边，身心境界可以延伸到的极致之处。<br>　　这世上真有异人吗？真有神迹吗？——梦境可以化实！妄想可以归真！<br>　　一位市井中懵懂少年是如何成为世间仙侠，又如何遭遇红尘情痴？请舒展心灵的触角来《神游》。'];
-        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^']+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
     )
 
     cover_base = ( u"/index/", )
@@ -5262,6 +5265,7 @@ class HtmlConverter(object): # {{{
         if files:
             files["html"].append({
                 "filename": filename,
+                "title": u"preamble",
                 "content":  u"".join((
                     self.html_header(filename, book.title, cssfile=CSS_FILE),
                     self.chapter_preamble(files, filename, book),
@@ -5313,6 +5317,7 @@ class HtmlConverter(object): # {{{
                 if files:
                     files["html"].append({
                         "filename": cover_page_filename,
+                        "title": u"{0} cover page".format(chapter.title),
                         "content":  u"".join((
                             self.html_header(cover_page_filename, chapter.title, cssfile=CSS_FILE),
                             self.chapter_cover_page(files, cover_page_filename, chapter),
@@ -5332,6 +5337,7 @@ class HtmlConverter(object): # {{{
                 if files:
                     files["html"].append({
                         "filename": title_page_filename,
+                        "title": u"{0} title page".format(chapter.title),
                         "content":  u"".join((
                             self.html_header(title_page_filename, chapter.title, cssfile=CSS_FILE),
                             self.chapter_navbar(title_page_filename, chapter),
@@ -5360,6 +5366,7 @@ class HtmlConverter(object): # {{{
 
                     files["html"].append({
                         "filename": toc_page_filename,
+                        "title": u"{0} toc page".format(chapter.title),
                         "content":  u"".join((
                             self.html_header(toc_page_filename, chapter.title, cssfile=CSS_FILE),
                             self.chapter_navbar(toc_page_filename, chapter, link_to_toc=True),
@@ -5382,6 +5389,7 @@ class HtmlConverter(object): # {{{
                 if files:
                     files["html"].append({
                         "filename": filename,
+                        "title": u"{0}".format(chapter.title),
                         "content":  u"".join((
                             self.html_header(filename, chapter.title, cssfile=CSS_FILE),
                             self.chapter_navbar(filename, chapter),
@@ -5486,7 +5494,10 @@ class HtmlConverter(object): # {{{
                 }]
 
         for f in files["html"] + files["image"].values() + files["other"]:
-            outputter.add_file(f["filename"], f["content"], id=f["id"] if f.has_key("id") else "")
+            outputter.add_file(
+                f["filename"], f["content"],
+                id=f["id"] if f.has_key("id") else "",
+                title=f["title"] if f.has_key("title") else "")
     # }}}
 #   }}}
 
@@ -5878,7 +5889,9 @@ class EpubConverter(Converter): # {{{
 
         count = 0
         for file in filelist:
-            logging.debug(u"    Adding {0}".format(file["path"]))
+            logging.debug(u"    Adding {0}{1}".format(
+                file["path"], 
+                u" : {0}".format(file["title"]) if file.has_key("title") and file["title"] else ""))
             outputter.add_file(os.path.join(CONTENT_DIR, file["path"]), file["content"])
             count += 1
 
