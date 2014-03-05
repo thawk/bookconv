@@ -1156,7 +1156,7 @@ def guess_title_author(filename):
     re_title_author_patterns = (
         re.compile(u'.*《(?P<title>[^》]+)》(?:[^:：]*[:：])?(?P<author>[^:：]+)', re.IGNORECASE),
         re.compile(u'.*《(?P<title>[^》]+)》(?P<author>.*)', re.IGNORECASE),           # 匹配只有《书名》的形式
-        re.compile(u'(?P<title>.+)作者\s*[:：]\s*(?P<author>.+)', re.IGNORECASE),      # 有'作者'字样
+        re.compile(u'(?P<title>.+)[作|编|著]者\s*[:：]\s*(?P<author>.+)', re.IGNORECASE),      # 有'作者'字样
         re.compile(u'(?P<title>.+)[-－_＿:：](?P<author>.+)', re.IGNORECASE),          # -或_或:分隔
         re.compile(u'^(?P<title>[^ 　]+)[ 　]+(?P<author>.+)', re.IGNORECASE),         # 空格分隔
         )
