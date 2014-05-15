@@ -2298,7 +2298,7 @@ class HtmlBuilderParser(Parser): # {{{
 
                         # 处理下一行
                         break
-            except IOError as e:
+            except:
                 logging.debug(u"{indent}    {file} is not parseable by {parser}. '{chapter}' is not readable".format(
                     file=os.path.join(inputter.fullpath(), filename), parser=self.__class__.__name__,
                     chapter=filename, indent=u"      "*inputter.nested_level))
@@ -2444,7 +2444,6 @@ class HtmlBuilderParser(Parser): # {{{
                                     title=chapter_title, filename=chapter_filename, indent=u"      "*inputter.nested_level))
                                 raise NotParseableError(u"Content not found for {title}: {filename}".format(
                                     title=chapter_title, filename=chapter_filename, indent=u"      "*inputter.nested_level))
-
                         except NotParseableError as e:
                             # 有些书使用re_idx_details来作为子书的链接，因此也要试一下
                             try:
@@ -2547,6 +2546,7 @@ class EasyChmParser(Parser): # {{{
         (os.path.join("js", "pages.js"), "data"),
         (os.path.join("index", "page.js"), "index"),
         ("Home1.htm", "txt"),   # 在《地球往事三部曲》中，把page.js中的内容直接放到Home1.htm中了
+        ("page.js", "txt"),  # 《侯卫东官场笔记1-8》（校对全本）作者：小桥老树.chm中，page.js直接放在根目录
     )
 
     re_pages = re.compile(u"\\b\w*pages\s*\[\d+\]\s*=\s*\['(?P<page>.+?)'\]\s*;", re.IGNORECASE)
@@ -3148,8 +3148,8 @@ class InfzmParser(Parser): # {{{
         u'<div id="enews_header">\s*' +
         u'<h1>\s*' +
         u'<span>.*?</span>(?P<title>\S+)\s*</h1>\s*' +
-  	    u'</div>\s*' +
-  	    u'<div[^>]*>\s*' +
+            u'</div>\s*' +
+            u'<div[^>]*>\s*' +
         u'<div class="side-1">\s*' +
         u'<div class="cover">\s*' +
         u'<img[^>]* src="(?P<cover>[^"]+)"[^>]*>\s*' +
@@ -3157,9 +3157,9 @@ class InfzmParser(Parser): # {{{
         u'<p>(?P<version>.+?)</p>\s*' +
         u'', re.IGNORECASE | re.DOTALL)
 
-    #	<dt><span>本期头条:</span><a href="http://www.infzm.com/content/51232" title="翼城人口特区 一个县尘封25年的二胎试验">翼城人口特区 一个县尘封25年的二胎试验</a>
-    #		</dt>
-    #	<dd class="summary">在放开“二胎”25年之后的山西翼城，人口增长率反而低于全国水平，以性别比例为代表的各项人口指标均优于全国水平</dd>
+    #   <dt><span>本期头条:</span><a href="http://www.infzm.com/content/51232" title="翼城人口特区 一个县尘封25年的二胎试验">翼城人口特区 一个县尘封25年的二胎试验</a>
+    #           </dt>
+    #   <dd class="summary">在放开“二胎”25年之后的山西翼城，人口增长率反而低于全国水平，以性别比例为代表的各项人口指标均优于全国水平</dd>
     # </dl>
     re_topnews = re.compile(
         u'<dl class="topnews">\s*' +
@@ -3169,18 +3169,18 @@ class InfzmParser(Parser): # {{{
 
     re_lists = [
         [
-            #	<h2>经济</h2>
-            #	<dl>
-            #		<dt></dt>
-            #		<dd>
-            #			<ul class="relnews">
-            #				<li><a href="http://www.infzm.com/content/51073" title="消灭村庄？——中国新城市化之忧">消灭村庄？——中国新城市化之忧</a></li>
-            #				<li><a href="http://www.infzm.com/content/51074" title="一位宜黄官员的来信">一位宜黄官员的来信</a></li>
+            #   <h2>经济</h2>
+            #   <dl>
+            #           <dt></dt>
+            #           <dd>
+            #                   <ul class="relnews">
+            #                           <li><a href="http://www.infzm.com/content/51073" title="消灭村庄？——中国新城市化之忧">消灭村庄？——中国新城市化之忧</a></li>
+            #                           <li><a href="http://www.infzm.com/content/51074" title="一位宜黄官员的来信">一位宜黄官员的来信</a></li>
             #
-            #			</ul>
+            #                   </ul>
             #
-            #		</dd>
-            #		</dl>
+            #           </dd>
+            #           </dl>
             re.compile(
             #    u'<div class="left">\s*' +
                 u'<h2>(?P<title>.+?)</h2>\s*' +
@@ -3198,15 +3198,15 @@ class InfzmParser(Parser): # {{{
                 re.IGNORECASE)
         ],
         [
-            # 	<dl style="float: left; width: 300px;">
-            # 			<dt id="rw_1">观点</dt>
-            #   							<dd>
-            # 			  <a href="http://www.infzm.com/content/50903" title="来信（20100927）">
-            # 			  <span class="jt"></span>来信（20100927）  							  </a>
-            # 			  </dd>
-            # 			  <a href="http://www.infzm.com/content/50885" title="【世相】助人为恐">
-            # 			  <span class="jt"></span>【世相】助人为恐  							  </a>
-            # 			  </dd>
+            #   <dl style="float: left; width: 300px;">
+            #                   <dt id="rw_1">观点</dt>
+            #                                                           <dd>
+            #                     <a href="http://www.infzm.com/content/50903" title="来信（20100927）">
+            #                     <span class="jt"></span>来信（20100927）                                                        </a>
+            #                     </dd>
+            #                     <a href="http://www.infzm.com/content/50885" title="【世相】助人为恐">
+            #                     <span class="jt"></span>【世相】助人为恐                                                        </a>
+            #                     </dd>
             # </dl>
             re.compile(
             #    u'<div id="index"[^>]*>\s*' + 
@@ -3218,10 +3218,10 @@ class InfzmParser(Parser): # {{{
                 u'.*?)' +
                 u'</dl>' +
                 u'', re.IGNORECASE | re.DOTALL),
-            #   							<dd>
-            # 			  <a href="http://www.infzm.com/content/50903" title="来信（20100927）">
-            # 			  <span class="jt"></span>来信（20100927）  							  </a>
-            # 			  </dd>
+            #                                                           <dd>
+            #                     <a href="http://www.infzm.com/content/50903" title="来信（20100927）">
+            #                     <span class="jt"></span>来信（20100927）                                                        </a>
+            #                     </dd>
             re.compile(
                 u'<dd>\s*' +
                 u'<a href="(?P<url>[^"]+)" title="(?P<title>[^"]+)">',
@@ -3230,18 +3230,18 @@ class InfzmParser(Parser): # {{{
     ]
 
     # <div id="detailContent">
-    # 	<h1>【诺贝尔奖2010】钢笔字是如何变成赔率的——诺贝尔奖的博彩游戏</h1>
-    # 	<p class="relInfo">
-    # 		<span class="author">
-    # 			<em>作者:</em>
-    # 			<strong>南方周末特约撰稿 魏一帆（Tim Hathaway）　翻译：李宏宇</strong>
+    #   <h1>【诺贝尔奖2010】钢笔字是如何变成赔率的——诺贝尔奖的博彩游戏</h1>
+    #   <p class="relInfo">
+    #           <span class="author">
+    #                   <em>作者:</em>
+    #                   <strong>南方周末特约撰稿 魏一帆（Tim Hathaway）　翻译：李宏宇</strong>
     # 
-    # 		</span>
-    # 			  						<span class="originated">发自北京 伦敦 连线报道</span>
-    # 			  						<span class="pubTime">2010-10-13 17:29:24</span>
-    # 		<span class="source"><em>来源:</em>南方周末</span>
-    # 	</p>
-    # 	<div class="contents">
+    #           </span>
+    #                                                                   <span class="originated">发自北京 伦敦 连线报道</span>
+    #                                                                   <span class="pubTime">2010-10-13 17:29:24</span>
+    #           <span class="source"><em>来源:</em>南方周末</span>
+    #   </p>
+    #   <div class="contents">
     #   ...
     #   页。&nbsp;</p></div><!--end #text-->
     re_news_content = re.compile(
@@ -4294,9 +4294,8 @@ class CollectionParser(Parser): # {{{
             logging.debug(u"{indent}    Parsing {file}".format(
                 file=index_file, indent=u"      "*inputter.nested_level))
 
-            line_iter = (self.re_comment.sub(u"", l) for l in inputter.read_lines(index_file)).__iter__()
-
-            need_read_next_line = True
+            file_content = inputter.read_lines(index_file)
+            file_content = self.re_comment.sub(u"", file_content)
 
             links = list()
             alt_entry_links = set()
@@ -4305,16 +4304,22 @@ class CollectionParser(Parser): # {{{
 
             try:
                 # 扫描整个文件，找出所有链接，保存到links中
+                next_pos = 0   # 开始处理的位置
                 while True:
-                    # 下一行未读入，需要读
-                    if need_read_next_line:
-                        line = line_iter.next()
+                    # next_pos指明了下一个处理点（或下一行的开始）
+                    start_pos = next_pos
 
-                    # 缺省每次进入循环都要读入新行，但可以通过本开关跳过读入动作
-                    need_read_next_line = True
+                    file_content = file_content[start_pos:]
+
+                    # 下次缺省从下个换行开始处理。因此要找到下个换行的位置作为next_pos的缺省值
+                    m = re.search("[\r\n]+", file_content)
+                    if m:
+                        next_pos = m.end()
+                    else:
+                        next_pos = len(file_content)
 
                     for re_alt_entry_link in self.re_alt_entry_links:
-                        m = re_alt_entry_link.search(line)
+                        m = re_alt_entry_link.match(file_content)
                         if m:
                             logging.debug(u"      Match alt_entry '{0}'...".format(re_alt_entry_link.pattern))
                             alt_entry_links.add(m.group("root"))
@@ -4322,10 +4327,12 @@ class CollectionParser(Parser): # {{{
                     #print line
                     for re_link in self.re_links:
                         #print re_link.pattern
-                        m = re_link.match(line)
+                        m = re_link.match(file_content)
 
                         if not m:
                             continue
+
+                        next_pos = m.end()
 
                         root  = self.re_remove_querys.sub(u"", m.group("root"))
                         title = title_normalize_from_html(m.group("title"))
@@ -4448,7 +4455,7 @@ class CollectionParser(Parser): # {{{
                             break
 
                     # 处理嵌入页面中的作品简介、作者简介等内容
-                    if self.re_extra and self.re_extra_end:
+                    if self.re_extra:
                         m = self.re_extra.match(line)
                         if m:
                             chapter = Chapter()
@@ -4457,20 +4464,11 @@ class CollectionParser(Parser): # {{{
                             logging.debug(u"{indent}    Found extra chapter: {title}".format(
                                 title=chapter.title, indent=u"      "*inputter.nested_level))
 
-                            need_read_next_line = False # 总会在遇到不能处理的行时才退出下面的循环，因此已经读入下一行
-                            while True:
-                                line = line_iter.next()
-                                if self.re_extra_end.match(line):
-                                    break
-
-                                chapter.content.extend(normalizer.text_only(line))
+                            next_pos = m.end()
+                            chapter.content.extend(normalizer.text_only(m.group("content")))
 
                             if len(chapter.content) > 0:
                                 local_extras.append(chapter)
-
-            except StopIteration:
-                # 本文件已经处理完
-                pass
 
             if len(links) == 0:
                 for alt_entry_link in alt_entry_links:
@@ -4550,14 +4548,13 @@ class HtmlBuilderCollectionParser(CollectionParser): # {{{
             u"</td>"),
     )
 
-    re_extra     = re.compile(u"\s*<font class=m2>(?P<title>[^<]+?)(?:[:：])?</font><br>\s*", re.IGNORECASE)
-    re_extra_end = re.compile(u".*<(?!br>).*", re.IGNORECASE)
+    re_extra = re.compile(u".*<font class=m2>(?P<title>[^<]+?)(?:[:：])?</font><br>\s*(?P<content>(?:.\|\s)*?)<(?!br>)", re.IGNORECASE)
 
     # 在找不到links的情况下，可以跟随这里的链接去尝试一下
     re_alt_entry_links = (
         # 若花燃燃作品集:<td><a href=cover.html class=fl><img src=image/back.gif border=0 alt=上页><img src=image/return.gif border=0 alt=封面></a><a href=1/index.html class=fl><img src=image/next.gif border=0 alt=下页></a></td>
-        re.compile(u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
-        re.compile(u"<a[^>]+href=(?P<quote1>[\"'])?(?P<root>[^<>]*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*title=(?P<quote2>['\"])?点击进入(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*封面图片欣赏\s*</a>", re.IGNORECASE | re.DOTALL),
+        re.compile(u".*<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]*index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*><img[^>]*alt=['\"]?下?页"),
+        re.compile(u".*<a[^>]+href=(?P<quote1>[\"'])?(?P<root>[^<>]*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*title=(?P<quote2>['\"])?点击进入(?(quote2)(?P=quote2)|(?=\s|>))[^>]*>\s*封面图片欣赏\s*</a>", re.IGNORECASE | re.DOTALL),
     )
 #     }}}
 
@@ -4565,16 +4562,23 @@ class EasyChmCollectionParser(CollectionParser): # {{{
     default_entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
     re_links = (
-        re.compile(u"\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^<>\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
-		# <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
-        re.compile(u"\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        re.compile(u"^\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^<>\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+                # <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
+        re.compile(u"^\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
         # <span class="STYLE27">1. <a href="魔法学徒/start.htm" target="main_r">《魔法学徒》（封面全本）作者：蓝晶</a><br>
         # 2. <a href="魔盗/start.htm" target="main_r">《魔盗》（珍藏全本）作者：血珊瑚</a></span><span class="STYLE27"><br>
         re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
-	    # <font face="宋体" size="2"><a href="3/start.htm">《独闯天涯》
-	    # <img src="3.jpg" class="image" width="100" height="125" style="border: 3px solid #FFFFFF"></a></font></td>
+            # <font face="宋体" size="2"><a href="3/start.htm">《独闯天涯》
+            # <img src="3.jpg" class="image" width="100" height="125" style="border: 3px solid #FFFFFF"></a></font></td>
         re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
         re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+        # 《方想作品合集V1.1》作者：方想.chm
+        re.compile(u".*<font class=f2>《(?P<title>[^》]+)》</font>\S*\s*" +
+                   u"<tr>\s*<td align=\"center\"><a href=\"(?P<root>[0-9]+)/(start|index.html?)\"><font[^>]*>\s*" +
+                   u"<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*></font></a></tr>\s*" +
+                   u"<td[^>]*>\s*" +
+                   u"<p[^>]*>\s*<font class=f8><b>内容简介：</b><br>\s*" +
+                   u"(?P<intro>.*?)</font", re.IGNORECASE | re.MULTILINE),
     )
 
 #     }}}
@@ -4584,9 +4588,9 @@ class EasyChmCollectionParser2(CollectionParser): # {{{
 
     re_links = (
         #booklist[0]=['噩盡島Ⅱ','<img src=../bookcover/01.jpg class=cover1>','1_1','莫仁','　　仙界回归百年，地球版图早已重划，……'];
-        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        re.compile(u".*\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','<img src=(?P<cover>[^'\"]\S+)\s[^>]*>','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
         #booklist[0]=['神游','天涯凝望','1','徐公子胜治','　　面对文学与传说中的玄幻纷呈时，你是否也梦想拥有这份神奇的精彩人生？其实不必去遐想仙界与异星，玄妙的世界就在你我的身边，身心境界可以延伸到的极致之处。<br>　　这世上真有异人吗？真有神迹吗？——梦境可以化实！妄想可以归真！<br>　　一位市井中懵懂少年是如何成为世间仙侠，又如何遭遇红尘情痴？请舒展心灵的触角来《神游》。'];
-        re.compile(u"\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
+        re.compile(u".*\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
     )
 
     cover_base = ( u"/index/", )
