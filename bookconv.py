@@ -50,7 +50,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140208"
+VERSION = u"20140516"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -4294,7 +4294,7 @@ class CollectionParser(Parser): # {{{
             logging.debug(u"{indent}    Parsing {file}".format(
                 file=index_file, indent=u"      "*inputter.nested_level))
 
-            file_content = inputter.read_lines(index_file)
+            file_content = inputter.read_all(index_file)
             file_content = self.re_comment.sub(u"", file_content)
 
             links = list()
@@ -4302,173 +4302,172 @@ class CollectionParser(Parser): # {{{
 
             level_map = dict()  # 把re_auto_levels中的级别根据出现先后确定的级别
 
-            try:
-                # 扫描整个文件，找出所有链接，保存到links中
-                next_pos = 0   # 开始处理的位置
-                while True:
-                    # next_pos指明了下一个处理点（或下一行的开始）
-                    start_pos = next_pos
+            # 扫描整个文件，找出所有链接，保存到links中
+            next_pos = 0   # 开始处理的位置
+            while next_pos < len(file_content):
+                # next_pos指明了下一个处理点（或下一行的开始）
+                start_pos = next_pos
 
-                    file_content = file_content[start_pos:]
+                file_content = file_content[start_pos:]
 
-                    # 下次缺省从下个换行开始处理。因此要找到下个换行的位置作为next_pos的缺省值
-                    m = re.search("[\r\n]+", file_content)
+                # 下次缺省从下个换行开始处理。因此要找到下个换行的位置作为next_pos的缺省值
+                m = re.search("[\r\n]+", file_content)
+                if m:
+                    next_pos = m.end()
+                else:
+                    next_pos = len(file_content)
+
+                for re_alt_entry_link in self.re_alt_entry_links:
+                    m = re_alt_entry_link.match(file_content)
                     if m:
-                        next_pos = m.end()
-                    else:
-                        next_pos = len(file_content)
+                        logging.debug(u"      Match alt_entry '{0}'...".format(re_alt_entry_link.pattern))
+                        alt_entry_links.add(m.group("root"))
 
-                    for re_alt_entry_link in self.re_alt_entry_links:
-                        m = re_alt_entry_link.match(file_content)
-                        if m:
-                            logging.debug(u"      Match alt_entry '{0}'...".format(re_alt_entry_link.pattern))
-                            alt_entry_links.add(m.group("root"))
+                #print line
+                for re_link in self.re_links:
+                    #print re_link.pattern
+                    m = re_link.match(file_content)
 
-                    #print line
-                    for re_link in self.re_links:
-                        #print re_link.pattern
-                        m = re_link.match(file_content)
+                    if not m:
+                        continue
 
-                        if not m:
-                            continue
+                    next_pos = m.end()
 
-                        next_pos = m.end()
+                    root  = self.re_remove_querys.sub(u"", m.group("root"))
+                    title = title_normalize_from_html(m.group("title"))
 
-                        root  = self.re_remove_querys.sub(u"", m.group("root"))
-                        title = title_normalize_from_html(m.group("title"))
+                    group_dict = m.groupdict()
+                    author = group_dict["author"] if group_dict.has_key("author") else book_author
+                    intro = HtmlContentNormalizer(inputter).normalize(group_dict["intro"]) if group_dict.has_key("intro") else u""
 
-                        group_dict = m.groupdict()
-                        author = group_dict["author"] if group_dict.has_key("author") else book_author
-                        intro = HtmlContentNormalizer(inputter).normalize(group_dict["intro"]) if group_dict.has_key("intro") else u""
+                    cover = None
+                    if group_dict.has_key("cover"):
+                        if inputter.isfile(group_dict["cover"]):
+                            cover = self.parse_cover(group_dict["cover"], inputter) 
+                        else:   # 尝试以cover_base中的值作为前缀来查找封面
+                            if isinstance(self.cover_base, basestring):
+                                self.cover_base = (self.cover_base,) 
 
-                        cover = None
-                        if group_dict.has_key("cover"):
-                            if inputter.isfile(group_dict["cover"]):
-                                cover = self.parse_cover(group_dict["cover"], inputter) 
-                            else:   # 尝试以cover_base中的值作为前缀来查找封面
-                                if isinstance(self.cover_base, basestring):
-                                    self.cover_base = (self.cover_base,) 
-
-                                for base in self.cover_base:
-                                    cover_file = os.path.normpath(os.path.join(base, group_dict["cover"]))
-                                    if inputter.isfile(cover_file):
-                                        cover = self.parse_cover(cover_file, inputter)
-                                        break
-
-                        if not inputter.exists(root):
-                            # 看看能不能在root_base目录下找到一个存在的root子目录
-                            if isinstance(self.root_base, basestring):
-                                self.root_base = (self.root_base,)
-
-                            for base in self.root_base:
-                                newroot = os.path.normpath(os.path.join(base, root))
-                                if inputter.exists(newroot):
-                                    root = newroot
+                            for base in self.cover_base:
+                                cover_file = os.path.normpath(os.path.join(base, group_dict["cover"]))
+                                if inputter.isfile(cover_file):
+                                    cover = self.parse_cover(cover_file, inputter)
                                     break
 
-                        level = chapter_stack[-1].level + 1
-                        subinputter = SubInputter(inputter, root)
-                        subpath = subinputter.fullpath()
+                    if not inputter.exists(root):
+                        # 看看能不能在root_base目录下找到一个存在的root子目录
+                        if isinstance(self.root_base, basestring):
+                            self.root_base = (self.root_base,)
 
-                        # 已经处理过，不再重复处理
-                        if parsed_files.has_key(subpath):
-                            continue;
-
-                        logging.info(u"{indent}Found sub book: {path}: {title}{author_info}{cover_info}".format(
-                            indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title,
-                            author_info=u"/" + author if author else u"",
-                            cover_info=u" with cover" if cover else u""))
-
-                        for link in links:
-                            if link['path'] == subpath:
-                                # 本文件已经处理过了，不再重复处理。前一次也不加单独的父章节了
-                                chapter = link['chapter']
-                                if chapter and chapter.parent:
-                                    # 把前一次的父章节去掉，移到祖父章节下
-                                    for subchapter in chapter.subchapters:
-                                        subchapter.parent = chapter.parent
-
-                                    idx = chapter.parent.subchapters.index(chapter)
-                                    chapter.parent.subchapters[idx:idx+1] = chapter.subchapters
-
-                                    # 标记一下，下次就不会再处理了
-                                    link['chapter'] = None
-                                    
-                                logging.info(u"{indent}      Skip duplicated sub book: {path}: {title}".format(
-                                    indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
-
+                        for base in self.root_base:
+                            newroot = os.path.normpath(os.path.join(base, root))
+                            if inputter.exists(newroot):
+                                root = newroot
                                 break
+
+                    level = chapter_stack[-1].level + 1
+                    subinputter = SubInputter(inputter, root)
+                    subpath = subinputter.fullpath()
+
+                    # 已经处理过，不再重复处理
+                    if parsed_files.has_key(subpath):
+                        continue;
+
+                    logging.info(u"{indent}Found sub book: {path}: {title}{author_info}{cover_info}".format(
+                        indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title,
+                        author_info=u"/" + author if author else u"",
+                        cover_info=u" with cover" if cover else u""))
+
+                    for link in links:
+                        if link['path'] == subpath:
+                            # 本文件已经处理过了，不再重复处理。前一次也不加单独的父章节了
+                            chapter = link['chapter']
+                            if chapter and chapter.parent:
+                                # 把前一次的父章节去掉，移到祖父章节下
+                                for subchapter in chapter.subchapters:
+                                    subchapter.parent = chapter.parent
+
+                                idx = chapter.parent.subchapters.index(chapter)
+                                chapter.parent.subchapters[idx:idx+1] = chapter.subchapters
+
+                                # 标记一下，下次就不会再处理了
+                                link['chapter'] = None
+                                
+                            logging.info(u"{indent}      Skip duplicated sub book: {path}: {title}".format(
+                                indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
+
+                            break
+                    else:
+                        # 该链接未出现过
+                        logging.debug("    Trying subbook...")
+                        subbookinfo = Parser.parse_book(subinputter, title, author, cover)
+                        assert(subbookinfo)
+
+                        chapter = Chapter()
+                        chapter.title  = title if title else subbookinfo.title
+                        chapter.author = author if author else subbookinfo.author
+                        chapter.level  = level
+                        chapter.cover  = cover if cover else subbookinfo.cover
+                        chapter.intro  = intro if intro else subbookinfo.intro
+                        chapter.subchapters = subbookinfo.subchapters
+
+                        for subchapter in chapter.subchapters:
+                            subchapter.parent = chapter
+
+                        chapter.parent = chapter_stack[-1]
+                        chapter.parent.subchapters.append(chapter)
+
+                        # 记录subbook的信息，特别是记录第一本书的封面
+                        subbook_count += 1
+                        if cover and not first_subbook_cover:
+                            first_subbook_cover = cover
+
+                        links.append({
+                            'path'     : subinputter.fullpath(),
+                            'chapter'  : chapter,
+                        })
+
+                    # 匹配成功，不再检查后续的re_links
+                    break
+
+                for i in range(0, len(self.re_auto_levels)):
+                    m = self.re_auto_levels[i].match(file_content)
+                    if m:
+                        if level_map.has_key(i):
+                            level = level_map[i]
                         else:
-                            # 该链接未出现过
-                            logging.debug("    Trying subbook...")
-                            subbookinfo = Parser.parse_book(subinputter, title, author, cover)
-                            assert(subbookinfo)
+                            level = CHAPTER_TOP_LEVEL + len(level_map)
+                            level_map[i] = level
 
-                            chapter = Chapter()
-                            chapter.title  = title if title else subbookinfo.title
-                            chapter.author = author if author else subbookinfo.author
-                            chapter.level  = level
-                            chapter.cover  = cover if cover else subbookinfo.cover
-                            chapter.intro  = intro if intro else subbookinfo.intro
-                            chapter.subchapters = subbookinfo.subchapters
+                        while level <= chapter_stack[-1].level:
+                            chapter_stack.pop()
+                    
+                        chapter = Chapter()
+                        chapter.title = title_normalize_from_html(m.group(1))
+                        chapter.level = level
+                        logging.debug(u"{indent}  Level {level} toc: {title}".format(
+                            indent=u"  "*(chapter.level+3*inputter.nested_level), level=chapter.level, title=chapter.title))
 
-                            for subchapter in chapter.subchapters:
-                                subchapter.parent = chapter
-
-                            chapter.parent = chapter_stack[-1]
-                            chapter.parent.subchapters.append(chapter)
-
-                            # 记录subbook的信息，特别是记录第一本书的封面
-                            subbook_count += 1
-                            if cover and not first_subbook_cover:
-                                first_subbook_cover = cover
-
-                            links.append({
-                                'path'     : subinputter.fullpath(),
-                                'chapter'  : chapter,
-                            })
-
-                        # 匹配成功，不再检查后续的re_links
+                        chapter.parent = chapter_stack[-1]
+                        chapter.parent.subchapters.append(chapter)
+                        chapter_stack.append(chapter)
                         break
 
-                    for i in range(0, len(self.re_auto_levels)):
-                        m = self.re_auto_levels[i].match(line)
-                        if m:
-                            if level_map.has_key(i):
-                                level = level_map[i]
-                            else:
-                                level = CHAPTER_TOP_LEVEL + len(level_map)
-                                level_map[i] = level
+                # 处理嵌入页面中的作品简介、作者简介等内容
+                if self.re_extra:
+                    m = self.re_extra.match(file_content)
+                    if m:
+                        chapter = Chapter()
+                        chapter.title = title_normalize_from_html(m.group("title"))
 
-                            while level <= chapter_stack[-1].level:
-                                chapter_stack.pop()
-                        
-                            chapter = Chapter()
-                            chapter.title = title_normalize_from_html(m.group(1))
-                            chapter.level = level
-                            logging.debug(u"{indent}  Level {level} toc: {title}".format(
-                                indent=u"  "*(chapter.level+3*inputter.nested_level), level=chapter.level, title=chapter.title))
+                        logging.debug(u"{indent}    Found extra chapter: {title}".format(
+                            title=chapter.title, indent=u"      "*inputter.nested_level))
 
-                            chapter.parent = chapter_stack[-1]
-                            chapter.parent.subchapters.append(chapter)
-                            chapter_stack.append(chapter)
-                            break
+                        next_pos = m.end()
+                        chapter.content.extend(normalizer.text_only(m.group("content")))
 
-                    # 处理嵌入页面中的作品简介、作者简介等内容
-                    if self.re_extra:
-                        m = self.re_extra.match(line)
-                        if m:
-                            chapter = Chapter()
-                            chapter.title = title_normalize_from_html(m.group("title"))
-
-                            logging.debug(u"{indent}    Found extra chapter: {title}".format(
-                                title=chapter.title, indent=u"      "*inputter.nested_level))
-
-                            next_pos = m.end()
-                            chapter.content.extend(normalizer.text_only(m.group("content")))
-
-                            if len(chapter.content) > 0:
-                                local_extras.append(chapter)
+                        if len(chapter.content) > 0:
+                            local_extras.append(chapter)
 
             if len(links) == 0:
                 for alt_entry_link in alt_entry_links:
@@ -4562,23 +4561,23 @@ class EasyChmCollectionParser(CollectionParser): # {{{
     default_entrys = ( u"cover.html", u"cover.htm", u"start.html", u"start.htm", u"index.html", u"index.htm" )
 
     re_links = (
-        re.compile(u"^\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^<>\"]+)/(start|index).html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+        re.compile(u"^\s*<a rel=\"(?P<rel>[^\"]*)\" title=\"开始阅读\" href=\"(?P<root>[^<>\"]+)/(start|index)\.html?\">(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
                 # <a rel="pic/12.jpg" title="告诉你一个不为所知的：神秘周易八卦" href="12/start.htm">作者：天行健0006</a>
-        re.compile(u"^\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index).html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        re.compile(u"^\s*<a rel=\"(?:(?P<cover>[^\"]+?\.(?:jpg|png|gif|JPG|PNG|GIF))|[^\"]*)\" title=\"(?P<title>[^\"]+)\" href=\"(?P<root>[0-9]+)/(start|index)\.html?\">(?:作者：(?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
         # <span class="STYLE27">1. <a href="魔法学徒/start.htm" target="main_r">《魔法学徒》（封面全本）作者：蓝晶</a><br>
         # 2. <a href="魔盗/start.htm" target="main_r">《魔盗》（珍藏全本）作者：血珊瑚</a></span><span class="STYLE27"><br>
-        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index)\.html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|[^<]*)</a>\s*", re.IGNORECASE),
             # <font face="宋体" size="2"><a href="3/start.htm">《独闯天涯》
             # <img src="3.jpg" class="image" width="100" height="125" style="border: 3px solid #FFFFFF"></a></font></td>
-        re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
-        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index).html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
+        re.compile(u".*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index)\.html?\"[^>]*>\s*《(?P<title>[^》]+)》(?:[^<]*作者[：:](?P<author>[^<]*)|<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>\s*|[^<]*)</a>\s*", re.IGNORECASE | re.MULTILINE),
+        re.compile(u".*\\b\d+\.\s*<a\s[^>]*\\bhref=\"(?P<root>[^/<>]+)/(start|index)\.html?\"[^>]*>\s*(?P<title>[^<]+)</a>\s*", re.IGNORECASE),
         # 《方想作品合集V1.1》作者：方想.chm
         re.compile(u".*<font class=f2>《(?P<title>[^》]+)》</font>\S*\s*" +
-                   u"<tr>\s*<td align=\"center\"><a href=\"(?P<root>[0-9]+)/(start|index.html?)\"><font[^>]*>\s*" +
-                   u"<img\s\+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*></font></a></tr>\s*" +
+                   u"<tr>\s*<td align=\"center\"><a href=\"(?P<root>[0-9]+)/((?:start|index)\.html?)\">(?:<font[^>]*>)?\s*" +
+                   u"<img\s+[^>]*\\bsrc=\"(?P<cover>[^\"]*)\"[^>]*>(?:</font>)?</a></tr>\s*" +
                    u"<td[^>]*>\s*" +
                    u"<p[^>]*>\s*<font class=f8><b>内容简介：</b><br>\s*" +
-                   u"(?P<intro>.*?)</font", re.IGNORECASE | re.MULTILINE),
+                   u"(?P<intro>(?:.|\s)*?)</font", re.IGNORECASE | re.MULTILINE),
     )
 
 #     }}}
