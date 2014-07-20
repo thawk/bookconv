@@ -50,7 +50,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140516"
+VERSION = u"20140720"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -1392,7 +1392,11 @@ def complete_book_info(book_info):
         logging.debug(u"Fetch done.")
 
         s = re.sub(u"</?b>|\\\\u003c/?b\\\\u003e", u"", s)
-        books = json.loads(s)
+        try:
+            books = json.loads(s)
+        except Exception as e:
+            logging.debug(u"Failed to decode QiDian: {0}".format(e))
+            return result
 
         cover_inputter = UrlInputter("http://image.cmfu.com/books/")
         for book in books[0]:
