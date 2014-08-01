@@ -50,7 +50,7 @@ except:
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140720"
+VERSION = u"20140803"
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -195,7 +195,7 @@ IMAGE_FORMAT_MAP = {
     ".gif": "GIF",
 }
 
-DEFAULT_CATEGORY = u'Unknown'
+DEFAULT_CATEGORY = u''
 CATEGORY_NEWS_PAPER = u'报刊'
 
 # 简介章节的名称。符合名称的章节视为简介
@@ -4324,7 +4324,7 @@ class CollectionParser(Parser): # {{{
                 for re_alt_entry_link in self.re_alt_entry_links:
                     m = re_alt_entry_link.match(file_content)
                     if m:
-                        logging.debug(u"      Match alt_entry '{0}'...".format(re_alt_entry_link.pattern))
+                        logging.debug(u"      Match alt_entry '{1}': '{0}'...".format(re_alt_entry_link.pattern, m.group("root")))
                         alt_entry_links.add(m.group("root"))
 
                 #print line
@@ -4543,12 +4543,16 @@ class HtmlBuilderCollectionParser(CollectionParser): # {{{
         re.compile(u".*<td[^>]*>\s*<a[^>]+href=\"(?P<root>[^\"<>]+)/index\.html?\"[^>]*>\s*<img[^>]+src=\"(?P<cover>[^\"]+)\"[^>]*alt=\"(?P<title>[^\"]+)\"[^>]*>\s*</a>(?:&nbsp;|　|…|\s)*(?:\d*\s*)?</td>.*", re.IGNORECASE),
         re.compile(
             u".*" +
-            u"<td[^>]*>" +
             u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]*?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*>" +
             u"<img src=(?P<quote2>['\"])?(?P<cover>.*?)(?(quote2)(?P=quote2)|(?=\s|>))[^>]*\s" +
-            u"alt=(?P<quote3>['\"])?(?P<title>.*?)☆进入阅读[^>]*>" + 
-            u"</a>" +
-            u"</td>"),
+            u"alt=(?P<quote3>['\"])?(?P<title>.*?)☆进入阅读[^>]*>" +
+            u"</a>"),
+        # <a href=wsdzc/index.html class=f5 title=法医秦明系列II☆点击进入>无声的证词</a><br>
+        re.compile(
+            u".*" +
+            u"<a[^>]*\shref=(?P<quote1>['\"])?(?P<root>[^<>]+/index\.html?)(?(quote1)(?P=quote1)|(?=\s|>))[^>]*>" +
+            u"(?P<title>[^<>]+)" +
+            u"</a>"),
     )
 
     re_extra = re.compile(u".*<font class=m2>(?P<title>[^<]+?)(?:[:：])?</font><br>\s*(?P<content>(?:.\|\s)*?)<(?!br>)", re.IGNORECASE)
