@@ -1145,17 +1145,18 @@ def guess_title_author(filename):
         re.compile(u'chm', re.IGNORECASE),
         )
     re_extra_infos = (
-        re.compile(u'\((?P<info>[^)]*)\)', re.IGNORECASE),
-        re.compile(u'\[(?P<info>[^]]*)\]', re.IGNORECASE),
-        re.compile(u'［(?P<info>[^］]*)］', re.IGNORECASE),
-        re.compile(u'『(?P<info>[^』]*)』', re.IGNORECASE),
-        re.compile(u'【(?P<info>[^】]*)】', re.IGNORECASE),
-        re.compile(u'（(?P<info>[^）]*)）', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])\((?P<info>[^)]*)\)', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])\[(?P<info>[^]]*)\]', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])［(?P<info>[^］]*)］', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])『(?P<info>[^』]*)』', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])【(?P<info>[^】]*)】', re.IGNORECASE),
+        re.compile(u'(?<![作|编|著]者[:：])（(?P<info>[^）]*)）', re.IGNORECASE),
         re.compile(u'(?<=》)\s*(?P<info>v\d+(?:\.\d+)?)', re.IGNORECASE),
         )
     re_title_author_patterns = (
         re.compile(u'.*《(?P<title>[^》]+)》(?:[^:：]*[:：])?(?P<author>[^:：]+)', re.IGNORECASE),
         re.compile(u'.*《(?P<title>[^》]+)》(?P<author>.*)', re.IGNORECASE),           # 匹配只有《书名》的形式
+        re.compile(u'.*《(?P<title>[^》]+)》[作|编|著]者\s*[:：]\s*(?P<author>.+)', re.IGNORECASE),      # 有'作者'字样
         re.compile(u'(?P<title>.+)[作|编|著]者\s*[:：]\s*(?P<author>.+)', re.IGNORECASE),      # 有'作者'字样
         re.compile(u'(?P<title>.+)[-－_＿:：](?P<author>.+)', re.IGNORECASE),          # -或_或:分隔
         re.compile(u'^(?P<title>[^ 　]+)[ 　]+(?P<author>.+)', re.IGNORECASE),         # 空格分隔
@@ -1164,12 +1165,13 @@ def guess_title_author(filename):
         re.compile(u'《(?P<title>[^》]+)》', re.IGNORECASE),
         )
     re_ignore_infos = (
-        re.compile(u'\((全本|文字全本|原创)\)', re.IGNORECASE),
+        re.compile(u'\((全本|文字全本|原创|美|日|英)\)', re.IGNORECASE),
     )
 
     name = os.path.splitext(os.path.basename(filename.strip(u'/')))[0]
 
     extra_info = "";
+    erase_infos = []
     for re_extra_info in re_extra_infos:
         for m in re_extra_info.finditer(name):
             for re_ignored_extra_info in re_ignored_extra_infos:
@@ -1177,9 +1179,9 @@ def guess_title_author(filename):
                     break
             else:
                 extra_info = extra_info + "(" + m.group("info") + ")"
+                erase_infos.append(re_extra_info)
 
-    for re_extra_info in re_extra_infos:
-        #name = re_extra_info.sub(u" ", name)
+    for re_extra_info in erase_infos:
         name = re_extra_info.sub(u"", name)
 
     for re_ignore_info in re_ignore_infos:
@@ -1439,6 +1441,7 @@ def complete_book_info(book_info):
         bookinfo = None
 
         for b in BOOK_DB:
+            print b["title"], title, b["title"]==title
             # 标题必须一样，如果作者一样就是全匹配，否则如果前面没有匹配上才记录
             if title==b["title"] and (author==b["author"] or not bookinfo):
                 bookinfo = dict()
@@ -1507,17 +1510,21 @@ def complete_book_info(book_info):
             if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k) and newinfo[k]):
                 book_info[k] = newinfo[k]
 
-    for k in [ "author", "l1cat", "cover" ]:
-        if not book_info.has_key(k) or not book_info[k]:
-            # 还有未知项目
-            newinfo = fuzzy_lookup(title, author, lookup_book_info)
+    if not options.offline:
+        # 可以在线查信息，看看是否需要在线查找
+        for k in [ "author", "l1cat", "cover" ]:
+            if not book_info.has_key(k) or not book_info[k]:
+                # 还有未知项目
+                logging.info(u"Searching book information from internet for '{0}' ...".format(book.title))
 
-            # 把原来没有的项目拷贝过去
-            for k in [ "author", "l1cat", "l2cat", "cover" ]:
-                if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
-                    book_info[k] = newinfo[k]
+                newinfo = fuzzy_lookup(title, author, lookup_book_info)
 
-            break
+                # 把原来没有的项目拷贝过去
+                for k in [ "author", "l1cat", "l2cat", "cover" ]:
+                    if (not book_info.has_key(k) or not book_info[k]) and (newinfo and newinfo.has_key(k)):
+                        book_info[k] = newinfo[k]
+
+                break
 
     if not book_info['l1cat']:
         for (r,c) in re_category_map:
@@ -6259,9 +6266,7 @@ def convert_book(path, output=u""):
         book.cover = cover if cover else book.cover
 
         # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
-        if not options.offline and book.title and (not book.author or not book.category or not book.cover):
-            logging.info(u"Searching book information from internet for '{0}' ...".format(book.title))
-
+        if book.title and (not book.author or not book.category or not book.cover):
             bookinfo = {
                 "title"     : book.title,
                 "sub_title" : book.sub_title,
@@ -6432,8 +6437,8 @@ if __name__ == "__main__":
 
         options.offline = True  # online书本信息已失效
 
-        # 非离线模式，有标题，无作者或无分类时到网上搜索作者及分类信息
-        if not options.offline and title and (not author or not l1cat):
+        # 有标题，无作者或无分类时补全作者及分类信息
+        if title and (not author or not l1cat):
             complete_book_info(bookinfo)
 
         print u"{l1cat}\t{l2cat}\t{title}\t{author}".format(
