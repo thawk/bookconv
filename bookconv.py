@@ -1441,7 +1441,6 @@ def complete_book_info(book_info):
         bookinfo = None
 
         for b in BOOK_DB:
-            print b["title"], title, b["title"]==title
             # 标题必须一样，如果作者一样就是全匹配，否则如果前面没有匹配上才记录
             if title==b["title"] and (author==b["author"] or not bookinfo):
                 bookinfo = dict()
@@ -1515,7 +1514,7 @@ def complete_book_info(book_info):
         for k in [ "author", "l1cat", "cover" ]:
             if not book_info.has_key(k) or not book_info[k]:
                 # 还有未知项目
-                logging.info(u"Searching book information from internet for '{0}' ...".format(book.title))
+                logging.info(u"Searching book information from internet for '{0}' ...".format(title))
 
                 newinfo = fuzzy_lookup(title, author, lookup_book_info)
 
