@@ -2,6 +2,10 @@
 # vim: set fileencoding=utf-8 foldmethod=marker:
 # Author: thawk(thawk009@gmail.com)
 
+PROGNAME = u"bookconv.py"
+
+VERSION = u"20140806"
+
 # {{{ Imports
 import codecs
 import cookielib
@@ -22,6 +26,7 @@ import tempfile
 import uuid
 import zipfile
 import time
+
 from cStringIO import StringIO
 from exceptions import TypeError
 from bisect import bisect_left
@@ -48,11 +53,10 @@ except:
     from PIL import Image
 # }}}
 
-PROGNAME = u"bookconv.py"
-
-VERSION = u"20140803"
-
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+
+with open(os.path.join(SCRIPT_PATH, "book_db.json")) as fp:
+    BOOK_DB = json.load(fp)
 
 STYLE_FILES = [ "font-face.css", "style.css" ]
 STYLE_FILE_ENCODING = "utf-8"
@@ -206,97 +210,6 @@ RE_INTRO_TITLES = (
 ASCIIDOC_ATTR_TITLE = u"title"
 ASCIIDOC_ATTR_ALT = u"alt"
 
-# }}}
-
-# {{{ 书本资料
-BOOK_DB = (
-    { "l1cat": u"玄幻", "l2cat": u"东方玄幻", "title": u"东方云梦谭", "author": u"罗森" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"中国科幻银河奖合集", "author": u"多人" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"丹·布朗作品集", "author": u"丹·布朗" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"九把刀作品集", "author": u"九把刀" },
-    { "l1cat": u"网游", "l2cat": u"", "title": u"任怨作品合集", "author": u"任怨" },
-    { "l1cat": u"魔幻", "l2cat": u"", "title": u"冰与火之歌", "author": u"George R.R. Martin" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"刘慈欣科幻作品合集V1.2", "author": u"刘慈欣" },
-    { "l1cat": u"军事", "l2cat": u"", "title": u"刘猛作品集", "author": u"刘猛" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"勿用作品集", "author": u"勿用" },
-    { "l1cat": u"爱情", "l2cat": u"", "title": u"千江有水千江月", "author": u"萧丽红" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"卡徒", "author": u"方想" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"修真世界", "author": u"方想" },
-    { "l1cat": u"历史", "l2cat": u"清史民国", "title": u"发迹", "author": u"古龙岗" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"周浩晖小说集", "author": u"周浩晖" },
-    { "l1cat": u"恐怖", "l2cat": u"", "title": u"国内最受欢迎的十位恐怖小说家作品大合集V1.0", "author": u"" },
-    { "l1cat": u"都市", "l2cat": u"都市生活", "title": u"地师", "author": u"徐公子胜治" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"地球往事三部曲", "author": u"刘慈欣" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"大染坊", "author": u"陈杰" },
-    { "l1cat": u"仙侠", "l2cat": u"奇幻修真", "title": u"天元", "author": u"应景小蝶" },
-    { "l1cat": u"奇幻", "l2cat": u"西方奇幻", "title": u"天谴之心", "author": u"荆柯守" },
-    { "l1cat": u"教育", "l2cat": u"", "title": u"好妈妈胜过好老师", "author": u"尹建莉" },
-    { "l1cat": u"竞技", "l2cat": u"体育竞技", "title": u"底牌", "author": u"阿梅" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"开国功贼", "author": u"酒徒" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"徐公子胜治作品合集", "author": u"" },
-    { "l1cat": u"历史", "l2cat": u"架空历史", "title": u"时光之心", "author": u"格子里的夜晚" },
-    { "l1cat": u"科幻", "l2cat": u"星际战争", "title": u"星之海洋", "author": u"charlesp" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"月关全本作品合集", "author": u"月关" },
-    { "l1cat": u"玄幻", "l2cat": u"东方玄幻", "title": u"月落", "author": u"海龟" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"未央歌", "author": u"鹿桥" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"末世卡徒", "author": u"七尺居士" },
-    { "l1cat": u"都市", "l2cat": u"", "title": u"杜拉拉升职记I+II+III", "author": u"李可" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"杨叛武侠作品集", "author": u"杨叛" },
-    { "l1cat": u"都市", "l2cat": u"都市生活", "title": u"极限编程", "author": u"天极水月" },
-    { "l1cat": u"杂文", "l2cat": u"", "title": u"林语堂文集", "author": u"林语堂" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"梁羽生全集", "author": u"梁羽生" },
-    { "l1cat": u"短篇", "l2cat": u"", "title": u"欧·亨利短篇小说选", "author": u"欧·亨利" },
-    { "l1cat": u"都市", "l2cat": u"娱乐明星", "title": u"活色生香", "author": u"司马" },
-    { "l1cat": u"女生", "l2cat": u"现代言情", "title": u"浮沉", "author": u"华坤初上" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"海岩长篇经典全集", "author": u"海岩" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"猫腻作品集", "author": u"猫腻" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"玄媚剑", "author": u"说剑" },
-    { "l1cat": u"玄幻", "l2cat": u"东方玄幻", "title": u"生化危机", "author": u"无心之间" },
-    { "l1cat": u"奇幻", "l2cat": u"", "title": u"白饭如霜作品集", "author": u"白饭如霜" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"福尔摩斯探案", "author": u"柯南道尔" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"科幻小说合集", "author": u"多人" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"网络小说冷门精品合集", "author": u"多人" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"网络文学十年盘点获奖作品合集-V2.0", "author": u"多人" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"若花燃燃作品集", "author": u"若花燃燃" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"荆柯守作品合集", "author": u"荆柯守" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"莫仁作品合辑", "author": u"莫仁" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"莫问天机", "author": u"我性随风" },
-    { "l1cat": u"恐怖", "l2cat": u"", "title": u"蔡骏作品合集", "author": u"蔡骏" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"血红全本作品合集", "author": u"血红" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"谋杀现场I+II+III", "author": u"MS007" },
-    { "l1cat": u"奇幻", "l2cat": u"亡灵骷髅", "title": u"超级骷髅兵", "author": u"情终流水" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"那多小说全集", "author": u"那多" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"酒徒历史作品集", "author": u"酒徒" },
-    { "l1cat": u"都市娱乐", "l2cat": u"", "title": u"重生之官路商途", "author": u"更俗" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"金庸全集", "author": u"金庸" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"银河英雄传说", "author": u"田中芳树" },
-    { "l1cat": u"玄幻", "l2cat": u"东方玄幻", "title": u"闻风拾水录", "author": u"我性随风" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"阿加莎·克里斯蒂作品全集V1.0", "author": u"阿加莎·克里斯蒂" },
-    { "l1cat": u"科幻", "l2cat": u"", "title": u"阿西莫夫科幻作品合集", "author": u"阿西莫夫" },
-    { "l1cat": u"都市", "l2cat": u"都市生活", "title": u"隐杀", "author": u"愤怒的香蕉" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"霍桑探案集", "author": u"程小青" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"非常道系列", "author": u"余世存" },
-    { "l1cat": u"悬疑", "l2cat": u"灵异推理", "title": u"顾倾城灵异侦探事件簿", "author": u"顾倾城1" },
-    { "l1cat": u"恐怖", "l2cat": u"", "title": u"饕餮娘子", "author": u"道葭" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"高森作品集", "author": u"高森" },
-    { "l1cat": u"都市", "l2cat": u"", "title": u"魔幻调酒师", "author": u"方翔" },
-    { "l1cat": u"魔幻", "l2cat": u"", "title": u"魔戒作品合集", "author": u"J.R.R.托尔金" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"麦家作品集", "author": u"麦家" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"黄仁宇作品集", "author": u"黄仁宇" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"黄易全集典藏版", "author": u"黄易" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"古龙全集", "author": u"古龙" },
-    { "l1cat": u"武侠", "l2cat": u"", "title": u"网络武侠经典合集", "author": u"多人" },
-    { "l1cat": u"社会", "l2cat": u"", "title": u"江城", "author": u"何伟" },
-    { "l1cat": u"儿童文学", "l2cat": u"", "title": u"舒克和贝塔全传", "author": u"郑渊洁" },
-    { "l1cat": u"悬疑", "l2cat": u"", "title": u"心理罪系列", "author": u"雷米" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"武装风暴", "author": u"骷髅精灵" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"黯然销魂作品合集", "author": u"黯然销魂" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"明朝那些事儿", "author": u"当年明月" },
-    { "l1cat": u"玄幻", "l2cat": u"", "title": u"大隐", "author": u"血珊瑚" },
-    { "l1cat": u"合集", "l2cat": u"", "title": u"烟雨江南作品集", "author": u"烟雨江南" },
-    { "l1cat": u"经济", "l2cat": u"", "title": u"应该读点经济学", "author": u"常青" },
-    { "l1cat": u"历史", "l2cat": u"", "title": u"历史是个什么玩意儿", "author": u"袁腾飞" },
-)
 # }}}
 
 # {{{ Globals
