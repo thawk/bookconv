@@ -4,7 +4,7 @@
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140806"
+VERSION = u"20140820"
 
 # {{{ Imports
 import codecs
@@ -219,6 +219,7 @@ book_dir = os.getcwd()
 
 # 已经处理过的文件
 parsed_files = dict()
+url2chapter = dict()
 # }}}
 
 # {{{ General Utilities
@@ -1477,6 +1478,15 @@ def unescape(text):
     return re.sub("&#?\w+;", fixup, text)
 #   }}}
 
+#   {{{ -- func reset_level
+def reset_level(chapter, level):
+    if hasattr(chapter, "level"):
+        chapter.level = level
+
+    for i in xrange(0, len(chapter.subchapters)):
+        reset_level(chapter.subchapters[i], level + 1)
+#   }}}
+
 class HtmlContentNormalizer(object):
     #       {{{ -- 正式表达式常量
     re_content_line_sep = re.compile(r"(<\s*br\s*\/?>|(?:</?p(?:\s[^>]*|\s*)>)|\r|\n)+", re.IGNORECASE)
@@ -1720,6 +1730,9 @@ class Inputter(object): # {{{
 
     def fullpath(self, filename=None):
         raise NotImplementedError()
+
+    def is_subpath(self, path, root=u""):
+        raise NotImplementedError()
 #   }}}
 
 class FileSysInputter(Inputter): # {{{
@@ -1761,6 +1774,9 @@ class FileSysInputter(Inputter): # {{{
             filename = self.entry
 
         return os.path.normpath(os.path.join(self.basedir, filename))
+
+    def is_subpath(self, path, root=u""):
+        return self.fullpath(path).startswith(self.fullpath(root))
 #   }}}
 
 g_idx = 0
@@ -1842,6 +1858,8 @@ class ChmInputter(Inputter): # {{{
 
         return os.path.normpath(os.path.join(self.filename, filename))
 
+    def is_subpath(self, path, root=u""):
+        return self.fullpath(path).startswith(self.fullpath(root))
 #   }}}
 
 class UrlInputter(Inputter): # {{{
@@ -1965,7 +1983,8 @@ class SubInputter(Inputter): # {{{
         try:
             return self.inputter.read_binary(os.path.join(self.root, filename))
         except:
-            print u"root: '{0}' filename: '{1}' fullpath: '{2}'".format(self.root, filename, self.fullpath(filename))
+            log.error(u"root: '{0}' filename: '{1}' fullpath: '{2}'".format(
+                    self.root, filename, self.fullpath(filename)))
             raise
 
     def exists(self, filename):
@@ -1979,6 +1998,9 @@ class SubInputter(Inputter): # {{{
             filename = self.entry
 
         return self.inputter.fullpath(os.path.join(self.root, filename))
+
+    def is_subpath(self, path, root=u""):
+        return self.inputter.is_subpath(os.path.join(self.root, path), self.root)
 #   }}}
 # }}}
 
@@ -1986,7 +2008,7 @@ class SubInputter(Inputter): # {{{
 class Parser(object): # {{{
     re_cover = re.compile(u"<img\s*src=(?P<quote1>['\"])?(?P<src>.*?)(?(quote1)(?P=quote1)|(?=\s|>))", re.IGNORECASE)
 
-    def parse(self, inputter, book_title=u"", book_author=u""):
+    def parse(self, inputter, top_level, book_title=u"", book_author=u""):
         raise NotImplementedError(u"Parser::parse() is not implemented!")
 
     def extract_image_path(self, htmls):
@@ -2036,7 +2058,7 @@ class Parser(object): # {{{
             return covers[0]
 
     @classmethod
-    def parse_book(cls, inputter, title=u"", author=u"", cover=None):
+    def parse_book(cls, inputter, top_level, title=u"", author=u"", cover=None):
         logging.debug(u"{indent}Searching suitable parse for {path}".format(
                 indent=u"      "*inputter.nested_level, path=inputter.fullpath()))
 
@@ -2051,7 +2073,7 @@ class Parser(object): # {{{
                         path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
                     try:
-                        book = parser.parse(inputter, title, author)
+                        book = parser.parse(inputter, top_level, title, author)
                         if book:
                             return book
                     except NotParseableError as e:
@@ -2066,7 +2088,7 @@ class Parser(object): # {{{
                 path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
             try:
-                book = parser.parse(inputter, title, author)
+                book = parser.parse(inputter, top_level, title, author)
                 if book:
                     # 指定了封面
                     if cover and not book.cover:
@@ -2179,7 +2201,7 @@ class HtmlBuilderParser(Parser): # {{{
 
         return index_filenames
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         normalizer = self.ContentNormalizer(inputter=inputter)
 
         def read_chapter(inputter, filename, indent):
@@ -2281,6 +2303,7 @@ class HtmlBuilderParser(Parser): # {{{
 
         intro = None
         root_chapter = Chapter()
+        root_chapter.level = top_level - 1
         cover = None
 
         for index_filename in index_filenames:
@@ -2375,6 +2398,8 @@ class HtmlBuilderParser(Parser): # {{{
                                 assert(subbookinfo)
 
                                 chapter = Chapter()
+                                url2chapter[chapter_inputter.fullpath(chapter_filename)] = chapter
+
                                 chapter.cover  = subbookinfo.cover
                                 if not chapter.cover and m.groupdict().has_key("cover"):
                                     chapter.cover = InputterImg(m.group("cover"), chapter_inputter)
@@ -2383,6 +2408,8 @@ class HtmlBuilderParser(Parser): # {{{
 
                                 for subchapter in chapter.subchapters:
                                     subchapter.parent = chapter
+
+                                reset_level(chapter, chapter_stack[-1].level + 1)
 
                                 logging.info(u"    {indent}{title}: {has_cover}".format(
                                     indent="  "*(chapter_stack[-1].level + 1), title=chapter_title,
@@ -2407,12 +2434,13 @@ class HtmlBuilderParser(Parser): # {{{
                     continue
 
                 process_next_line = False
-                for level in range(1, len(self.re_idx_levels) + 1):
-                    for r in self.re_idx_levels[level-1]:
+                for lvl in range(1, len(self.re_idx_levels) + 1):
+                    for r in self.re_idx_levels[lvl-1]:
                         m = r.match(file_content)
                         if m:
                             next_pos = m.end()
 
+                            level = lvl + top_level
                             while level <= chapter_stack[-1].level:
                                 chapter_stack.pop()
                         
@@ -2616,11 +2644,12 @@ class EasyChmParser(Parser): # {{{
     ]
     # }}}
 
-    def parse(self, inputter, book_title, book_author): # {{{
+    def parse(self, inputter, top_level, book_title, book_author): # {{{
         normalizer = HtmlContentNormalizer(inputter=inputter)
 
         def read_chapter(inputter, filename, title): # {{{
             chapter = Chapter()
+            url2chapter[inputter.fullpath(filename)] = chapter
             content = u"".join(inputter.read_lines(filename))
 
             m = self.re_content_first.search(content)
@@ -2803,6 +2832,7 @@ class EasyChmParser(Parser): # {{{
                                     u'')
 
                                 chapter = Chapter()
+                                url2chapter[subInputter.fullpath()] = chapter
                                 chapter.title  = title if title else subbookinfo.title
                                 chapter.author = author if author else subbookinfo.author
                                 chapter.subchapters = subbookinfo.subchapters
@@ -2811,7 +2841,7 @@ class EasyChmParser(Parser): # {{{
                                 for subchapter in chapter.subchapters:
                                     subchapter.parent = chapter
 
-                        chapter.level = lvl
+                        reset_level(chapter, top_level + lvl)
 
                         if next_intro:
                             chapter.intro = next_intro[1]
@@ -2949,7 +2979,7 @@ class IFengBookParser(Parser): # {{{
         u"<div[^>]*\\bid=\"artical_real\"[^>]*>(?P<content>.+?)</div>",
         re.IGNORECASE | re.DOTALL)
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         if not inputter.entry:
             raise NotParseableError(u"{file} is not parseable by {parser}".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
@@ -3211,6 +3241,7 @@ class InfzmParser(Parser): # {{{
         #print m.group("content")
         #print normalizer.normalize(m.group("content"))
         chapter = Chapter()
+        url2chapter[inputter.fullpath(path)] = chapter
         chapter.title = title_normalize_from_html(m.group("title"))
         chapter.author = title_normalize_from_html(m.group("author"))
         chapter.originated = title_normalize_from_html(m.group("originated"))
@@ -3236,7 +3267,7 @@ class InfzmParser(Parser): # {{{
 
         return chapter
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         if not inputter.entry:
             raise notparseableerror(u"{file} is not parseable by {parser}".format( file=inputter.fullpath(), parser=self.__class__.__name__))
 
@@ -3272,6 +3303,7 @@ class InfzmParser(Parser): # {{{
         logging.debug(u"      TopNews: {title} ({url})".format(title=title_normalize_from_html(m.group("title")), url=m.group("url")))
 
         chapter = Chapter()
+        url2chapter[inputter.fullpath()] = chapter
         chapter.title = u"本期头条"
         topnews = self.parse_chapter(m.group("url"), inputter)
         topnews.intro = normalizer.normalize(m.group("summary"))
@@ -3534,7 +3566,7 @@ class NbweeklyParser(Parser): # {{{
             if chapter and (chapter.subchapters or chapter.content):
                 parent.subchapters.append(chapter)
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         if not inputter.entry:
             raise notparseableerror(u"{file} is not parseable by {parser}".format( file=inputter.fullpath(), parser=self.__class__.__name__))
 
@@ -3664,7 +3696,7 @@ class AsciidocParser(Parser): # {{{
     # }}}
 
     # {{{ ---- func parse
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         # {{{ ------ func concat_lines
         def concat_lines(lines):
             """ 把多行按asciidoc规则合并。连续的非空行将连接为一行。返回合并后的行 """
@@ -4187,7 +4219,7 @@ class CollectionParser(Parser): # {{{
     # 在找不到links的情况下，可以跟随这里的链接去尝试一下
     re_alt_entry_links = ()
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         book = Book()
         book.title  = book_title
         book.author = book_author
@@ -4209,6 +4241,7 @@ class CollectionParser(Parser): # {{{
         for index_file in index_files:
             local_extras = list()
             root_chapter = Chapter()
+            root_chapter.level = top_level
             chapter_stack = [root_chapter]
 
             if not inputter.isfile(index_file):
@@ -4292,8 +4325,19 @@ class CollectionParser(Parser): # {{{
                     subinputter = SubInputter(inputter, root)
                     subpath = subinputter.fullpath()
 
-                    logging.info(u"{indent}Found sub book in {index_file}: {path}: {title}{author_info}{cover_info}".format(
+                    # 子书应该在本inputter的子目录下，如果出了本目录就不算
+                    if not inputter.is_subpath(root):
+                        logging.debug(u"{indent}Skip sub book in {index_file}: {path}: {title}{author_info}, not in subpath".format(
+                            indent=u"  "*(level+3*inputter.nested_level), 
+                            level=level,
+                            index_file=inputter.fullpath(index_file),
+                            path=root, title=title,
+                            author_info=u"/" + author if author else u""))
+                        continue
+
+                    logging.info(u"{indent}Found level {level} sub book in {index_file}: {path}: {title}{author_info}{cover_info}".format(
                         indent=u"  "*(level+3*inputter.nested_level), 
+                        level=level,
                         index_file=inputter.fullpath(index_file),
                         path=subinputter.fullpath(), title=title,
                         author_info=u"/" + author if author else u"",
@@ -4301,40 +4345,61 @@ class CollectionParser(Parser): # {{{
 
                     for link in links:
                         if link['path'] == subpath:
-                            # 本文件已经处理过了，不再重复处理。前一次也不加单独的父章节了
-                            chapter = link['chapter']
-                            if chapter and chapter.parent:
-                                # 把前一次的父章节去掉，移到祖父章节下
-                                for subchapter in chapter.subchapters:
-                                    subchapter.parent = chapter.parent
-
-                                idx = chapter.parent.subchapters.index(chapter)
-                                chapter.parent.subchapters[idx:idx+1] = chapter.subchapters
-
-                                # 标记一下，下次就不会再处理了
-                                link['chapter'] = None
-                                
-                            logging.info(u"{indent}      Skip duplicated sub book: {path}: {title}".format(
-                                indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
+                            # # 本文件已经处理过了，不再重复处理。前一次也不加单独的父章节了
+                            # chapter = link['chapter']
+                            # if chapter and chapter.parent:
+                            #     # 把前一次的父章节去掉，移到祖父章节下
+                            #     for subchapter in chapter.subchapters:
+                            #         subchapter.parent = chapter.parent
+                            #
+                            #     idx = chapter.parent.subchapters.index(chapter)
+                            #     chapter.parent.subchapters[idx:idx+1] = chapter.subchapters
+                            #
+                            #     # 标记一下，下次就不会再处理了
+                            #     link['chapter'] = None
+                            #     
+                            # logging.info(u"{indent}      Skip duplicated sub book: {path}: {title}".format(
+                            #     indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
 
                             break
                     else:
                         # 已经处理过，不再重复处理
                         if parsed_files.has_key(subpath):
-                            logging.info(u"{indent}      Sub book has already processed: {path}: {title}".format(
-                                indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
+                            if not url2chapter.has_key(subpath):
+                                continue
 
-                            continue;
+                            chapter = url2chapter[subpath]
+                            if url2chapter[subpath].level <= level:
+                                logging.info(u"{indent}      Sub book has already processed: {path}: {title}".format(
+                                    indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
+                            else:
+                                # 目前的级别比之前低，移到本位置
+                                logging.info(u"{indent}      Moving sub book {path}: {title} from level {orig_level} of {orig_parent_title} to level {level} of {parent_title}".format(
+                                    indent=u"  "*(level+3*inputter.nested_level),
+                                    path=subpath, title=title,
+                                    orig_level=chapter.level,
+                                    orig_parent_title=chapter.parent.title,
+                                    level=level,
+                                    parent_title=chapter_stack[-1].title))
+
+                                chapter.title = title
+                                chapter.parent.subchapters.remove(chapter)
+                                chapter.parent=chapter_stack[-1]
+                                chapter.parent.subchapters.append(chapter)
+                                chapter.level = level
+                                subbook_count += 1
+
+                            continue
 
                         # 该链接未出现过
                         logging.debug("{indent}      Trying subbook...".format(indent=u"  "*(level + 3*inputter.nested_level)))
-                        subbookinfo = Parser.parse_book(subinputter, title, author, cover)
+                        subbookinfo = Parser.parse_book(subinputter, level, title, author, cover)
                         assert(subbookinfo)
 
                         chapter = Chapter()
+                        url2chapter[subinputter.fullpath()] = chapter
                         chapter.title  = title if title else subbookinfo.title
                         chapter.author = author if author else subbookinfo.author
-                        chapter.level  = level
                         chapter.cover  = cover if cover else subbookinfo.cover
                         chapter.intro  = intro if intro else subbookinfo.intro
                         chapter.subchapters = subbookinfo.subchapters
@@ -4344,6 +4409,8 @@ class CollectionParser(Parser): # {{{
 
                         chapter.parent = chapter_stack[-1]
                         chapter.parent.subchapters.append(chapter)
+
+                        reset_level(chapter, level)
 
                         # 记录subbook的信息，特别是记录第一本书的封面
                         subbook_count += 1
@@ -4364,7 +4431,7 @@ class CollectionParser(Parser): # {{{
                         if level_map.has_key(i):
                             level = level_map[i]
                         else:
-                            level = CHAPTER_TOP_LEVEL + len(level_map)
+                            level = top_level + 1 + len(level_map)
                             level_map[i] = level
 
                         while level <= chapter_stack[-1].level:
@@ -4570,7 +4637,7 @@ class RedirectParser(Parser): # {{{
     )
 
 
-    def parse(self, inputter, book_title, book_author):
+    def parse(self, inputter, top_level, book_title, book_author):
         if not inputter.entry:
             return None
 
@@ -4603,7 +4670,7 @@ class RedirectParser(Parser): # {{{
                 logging.info(u"{indent}    {src} is redirected to {dest}".format(
                     indent=u"      "*inputter.nested_level, src=inputter.fullpath(), dest=url))
 
-                book = Parser.parse_book(SubInputter(inputter, url), title=title, author=author, cover=cover)
+                book = Parser.parse_book(SubInputter(inputter, url), top_level, title=title, author=author, cover=cover)
                 if book:
                     return book
 
@@ -5314,7 +5381,7 @@ class HtmlConverter(object): # {{{
             if     ((chapter.content and # 有内容
                      (not chapter.subchapters or # 有内容且无子章节
                       content_size(chapter.content) > MAX_INLINE_PREAMBLE_SIZE)) or # 有子章节，但章节内容太长，不适合放到章节目录中
-                    not chapter.entry_file): # 章节没有目录也没有正文，必须生成一个文件
+                    (not chapter.content and not chapter.subchapters)): # 章节没有目录也没有正文，必须生成一个文件
                 filename = u"{name}{ext}".format(name=os.path.join(path, chapter.id), ext=HTML_EXT)
                 chapter.content_file = filename
 
@@ -6041,9 +6108,6 @@ def convert_book(path, output=u""):
         if hasattr(chapter, "id"):
             chapter.id = prefix
 
-        if hasattr(chapter, "level"):
-            chapter.level = level
-
         if not chapter.cover:
             c = chapter
             while c:
@@ -6159,12 +6223,13 @@ def convert_book(path, output=u""):
         fileinfo = parse_filename(path, options.title, options.author)
 
         try:
-            book = Parser.parse_book(inputter, title=fileinfo["title"], author=fileinfo["author"], cover=cover)
+            book = Parser.parse_book(inputter, CHAPTER_TOP_LEVEL, title=fileinfo["title"], author=fileinfo["author"], cover=cover)
         except NotParseableError as e:
             logging.error(u"  Error: Don't know how to parse '{0}'".format(path))
             logging.error(e.value)
             raise
 
+        reset_level(book, CHAPTER_TOP_LEVEL)
         chapters_normalize(book, CHAPTER_TOP_LEVEL, u"chapter")
 
         # 仅当保留了当初的标题时，才使用从书名中猜测的信息
