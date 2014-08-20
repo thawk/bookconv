@@ -4215,7 +4215,7 @@ class CollectionParser(Parser): # {{{
                 continue
 
             logging.debug(u"{indent}    Parsing {file}".format(
-                file=index_file, indent=u"      "*inputter.nested_level))
+                file=inputter.fullpath(index_file), indent=u"      "*inputter.nested_level))
 
             file_content = inputter.read_all(index_file)
             file_content = self.re_comment.sub(u"", file_content)
@@ -4292,12 +4292,10 @@ class CollectionParser(Parser): # {{{
                     subinputter = SubInputter(inputter, root)
                     subpath = subinputter.fullpath()
 
-                    # 已经处理过，不再重复处理
-                    if parsed_files.has_key(subpath):
-                        continue;
-
-                    logging.info(u"{indent}Found sub book: {path}: {title}{author_info}{cover_info}".format(
-                        indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title,
+                    logging.info(u"{indent}Found sub book in {index_file}: {path}: {title}{author_info}{cover_info}".format(
+                        indent=u"  "*(level+3*inputter.nested_level), 
+                        index_file=inputter.fullpath(index_file),
+                        path=subinputter.fullpath(), title=title,
                         author_info=u"/" + author if author else u"",
                         cover_info=u" with cover" if cover else u""))
 
@@ -4321,8 +4319,15 @@ class CollectionParser(Parser): # {{{
 
                             break
                     else:
+                        # 已经处理过，不再重复处理
+                        if parsed_files.has_key(subpath):
+                            logging.info(u"{indent}      Sub book has already processed: {path}: {title}".format(
+                                indent=u"  "*(level+3*inputter.nested_level), path=subinputter.fullpath(), title=title))
+
+                            continue;
+
                         # 该链接未出现过
-                        logging.debug("    Trying subbook...")
+                        logging.debug("{indent}      Trying subbook...".format(indent=u"  "*(level + 3*inputter.nested_level)))
                         subbookinfo = Parser.parse_book(subinputter, title, author, cover)
                         assert(subbookinfo)
 
