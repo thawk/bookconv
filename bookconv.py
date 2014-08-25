@@ -4,11 +4,12 @@
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140820"
+VERSION = u"20140825"
 
 # {{{ Imports
 import codecs
 import cookielib
+import functools
 import htmlentitydefs
 import inspect
 import json
@@ -23,6 +24,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import types
 import uuid
 import zipfile
 import time
@@ -545,7 +547,7 @@ class InlineContainer(ContentElement):
                 raise TypeError("Need string or InlineContainer type, not {0} type".format(type(element)))
 
         if sub_elements:
-            if isinstance(sub_elements, list):
+            if isinstance(sub_elements, types.GeneratorType) or isinstance(sub_elements, list):
                 for e in sub_elements:
                     do_append(e)
             else:
@@ -1498,7 +1500,10 @@ class HtmlContentNormalizer(object):
         re.IGNORECASE | re.DOTALL)
         
     re_quote = re.compile(
-        r"<(?:q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*q\s*>",
+        r"<(?P<tag>q|blockquote)\b[^>]*>(?P<content>.+?)<\s*/\s*(?P=tag)\s*>",
+        re.IGNORECASE | re.DOTALL)
+    re_bold = re.compile(
+        r"<(?P<tag>b|strong)\b[^>]*>(?P<content>.+?)<\s*/\s*(?P=tag)\s*>",
         re.IGNORECASE | re.DOTALL)
     #       }}}
 
@@ -1511,41 +1516,42 @@ class HtmlContentNormalizer(object):
             self.re_imgs  = re_imgs
 
     def normalize(self, line, inputter=None):
-        lines = list()
-
         if not line:
-            return lines
+            return list()
 
-        # 处理所有引用
+        return list(
+                functools.partial(self._normalize_styled_content, self.re_quote, Quote, inputter, 
+                    functools.partial(self._normalize_styled_content, self.re_bold, Strong, inputter, 
+                        functools.partial(self._normalize_block_content, inputter)))
+                    (line))
+
+    def _normalize_styled_content(self, re, cls, inputter, next_proc, line):
         start_pos = 0
-        for m in self.re_quote.finditer(line):
+        for m in re.finditer(line):
             if m.start() > start_pos:
-                self.content.extend(self._normalize_block_content(line[start_pos:m.start()], inputter))
+                for l in next_proc(line[start_pos:m.start()]):
+                    yield l
 
-            quote_lines = self._normalize_block_content(m.group('content'), inputter)
+            quote_lines = next_proc(m.group('content'))
             if quote_lines:
-                lines.append(Quote(quote_lines))
+                print cls, list(quote_lines)[0]
+                yield cls(quote_lines)
 
             start_pos = m.end()
 
         # 加入最后的内容
         if start_pos < len(line):
-            lines.extend(self._normalize_block_content(line[start_pos:], inputter))
+            for l in next_proc(line[start_pos:]):
+                yield l
 
-        return lines
-
-    def _normalize_block_content(self, block_content, inputter=None):
-        lines = list()
+    def _normalize_block_content(self, inputter, block_content):
         for line in self.re_content_line_sep.split(block_content):
             line = line.strip()
             if line:
-                lines.extend(self._normalize_line(line, inputter))
+                for l in self._normalize_line(inputter, line):
+                    yield l
 
-        return lines
-
-    def _normalize_line(self, line, inputter=None):
-        lines = list()
-
+    def _normalize_line(self, inputter, line):
         if not inputter:
             inputter = self.inputter
 
@@ -1571,18 +1577,18 @@ class HtmlContentNormalizer(object):
 
             if pos["start"] > start_pos:    # 马上就是图片，不需要处理两张图片之间的内容
                 # 加入图片之前的文本
-                lines.extend(self._to_text(line[start_pos:pos["start"]]))
+                for l in self._to_text(line[start_pos:pos["start"]]):
+                    yield l
 
             # 加入图片
-            lines.append(InputterImg(pos["url"], inputter, title_normalize(pos["desc"])))
+            yield InputterImg(pos["url"], inputter, title_normalize(pos["desc"]))
 
             start_pos = pos["end"]
 
         # 加入行末的内容
         if start_pos < len(line):
-            lines.extend(self._to_text(line[start_pos:]))
-
-        return lines
+            for l in self._to_text(line[start_pos:]):
+                yield l
 
     def text_only(self, line):
         lines = list()
@@ -2170,14 +2176,14 @@ class HtmlBuilderParser(Parser): # {{{
     class ContentNormalizer(HtmlContentNormalizer):
         re_section_title = re.compile(u"^\s*<font class=f10>(?P<title>[^<]+)</font>\s*$")
 
-        def _normalize_line(self, line, inputter=None):
+        def _normalize_line(self, inputter, line):
             m = self.re_section_title.match(line)
             if m:
                 lines = list()
                 lines.append(SectionTitle(title_normalize_from_html(m.group("title"))))
                 return lines
 
-            return HtmlContentNormalizer._normalize_line(self, line, inputter)
+            return HtmlContentNormalizer._normalize_line(self, inputter, line)
 
     def _get_index_filenames(self, inputter):
         index_filenames = list()
@@ -2841,7 +2847,7 @@ class EasyChmParser(Parser): # {{{
                                 for subchapter in chapter.subchapters:
                                     subchapter.parent = chapter
 
-                        reset_level(chapter, top_level + lvl)
+                        chapter.level = lvl
 
                         if next_intro:
                             chapter.intro = next_intro[1]
@@ -2861,7 +2867,8 @@ class EasyChmParser(Parser): # {{{
 
                         if lvl > 1:
                             logging.info(u"    {indent}{title}: {has_cover}".format(
-                                indent="  "*(max_title_level-lvl), title=chapter.title,
+                                indent="  "*(max_title_level-lvl), 
+                                title=chapter.title,
                                 has_cover = chapter.cover and u"Has cover" or "No cover"))
 
                         # 已经生成好chapter，放到适当的位置
@@ -2890,6 +2897,8 @@ class EasyChmParser(Parser): # {{{
 
             raise NotParseableError(u"{file} is not parseable by {parser}".format(
                 file=inputter.fullpath(), parser=self.__class__.__name__))
+
+        reset_level(root_chapter, top_level)
 
         book.subchapters = root_chapter.subchapters
         for subchapter in book.subchapters:
