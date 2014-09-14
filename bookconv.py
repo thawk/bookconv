@@ -1534,7 +1534,6 @@ class HtmlContentNormalizer(object):
 
             quote_lines = next_proc(m.group('content'))
             if quote_lines:
-                print cls, list(quote_lines)[0]
                 yield cls(quote_lines)
 
             start_pos = m.end()
