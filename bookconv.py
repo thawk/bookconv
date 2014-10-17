@@ -1081,7 +1081,7 @@ def guess_title_author(filename):
         re.compile(u'《(?P<title>[^》]+)》', re.IGNORECASE),
         )
     re_ignore_infos = (
-        re.compile(u'\((全本|文字全本|原创|美|日|英)\)', re.IGNORECASE),
+        re.compile(u'\((全本|文字全本|校对全本|原创|美|日|英)\)', re.IGNORECASE),
     )
 
     name = os.path.splitext(os.path.basename(filename.strip(u'/')))[0]
