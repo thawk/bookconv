@@ -4,7 +4,7 @@
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140825"
+VERSION = u"20140922"
 
 # {{{ Imports
 import codecs
@@ -5000,7 +5000,7 @@ class HtmlConverter(object): # {{{
 
         if title:
             html += u"""\
-        <h{hlevel} class='title title_{level}'>{title}</h{hlevel}>
+        <p class='title title_{level} h{hlevel}'>{title}</p>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5008,7 +5008,7 @@ class HtmlConverter(object): # {{{
 
         if chapter.sub_title:
             html += u"""\
-        <h{hlevel} class='sub_title sub_title_{level} sub_title_h{hlevel}'>{sub_title}</h{hlevel}>
+        <p class='sub_title sub_title_{level} sub_title_h{hlevel} h{hlevel}'>{sub_title}</p>
 """.format(
             hlevel = chapter.level,
             level  = chapter.level,
@@ -5123,7 +5123,9 @@ class HtmlConverter(object): # {{{
                     next.toc_file if link_to_toc and next.toc_file else next.entry_file,
                     os.path.dirname(filename))))
 
-        return u"<div class='chapter_navbar'><table><tr><td>{links}</td></tr></table><hr/></div>\n".format(
+        # return u"<div class='chapter_navbar'><table><tr><td>{links}</td></tr></table><hr/></div>\n".format(
+        #         links = u" | ".join(links))
+        return u"<div class='chapter_navbar'><div class='chapter_navbar_inner'><p>{links}</p></div><hr/></div>\n".format(
                 links = u" | ".join(links))
     # }}}
 
@@ -5155,7 +5157,7 @@ class HtmlConverter(object): # {{{
 
         if title:
             html += u"""\
-        <h{hlevel} class='title chapter_title_{level}'>{title}</h{hlevel}>
+        <p class='title chapter_title_{level} h{hlevel}'>{title}</p>
 """.format(
             hlevel = hlevel,
             level  = chapter.level,

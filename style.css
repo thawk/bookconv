@@ -141,7 +141,7 @@ a {
 	font-size:9pt;
 	padding: 5px 5px 5px 5px;
 }
-h1 {
+h1, .h1 {
 	/*color:#268bd2;*/  /* blue */
 	margin-top:61.8%;
 	margin-left:33%;
@@ -152,7 +152,8 @@ h1 {
 	font-size:173%;
 	font-family:"h1","ht","zw";
 }
-.chapter_content_begin h1 {
+.chapter_content_begin h1,
+.chapter_content_begin .h1 {
 	/*color:#268bd2;*/  /* blue */
     margin: 0px 0px 0.5em 1.16em;
 	line-height:100%;
@@ -166,7 +167,7 @@ h1 {
 	font-size:173%;
 	font-family:"h1","ht","zw";
 }
-h2 {
+h2, .h2 {
 	color:white;
     margin: 0 0 0.2em 0;
 	line-height:100%;
@@ -198,7 +199,7 @@ h2 {
 	font-family:"ht","zw";
 }
 
-h3 {
+h3, .h3 {
 	/*color:#268bd2;*/  /* blue */
 	line-height:130%;
 	text-align: justify;
@@ -210,7 +211,7 @@ h3 {
 	border-width: 0px 0px 1px 0px;
 	border-color: #2aa198; /* green */
 }
-h4 {
+h4, .h4 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
@@ -218,7 +219,7 @@ h4 {
 	font-family:"ht","zw";
     margin-botton: 0.5em;
 }
-h5 {
+h5, .h5 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
@@ -226,7 +227,7 @@ h5 {
 	font-family:"kt","zw";
     margin-botton: 0.5em;
 }
-h6 {
+h6, .h6 {
 	line-height:130%;
 	text-align: justify;
 	font-weight:bold;
@@ -448,6 +449,11 @@ li {
     display: oeb-page-head;
     font-family: "kt", "zw";
     font-size: 0.7em;
+    width: 100%;
+    text-align: center;
+}
+
+.chapter_navbar p {
 }
 
 .chapter_navbar a {
