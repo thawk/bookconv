@@ -4,7 +4,7 @@
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20140922"
+VERSION = u"20141025"
 
 # {{{ Imports
 import codecs
@@ -4335,10 +4335,11 @@ class CollectionParser(Parser): # {{{
 
                     # 子书应该在本inputter的子目录下，如果出了本目录就不算
                     if not inputter.is_subpath(root):
-                        logging.debug(u"{indent}Skip sub book in {index_file}: {path}: {title}{author_info}, not in subpath".format(
+                        logging.debug(u"{indent}Skip sub book in {index_file}: {path}: {title}{author_info}, not in subpath of {curr_path}".format(
                             indent=u"  "*(level+3*inputter.nested_level), 
                             level=level,
                             index_file=inputter.fullpath(index_file),
+                            curr_path=inputter.fullpath(u""),
                             path=root, title=title,
                             author_info=u"/" + author if author else u""))
                         continue
@@ -4599,8 +4600,8 @@ class EasyChmCollectionParser2(CollectionParser): # {{{
         re.compile(u".*\w+\[\d+\]\s*=\s*\['(?P<title>[^']+)','[^']*','(?P<root>[^'<>]+)','(?P<author>[^']+)','(?P<intro>[^']+)'\];", re.IGNORECASE),
     )
 
-    cover_base = ( u"/index/", )
-    root_base = ( u"/txt/", )
+    cover_base = ( u"index/", )
+    root_base = ( u"txt/", )
 
 #     }}}
 #   }}}
