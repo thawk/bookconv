@@ -1092,6 +1092,7 @@ def guess_title_author(filename):
         for m in re_extra_info.finditer(name):
             for re_ignored_extra_info in re_ignored_extra_infos:
                 if re_ignored_extra_info.match(m.group("info")):
+                    erase_infos.append(re_extra_info)
                     break
             else:
                 extra_info = extra_info + "(" + m.group("info") + ")"
