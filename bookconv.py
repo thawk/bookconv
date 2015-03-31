@@ -7,6 +7,7 @@ PROGNAME = u"bookconv.py"
 VERSION = u"20150221"
 
 # {{{ Imports
+# pacman -S python2-pychm python2-pillow
 import codecs
 import cookielib
 import functools
