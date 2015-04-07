@@ -4,7 +4,7 @@
 
 PROGNAME = u"bookconv.py"
 
-VERSION = u"20141025"
+VERSION = u"20150407"
 
 # {{{ Imports
 import codecs
@@ -5866,7 +5866,7 @@ class EpubConverter(Converter): # {{{
 
         titleReferenceElem = xml.createElement("reference")
         titleReferenceElem.setAttribute("href", os.path.join(CONTENT_DIR, TITLE_PAGE + HTML_EXT))
-        titleReferenceElem.setAttribute("type", "title")
+        titleReferenceElem.setAttribute("type", "title-page")
         titleReferenceElem.setAttribute("title", u"Title")
         guideElem.appendChild(titleReferenceElem)
 
@@ -6086,9 +6086,9 @@ class ZipOutputter(Outputter): # {{{
         compression = properties["compression"] if properties.has_key("compression") else zipfile.ZIP_DEFLATED
 
         dirname = os.path.dirname(path)
-        # 创建上层目录
-        if dirname and not self.exists_files.has_key(dirname):
-            self.add_file(dirname, '', permissions=0700)
+        # # 创建上层目录
+        # if dirname and not self.exists_files.has_key(dirname):
+        #     self.add_file(dirname, '', permissions=0700)
 
         zipname = path
         if permissions & 0700 == 0700:
