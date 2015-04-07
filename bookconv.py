@@ -7,6 +7,7 @@ PROGNAME = u"bookconv.py"
 VERSION = u"20150407"
 
 # {{{ Imports
+# pacman -S python2-pychm python2-pillow
 import codecs
 import cookielib
 import functools
@@ -211,7 +212,6 @@ RE_INTRO_TITLES = (
 
 ASCIIDOC_ATTR_TITLE = u"title"
 ASCIIDOC_ATTR_ALT = u"alt"
-
 # }}}
 
 # {{{ Globals
@@ -222,6 +222,18 @@ book_dir = os.getcwd()
 # 已经处理过的文件
 parsed_files = dict()
 url2chapter = dict()
+# }}}
+
+# {{{ General Utilities
+LOG_LEVEL_TRACE = 5
+
+logging.addLevelName(LOG_LEVEL_TRACE, "trace")
+def trace(self, message, *args, **kws):
+    # Yes, logger takes its '*args' as 'args'.
+    if self.isEnabledFor(LOG_LEVEL_TRACE):
+        self._log(LOG_LEVEL_TRACE, message, args, **kws) 
+
+logging.Logger.trace = trace
 # }}}
 
 # {{{ General Utilities
@@ -2089,7 +2101,7 @@ class Parser(object): # {{{
 
                         raise NotParseableError(u"{file} is not parseable by any parser".format(file=inputter.fullpath()))
                     
-        for parser in (HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), AsciidocParser(), EasyChmParser(), HtmlBuilderParser(), RedirectParser()):
+        for parser in (AsciidocParser(), HtmlBuilderCollectionParser(), EasyChmCollectionParser(), EasyChmCollectionParser2(), IFengBookParser(), EasyChmParser(), HtmlBuilderParser(), RedirectParser()):
             logging.debug(u"{indent}  Checking '{path}' with {parser}.".format(
                 path=inputter.fullpath(), parser=parser.__class__.__name__, indent=u"      "*inputter.nested_level))
 
@@ -4136,6 +4148,8 @@ class AsciidocParser(Parser): # {{{
 
         # {{{ ------ func parse_section_body
         def parse_section_body(line_holder, chapter, last_attrs):
+            logging.debug(u"AsciidocParser.parse_secion_body")
+
             try:
                 while True:
                     line = line_holder.next()
@@ -4176,6 +4190,8 @@ class AsciidocParser(Parser): # {{{
             except StopIteration:
                 pass
         # }}}
+
+        logging.debug(u"AsciidocParser.parse")
 
         if not inputter.entry or (inputter.entry[-4:].lower() != ".txt" and inputter.entry[-9:].lower() != ".asciidoc"):
             raise NotParseableError(u"{file} is not parseable by {parser}. Not asciidoc file!".format(
@@ -5107,12 +5123,13 @@ class HtmlConverter(object): # {{{
                     prev.toc_file if link_to_toc and prev.toc_file else prev.entry_file,
                     os.path.dirname(filename))))
 
-        if chapter.parent and chapter.parent.toc_file:
-            links.append(u"<a href='{link}'>上层菜单</a>".format(
-                link = os.path.relpath(chapter.parent.toc_file, os.path.dirname(filename))))
+        if not options.no_toc:
+            if chapter.parent and chapter.parent.toc_file:
+                links.append(u"<a href='{link}'>上层菜单</a>".format(
+                    link = os.path.relpath(chapter.parent.toc_file, os.path.dirname(filename))))
 
-        links.append(u"<a href='{link}'>主菜单</a>".format(
-            link = os.path.relpath(TOC_PAGE + HTML_EXT, os.path.dirname(filename))))
+            links.append(u"<a href='{link}'>主菜单</a>".format(
+                link = os.path.relpath(TOC_PAGE + HTML_EXT, os.path.dirname(filename))))
 
         next = chapter.next
         # 如果本层没有下个章节，则跳到父章节的下一个章节
@@ -5361,7 +5378,7 @@ class HtmlConverter(object): # {{{
                         "id":       CHAPTER_TITLE_PAGE_ID_FORMAT.format(chapter.id),
                         })
 
-            if chapter.subchapters:
+            if not options.no_toc and chapter.subchapters:
                 # 有子章节，生成章节目录
                 toc_page_filename = u"{name}{ext}".format(
                     name=os.path.join(path, CHAPTER_TOC_PAGE_ID_FORMAT.format(chapter.id)), ext=HTML_EXT)
@@ -5389,11 +5406,12 @@ class HtmlConverter(object): # {{{
                             )).encode("utf-8"),
                         "id":       CHAPTER_TOC_PAGE_ID_FORMAT.format(chapter.id),
                         })
-                
+
+            # 看看要不要生成一个单独的页面
             if     ((chapter.content and # 有内容
-                     (not chapter.subchapters or # 有内容且无子章节
+                     (not chapter.toc_file or # 有内容且无目录页
                       content_size(chapter.content) > MAX_INLINE_PREAMBLE_SIZE)) or # 有子章节，但章节内容太长，不适合放到章节目录中
-                    (not chapter.content and not chapter.subchapters)): # 章节没有目录也没有正文，必须生成一个文件
+                    (not chapter.content and not chapter.toc_file)): # 章节没有目录也没有正文，必须生成一个文件
                 filename = u"{name}{ext}".format(name=os.path.join(path, chapter.id), ext=HTML_EXT)
                 chapter.content_file = filename
 
@@ -5473,17 +5491,18 @@ class HtmlConverter(object): # {{{
             "id":       TITLE_PAGE,
         }]
 
-        filename = TOC_PAGE + HTML_EXT
-        book.toc_file = filename
-        files["html"][1:0] = [{
-            "filename": filename,
-            "content":  u"".join((
-                        self.html_header(filename, book.title, cssfile=CSS_FILE),
-                        self.toc_page(files, filename, book),
-                        self.html_footer(filename, book),
-                        )).encode("utf-8"),
-            "id":       TOC_PAGE,
-        }]
+        if not options.no_toc:
+            filename = TOC_PAGE + HTML_EXT
+            book.toc_file = filename
+            files["html"][1:0] = [{
+                "filename": filename,
+                "content":  u"".join((
+                            self.html_header(filename, book.title, cssfile=CSS_FILE),
+                            self.toc_page(files, filename, book),
+                            self.html_footer(filename, book),
+                            )).encode("utf-8"),
+                "id":       TOC_PAGE,
+            }]
 
         if book.cover:
             if book.cover.height() <= MAX_EMBED_COVER_HEIGHT:
@@ -5613,7 +5632,7 @@ class EpubConverter(Converter): # {{{
                         "src": src,
                         "children": generate_navpoint(subchapter),
                     })
-                        
+
             if not options.plain_toc:
                 if options.rearrange_toc:
                     # 调整TOC，使每层的TOC不超过指定的数量
@@ -6372,6 +6391,7 @@ if __name__ == "__main__":
     optparser.add_option('-O', '--offline', action="store_true", dest="offline", default=False, help="Don't lookup author/category from web search.")
     optparser.add_option('-c', '--cover',   action="store", type="string", dest="cover", default="", help="Book cover image.")
     optparser.add_option('-k', '--keep',    action="store_true", dest="keep", default=False, help="Keep intermediate files.")
+    optparser.add_option('--no-toc',    action="store_true", dest="no_toc", default=False, help="Don't generate inline TOC")
     optparser.add_option('-r', '--rearrange-toc',    action="store_true", dest="rearrange_toc", default=False, help="Rearrange TOC to avoid too much items in a level.")
     optparser.add_option('-p', '--plain-toc',    action="store_true", dest="plain_toc", default=False, help="Using only one level TOC.")
     optparser.add_option('-i', '--toc-indent',   action="store", type="int", dest="toc_indent", default=2, help="Indent count in TOC.")
