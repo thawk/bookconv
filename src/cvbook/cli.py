@@ -15,7 +15,8 @@ from .engines import convert_calibre, convert_pandoc
 from .epub import build_epub
 from .frontmatter import NoFrontMatter, read_frontmatter
 from .htmlutil import paragraphs
-from .images import MEDIA_TYPES, EpubImage, ImageStore, convert_image
+from .images import (MEDIA_TYPES, EpubImage, ImageStore, convert_image,
+                     image_size)
 from .metadata import find_cover, resolve_meta
 from .models import BookMeta
 from .styles import StyleError
@@ -120,11 +121,22 @@ def pick_cover_path(args, path: str) -> Optional[str]:
 
 
 def announce_start(meta: BookMeta, cover_path: Optional[str],
+                   cover_image: Optional[EpubImage] = None,
                    merged_files: int = 0) -> None:
     prefix = "合并 %d 个文件 → " % merged_files if merged_files > 1 else ""
+    cover_text = "无"
+    size = None
+    if cover_path:
+        cover_text = "有"
+        if cover_image is not None:
+            size = image_size(cover_image.data)
+            if size:
+                cover_text = "有（%d×%d）" % size
     print("开始生成: %s《%s》 作者: %s 封面: %s"
-          % (prefix, meta.title, meta.author_text,
-             "有" if cover_path else "无"))
+          % (prefix, meta.title, meta.author_text, cover_text), flush=True)
+    if size and size[0] < 1000:
+        print("!!! 封面只有 %d×%d，全屏显示会模糊；可用 --cover 指定更大的图"
+              % size, file=sys.stderr)
 
 
 def announce_done(meta: BookMeta, out: str, started: float,
@@ -237,7 +249,7 @@ def convert_native(path: str, source: inputs.SourceFile,
                    args) -> bool:
     cover_path = pick_cover_path(args, path)
     cover = load_cover(cover_path) if cover_path else None
-    announce_start(meta, cover_path)
+    announce_start(meta, cover_path, cover)
     started = time.time()
 
     images = ImageStore()
@@ -287,7 +299,7 @@ def convert_merged(paths: Sequence[str], args) -> bool:
 
     cover_path = pick_cover_path(args, paths[0])
     cover = load_cover(cover_path) if cover_path else None
-    announce_start(meta, cover_path, len(loaded))
+    announce_start(meta, cover_path, cover, len(loaded))
     started = time.time()
 
     images = ImageStore()

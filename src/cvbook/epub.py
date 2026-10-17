@@ -111,10 +111,13 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     toc_entries: List[Tuple[epub.EpubHtml, int]] = []
 
     def add_page(kind: str, uid: str, file_name: str, title: str,
-                 inner: str) -> epub.EpubHtml:
+                 inner: str, semantics: str = "") -> epub.EpubHtml:
         item = epub.EpubHtml(uid=uid, file_name=file_name, title=title,
                              lang=lang)
-        item.content = '<div class="page %s">%s</div>' % (kind, inner)
+        attrs = 'class="page %s"' % kind
+        if semantics:
+            attrs += ' epub:type="%s"' % semantics
+        item.content = '<div %s>%s</div>' % (attrs, inner)
         item.add_link(href=_css_href(file_name), rel="stylesheet",
                       type="text/css")
         book.add_item(item)
@@ -123,19 +126,20 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     if cover is not None:
         front.append(add_page("cover", "cover", "cover.xhtml", "封面",
                               '<img class="cover-image" src="%s" alt="封面"/>'
-                              % _escape(cover.path)))
+                              % _escape(cover.path), semantics="cover"))
 
     if include_titlepage:
         front.append(add_page(
             "titlepage", "titlepage", "titlepage.xhtml", meta.title,
             '<h1 class="book-title">%s</h1><p class="book-author">%s</p>'
-            % (_escape(meta.title), _escape(meta.author_text))))
+            % (_escape(meta.title), _escape(meta.author_text)),
+            semantics="titlepage"))
 
     if include_intro and intro_html:
         front.append(add_page(
             "intro", "intro", "intro.xhtml", intro_title,
             '<h2 class="intro-title">%s</h2>%s'
-            % (_escape(intro_title), intro_html)))
+            % (_escape(intro_title), intro_html), semantics="preface"))
 
     for index, chapter in enumerate(chapters, 1):
         item = add_page("chapter", "chap-%04d" % index,
@@ -163,6 +167,10 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     if cover is not None:
         book.guide.append({"type": "cover", "href": "cover.xhtml",
                            "title": "封面"})
+    if include_titlepage:
+        # 告诉阅读器“扉页在哪”，有些阅读器找不到时会自己生成一页
+        book.guide.append({"type": "title-page", "href": "titlepage.xhtml",
+                           "title": meta.title})
     book.guide.append({"type": "toc", "href": NAV_PATH, "title": "目录"})
 
     if verbose:

@@ -37,6 +37,34 @@ class EpubImage:
     data: bytes
 
 
+def image_size(data: bytes) -> Optional[tuple]:
+    """读 PNG/JPEG 的像素尺寸（不依赖第三方库）。"""
+    if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
+        width = int.from_bytes(data[16:20], "big")
+        height = int.from_bytes(data[20:24], "big")
+        return (width, height) if width and height else None
+
+    if data[:2] != b"\xff\xd8":               # 不是 JPEG
+        return None
+
+    offset = 2
+    while offset + 9 < len(data):
+        if data[offset] != 0xFF:
+            offset += 1
+            continue
+        marker = data[offset + 1]
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+            offset += 2
+            continue
+        length = int.from_bytes(data[offset + 2:offset + 4], "big")
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            height = int.from_bytes(data[offset + 5:offset + 7], "big")
+            width = int.from_bytes(data[offset + 7:offset + 9], "big")
+            return (width, height) if width and height else None
+        offset += 2 + length
+    return None
+
+
 def media_type_for(name: str) -> Optional[str]:
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     return MEDIA_TYPES.get(ext)
