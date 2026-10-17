@@ -134,16 +134,13 @@ def announce_start(meta: BookMeta, cover_path: Optional[str],
                 cover_text = "有（%d×%d）" % size
     print("开始生成: %s《%s》 作者: %s 封面: %s"
           % (prefix, meta.title, meta.author_text, cover_text), flush=True)
-    if size and size[0] < 1000:
-        print("!!! 封面只有 %d×%d，全屏显示会模糊；可用 --cover 指定更大的图"
-              % size, file=sys.stderr)
 
 
 def announce_done(meta: BookMeta, out: str, started: float,
                   chapters: Optional[int] = None) -> None:
     detail = "%d 章，" % chapters if chapters is not None else ""
-    print("生成完成: 《%s》 → %s（%s用时 %.1f 秒）"
-          % (meta.title, out, detail, time.time() - started))
+    print("    生成完成: 《%s》（%s用时 %.1f 秒）"
+          % (meta.title, detail, time.time() - started))
 
 
 def parse_options(args) -> inputs.ParseOptions:
