@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 import tempfile
+import time
 import traceback
 from typing import List, Optional, Sequence, Tuple
 
@@ -111,12 +112,26 @@ def load_cover(image_path: str) -> Optional[EpubImage]:
     return EpubImage(path="images/cover." + ext, media_type=media_type, data=data)
 
 
-def pick_cover(args, path: str) -> Optional[EpubImage]:
+def pick_cover_path(args, path: str) -> Optional[str]:
     """--cover 优先，否则找与源文件同名的图片；--no-cover 时不要封面。"""
     if args.no_cover:
         return None
-    cover_file = args.cover or find_cover(path)
-    return load_cover(cover_file) if cover_file else None
+    return args.cover or find_cover(path)
+
+
+def announce_start(meta: BookMeta, cover_path: Optional[str],
+                   merged_files: int = 0) -> None:
+    prefix = "合并 %d 个文件 → " % merged_files if merged_files > 1 else ""
+    print("开始生成: %s《%s》 作者: %s 封面: %s"
+          % (prefix, meta.title, meta.author_text,
+             "有" if cover_path else "无"))
+
+
+def announce_done(meta: BookMeta, out: str, started: float,
+                  chapters: Optional[int] = None) -> None:
+    detail = "%d 章，" % chapters if chapters is not None else ""
+    print("生成完成: 《%s》 → %s（%s用时 %.1f 秒）"
+          % (meta.title, out, detail, time.time() - started))
 
 
 def parse_options(args) -> inputs.ParseOptions:
@@ -198,9 +213,8 @@ def report_build_error(error: Exception, args) -> None:
         traceback.print_exc()
 
 
-def convert_pages(path: str, chapters, images: ImageStore, meta: BookMeta,
-                  out: str, args, style, title: str) -> bool:
-    cover = pick_cover(args, path)
+def build_book(chapters, images: ImageStore, meta: BookMeta, out: str, args,
+               style, cover: Optional[EpubImage], started: float) -> bool:
     intro_html = "" if args.no_intro else paragraphs(meta.comments,
                                                     args.keep_indent)
     try:
@@ -214,13 +228,18 @@ def convert_pages(path: str, chapters, images: ImageStore, meta: BookMeta,
         report_build_error(error, args)
         return False
 
-    print(title)
+    announce_done(meta, out, started, len(chapters))
     return True
 
 
 def convert_native(path: str, source: inputs.SourceFile,
                    fmt: inputs.InputFormat, meta: BookMeta, out: str,
                    args) -> bool:
+    cover_path = pick_cover_path(args, path)
+    cover = load_cover(cover_path) if cover_path else None
+    announce_start(meta, cover_path)
+    started = time.time()
+
     images = ImageStore()
     chapters = fmt.parse(source, images=images, options=parse_options(args))
     if not chapters:
@@ -238,8 +257,7 @@ def convert_native(path: str, source: inputs.SourceFile,
               % (fmt.name, len(chapters), ", ".join(style.sources)),
               file=sys.stderr)
 
-    return convert_pages(path, chapters, images, meta, out, args, style,
-                         "生成: %s（%d 页）" % (out, len(chapters)))
+    return build_book(chapters, images, meta, out, args, style, cover, started)
 
 
 def convert_merged(paths: Sequence[str], args) -> bool:
@@ -267,6 +285,11 @@ def convert_merged(paths: Sequence[str], args) -> bool:
               "或把文件命名为《书名》作者：xxx.md", file=sys.stderr)
         return False
 
+    cover_path = pick_cover_path(args, paths[0])
+    cover = load_cover(cover_path) if cover_path else None
+    announce_start(meta, cover_path, len(loaded))
+    started = time.time()
+
     images = ImageStore()
     options = parse_options(args)
     chapters = []
@@ -288,9 +311,7 @@ def convert_merged(paths: Sequence[str], args) -> bool:
               file=sys.stderr)
 
     out = args.output or default_output(paths[0])
-    return convert_pages(paths[0], chapters, images, meta, out, args, style,
-                         "生成: %s（%d 页，合并 %d 个文件）"
-                         % (out, len(chapters), len(loaded)))
+    return build_book(chapters, images, meta, out, args, style, cover, started)
 
 
 def convert_legacy(path: str, body: bytes, meta: BookMeta, out: str, args,
@@ -308,17 +329,25 @@ def convert_legacy(path: str, body: bytes, meta: BookMeta, out: str, args,
             return False
         source = temp
 
+    cover = pick_cover_path(args, path)
+    announce_start(meta, cover)
+    started = time.time()
+
     try:
-        cover = args.cover or find_cover(path)
         if args.method == "pandoc":
-            return convert_pandoc(source, out, meta, cover, args.verbose)
-        return convert_calibre(source, out, meta, cover, args.verbose)
+            ok = convert_pandoc(source, out, meta, cover, args.verbose)
+        else:
+            ok = convert_calibre(source, out, meta, cover, args.verbose)
     finally:
         if temp is not None:
             try:
                 os.unlink(temp)
             except OSError:
                 pass
+
+    if ok:
+        announce_done(meta, out, started)
+    return ok
 
 
 def convert_one(path: str, args) -> bool:
