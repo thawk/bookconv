@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cvbook"
+version = "0.2.0"
+description = "把 Markdown 小说转换成 EPUB，样式可定制"
+readme = "README.md"
+requires-python = ">=3.8"
+# 不依赖第三方库：EPUB 打包和 Markdown 渲染都在 src/cvbook 里用标准库实现
+dependencies = []
+
+[project.scripts]
+cvbook = "cvbook.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cvbook = ["data/*.css"]

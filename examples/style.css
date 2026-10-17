@@ -1,0 +1,135 @@
+/* 示例样式：无衬线、首行不缩进、章节标题左对齐
+ *
+ * 用法:
+ *   cvbook -s examples/style.css 某书.md
+ * 或者复制到 ~/.config/cvbook/style.css 当作全局默认。
+ *
+ * 这是"整体替换"，所以要把需要的规则都写上；也可以只写想改的部分，
+ * 用 --extra-style examples/style.css 追加到内置样式后面。
+ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "PingFang SC", "Source Han Sans SC", "Noto Sans CJK SC",
+               "Heiti SC", sans-serif;
+  line-height: 1.5;
+  color: #222;
+}
+
+.page {
+  margin: 0 1.4em;
+  page-break-before: always;
+  break-before: page;
+}
+
+.page.first {
+  page-break-before: auto;
+  break-before: auto;
+}
+
+/* 封面铺满 */
+.cover {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.cover .cover-image {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* 扉页：左对齐、上方留白少一点 */
+.titlepage {
+  margin-top: 18%;
+}
+
+.titlepage .book-title {
+  font-size: 1.8em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.8em;
+}
+
+.titlepage .book-author {
+  font-size: 1em;
+  color: #888;
+  margin: 0;
+}
+
+/* 目录 */
+.toc h1 {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 0 0 0.8em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid #e8e8e8;
+}
+
+.toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc ol ol {
+  margin-left: 1.2em;
+}
+
+.toc li {
+  margin: 0.3em 0;
+}
+
+.toc a {
+  color: #333;
+  text-decoration: none;
+}
+
+/* 简介 */
+.intro .intro-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 0 0 0.8em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid #e8e8e8;
+}
+
+.intro p {
+  text-indent: 0;
+  margin: 0 0 0.8em;
+}
+
+/* 正文：标题左对齐，首行不缩进，段间距更大 */
+.chapter h1 {
+  font-size: 1.35em;
+  font-weight: 600;
+  text-align: left;
+  margin: 0 0 1em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid #eee;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter h2 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin: 1.2em 0 0.5em;
+}
+
+.chapter h3 {
+  font-size: 1.02em;
+  font-weight: 600;
+  margin: 1em 0 0.4em;
+}
+
+.chapter p {
+  text-indent: 0;
+  margin: 0 0 0.9em;
+  text-align: left;
+}

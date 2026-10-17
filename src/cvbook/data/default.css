@@ -1,0 +1,198 @@
+/* cvbook 默认样式
+ * =====================================================================
+ * 想改样式？三种方式（优先级从高到低）：
+ *   1. cvbook -s 你的.css 某书.md          单次替换整个样式
+ *   2. ~/.config/cvbook/style.css          全局默认（存在时自动使用，整体替换）
+ *      ~/.config/cvbook/extra.css          全局微调（存在时自动追加）
+ *   3. cvbook --extra-style 补丁.css 某书.md   在内置样式后追加
+ *
+ * 可用的钩子（生成的页面结构见 README）：
+ *   .page              每一页的容器（默认强制分页）
+ *   .page.first        全书第一页（不分页）
+ *   .cover             封面页            .cover-image    封面图
+ *   .titlepage         扉页              .book-title     书名
+ *                                        .book-author    作者
+ *   .intro             简介页            .intro-title    简介标题
+ *   .chapter           正文页            .chapter h1     章节标题
+ *   .chapter h2/h3     小节标题          .chapter p      正文段落
+ *   .chapter img       插图              .chapter hr     分隔线
+ *   .chapter blockquote / pre / code / table
+ * ===================================================================== */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
+               "STSong", "SimSun", serif;
+  line-height: 1.7;
+  color: #111;
+}
+
+/* ---- 页面骨架 ------------------------------------------------------ */
+
+.page {
+  margin: 0 1.2em;
+  page-break-before: always;
+  break-before: page;
+}
+
+.page.first {
+  page-break-before: auto;
+  break-before: auto;
+}
+
+/* ---- 封面 ---------------------------------------------------------- */
+
+.cover {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.cover .cover-image {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* ---- 扉页 ---------------------------------------------------------- */
+
+.titlepage {
+  margin-top: 30%;
+  text-align: center;
+}
+
+.titlepage .book-title {
+  font-size: 2em;
+  font-weight: normal;
+  letter-spacing: 0.12em;
+  margin: 0 0 1.2em;
+}
+
+.titlepage .book-author {
+  font-size: 1.1em;
+  color: #666;
+  margin: 0;
+}
+
+/* ---- 目录页 -------------------------------------------------------- */
+
+.toc h1 {
+  font-size: 1.4em;
+  font-weight: normal;
+  text-align: center;
+  margin: 1em 0 1.2em;
+}
+
+.toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc ol ol {
+  margin-left: 1.4em;
+}
+
+.toc li {
+  margin: 0.35em 0;
+  line-height: 1.5;
+}
+
+.toc a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---- 简介 ---------------------------------------------------------- */
+
+.intro .intro-title {
+  font-size: 1.4em;
+  font-weight: normal;
+  text-align: center;
+  margin: 1em 0 1.2em;
+}
+
+.intro p {
+  text-indent: 2em;
+  margin: 0 0 0.6em;
+  text-align: justify;
+}
+
+/* ---- 正文 ---------------------------------------------------------- */
+
+.chapter h1 {
+  font-size: 1.5em;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.45;
+  margin: 1.2em 0 1.2em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter h2 {
+  font-size: 1.25em;
+  margin: 1.2em 0 0.6em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter h3 {
+  font-size: 1.1em;
+  margin: 1em 0 0.5em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter p {
+  text-indent: 2em;
+  margin: 0 0 0.6em;
+  text-align: justify;
+}
+
+.chapter blockquote {
+  margin: 0.8em 0 0.8em 1em;
+  padding-left: 0.8em;
+  border-left: 0.2em solid #ccc;
+  color: #444;
+}
+
+.chapter img {
+  max-width: 100%;
+  height: auto;
+}
+
+.chapter hr {
+  border: 0;
+  border-top: 1px solid #ddd;
+  margin: 1.4em 0;
+}
+
+.chapter pre {
+  white-space: pre-wrap;
+  font-size: 0.9em;
+  background: #f5f5f5;
+  padding: 0.6em;
+}
+
+.chapter code {
+  font-family: Menlo, Consolas, "Courier New", monospace;
+  font-size: 0.95em;
+}
+
+.chapter table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+}
+
+.chapter th,
+.chapter td {
+  border: 1px solid #ccc;
+  padding: 0.3em 0.5em;
+  text-indent: 0;
+}
