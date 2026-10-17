@@ -155,8 +155,9 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     book.add_item(nav)
     book.add_item(epub.EpubNcx())
 
-    # 目录页放在扉页/简介之后、正文之前；不生成 landmarks 那个多余的 nav
-    book.spine = front + [nav] + chapter_items
+    # 目录只做导航文档（reader 的目录跳转用），不排进正文；
+    # 另外不生成 landmarks 那个多余的 nav
+    book.spine = front + chapter_items
 
     book.guide = []
     if cover is not None:

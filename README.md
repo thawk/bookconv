@@ -32,7 +32,15 @@ python3 -m venv .venv
 ./cvbook --extra-style fix.css 某书.md
 ./cvbook -i txt 某书.txt            # 强制按 txt 解析
 ./cvbook -m calibre 某书.md         # 用 calibre 兜底
+
+# 多个文件
+./cvbook 卷一.md 卷二.md            # 每个文件各生成一个 epub
+./cvbook --merge 卷一.md 卷二.md    # 按命令行顺序合并成一本
+./cvbook --merge -o 全本.epub 卷一.md 卷二.md
 ```
+
+合并成一本时：各文件的 frontmatter 会被剥掉，书名/作者/简介取第一个有值的文件
+（一般只需要给第一个文件写 frontmatter）；章节顺序就是命令行顺序；只支持内建引擎。
 
 从别的目录调用：`~/Downloads/book/new/cvbook/cvbook 某书.md`。
 想让 `cvbook` 变成 PATH 里的命令（可选），`install -m 755 contrib/cvbook-shim.sh ~/.dotfiles/util/bin/cvbook`。
@@ -41,6 +49,9 @@ python3 -m venv .venv
 | --- | --- |
 | `-m, --method` | `native`（默认，内建实现）/ `calibre` / `pandoc` |
 | `-i, --input` | 输入格式 `markdown` / `txt`，默认按扩展名识别 |
+| `--merge` | 把多个输入文件合并成一本书 |
+| `-o, --output FILE` | 输出文件名（默认同源文件名；合并时用第一个文件的名字） |
+| `--cover FILE` | 指定封面图（默认找与源文件同名的图片） |
 | `-s, --style FILE` | 用该 CSS 替换内置默认样式 |
 | `--extra-style FILE` | 在最终样式后追加 CSS，可重复 |
 | `--lang` | 书籍语言，默认 `zh` |
@@ -102,8 +113,8 @@ comments: |
 </div>
 ```
 
-目录页是 ebooklib 生成的 `nav.xhtml`，结构是
-`<nav epub:type="toc"><h2>目录</h2><ol>…</ol></nav>`，用 `nav` 相关的选择器调样式。
+目录不排进正文：`nav.xhtml` 只作为 EPUB 的导航文档，阅读器从它生成目录面板（`toc.ncx`
+给老阅读器），所以正文里不会多出一页目录。
 
 | 选择器 | 对应 |
 | --- | --- |
@@ -111,7 +122,7 @@ comments: |
 | `.page.first` | 全书第一页（不分页） |
 | `.cover` / `.cover .cover-image` | 封面页 / 封面图 |
 | `.titlepage` / `.book-title` / `.book-author` | 扉页 / 书名 / 作者 |
-| `nav` / `nav h2` / `nav ol` / `nav a` | 目录页 |
+| `nav` / `nav h2` / `nav ol` / `nav a` | 导航文档（个别阅读器会显示它，一般看不到） |
 | `.intro` / `.intro-title` | 简介页 / 简介标题 |
 | `.chapter` / `.chapter.first` | 正文页 |
 | `.chapter h1` | 章节标题 |
@@ -214,6 +225,6 @@ cvbook/
 ## 备注
 
 - 生成的 EPUB 是 EPUB 3（带 `nav` 导航文档），同时写了 `toc.ncx`，老阅读器也能用
-- 目录页放在扉页/简介之后、正文之前，和阅读器的目录共用同一份 nav
+- 目录只作为导航文档（`nav.xhtml` + `toc.ncx`），不进正文；点击阅读器的目录即可跳转
 - `webp` 封面/插图会尝试用 `sips`（macOS 自带）或 ImageMagick 转成 png，失败则按原格式嵌入
 - calibre / pandoc 引擎保留作兜底，它们不使用 `--style`，页面结构也不同

@@ -136,6 +136,58 @@ class CliTest(unittest.TestCase):
             main(["-i", "nope", "book.md"])
         self.assertEqual(raised.exception.code, 2)
 
+    def write_parts(self):
+        self.write("a.md", BOOK_MD)
+        second = "《第二部》作者：幸福来敲门.md"
+        self.write(second, "# 第0003章 尾声\n\n　　正文三。\n")
+        return "a.md", second
+
+    def test_batch_multiple_files(self):
+        a, b = self.write_parts()
+        self.assertEqual(main([a, b]), 0)
+        self.assertTrue(os.path.isfile("a.epub"))
+        second_epub = os.path.splitext(b)[0] + ".epub"
+        self.assertTrue(os.path.isfile(second_epub))
+        self.assertIn("第0003章 尾声",
+                      self.html(second_epub, "chapter-0001.xhtml"))
+
+    def test_merge(self):
+        a, b = self.write_parts()
+        self.assertEqual(main(["--merge", a, b]), 0)
+        self.assertTrue(os.path.isfile("a.epub"))
+        self.assertFalse(os.path.exists(os.path.splitext(b)[0] + ".epub"))
+        with zipfile.ZipFile("a.epub") as z:
+            chapters = [n for n in z.namelist()
+                        if "chapter-" in n and n.endswith(".xhtml")]
+        self.assertEqual(len(chapters), 3)
+        opf = self.opf("a.epub")
+        self.assertIn("<dc:title>测试书名</dc:title>", opf)
+        self.assertIn("第0003章 尾声", self.html("a.epub", "chapter-0003.xhtml"))
+
+    def test_merge_with_output(self):
+        a, b = self.write_parts()
+        self.assertEqual(main(["--merge", "-o", "全本.epub", a, b]), 0)
+        self.assertTrue(os.path.isfile("全本.epub"))
+
+    def test_output_single_file(self):
+        self.write("book.md", BOOK_MD)
+        self.assertEqual(main(["-o", "custom.epub", "book.md"]), 0)
+        self.assertTrue(os.path.isfile("custom.epub"))
+
+    def test_output_with_multiple_files_needs_merge(self):
+        a, b = self.write_parts()
+        self.assertEqual(main(["-o", "x.epub", a, b]), 2)
+        self.assertFalse(os.path.exists("x.epub"))
+
+    def test_cover_option(self):
+        self.write("book.md", BOOK_MD)
+        self.write("my-cover.png", PNG, binary=True)
+        self.assertEqual(main(["--cover", "my-cover.png", "book.md"]), 0)
+        opf = self.opf("book.epub")
+        self.assertIn('properties="cover-image"', opf)
+        with zipfile.ZipFile("book.epub") as z:
+            self.assertIn("EPUB/images/cover.png", z.namelist())
+
     def test_verbose_runs(self):
         self.write("book.md", BOOK_MD)
         self.assertEqual(main(["-v", "book.md"]), 0)
