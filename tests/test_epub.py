@@ -100,6 +100,11 @@ class BuildEpubTest(unittest.TestCase):
         opf = self.opf()
         self.assertLess(opf.index('idref="cover"'), opf.index('idref="chap-0001"'))
 
+    def test_nav_after_front_matter(self):
+        opf = self.opf()
+        self.assertLess(opf.index('idref="titlepage"'), opf.index('idref="nav"'))
+        self.assertLess(opf.index('idref="nav"'), opf.index('idref="chap-0001"'))
+
 
 class NestedTocTest(unittest.TestCase):
     def test_volumes_nest(self):

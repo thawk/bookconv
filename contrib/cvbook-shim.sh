@@ -13,4 +13,10 @@ if [[ ! -d "$PROJECT/src/cvbook" ]]; then
   exit 1
 fi
 
-PYTHONPATH="$PROJECT/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m cvbook "$@"
+if [[ -x "$PROJECT/.venv/bin/python" ]]; then
+  PY="$PROJECT/.venv/bin/python"
+else
+  PY=python3
+fi
+
+PYTHONPATH="$PROJECT/src${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m cvbook "$@"

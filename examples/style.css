@@ -62,8 +62,12 @@ body {
   margin: 0;
 }
 
-/* 目录 */
-.toc h1 {
+/* 目录（ebooklib 生成的 nav 文档） */
+nav {
+  margin: 0 1.4em;
+}
+
+nav h2 {
   font-size: 1.2em;
   font-weight: 600;
   margin: 0 0 0.8em;
@@ -71,21 +75,21 @@ body {
   border-bottom: 2px solid #e8e8e8;
 }
 
-.toc ol {
+nav ol {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.toc ol ol {
+nav ol ol {
   margin-left: 1.2em;
 }
 
-.toc li {
+nav li {
   margin: 0.3em 0;
 }
 
-.toc a {
+nav a {
   color: #333;
   text-decoration: none;
 }

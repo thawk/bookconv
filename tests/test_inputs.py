@@ -60,7 +60,8 @@ class MarkdownInputTest(unittest.TestCase):
 
     def test_indent_kept(self):
         chapters = self.parse("# 第1章\n\n　　缩进段落。\n", keep_indent=True)
-        self.assertIn("<p>　　缩进段落。</p>", chapters[0].html)
+        self.assertIn("缩进段落。", chapters[0].html)
+        self.assertEqual(chapters[0].html.count("&#x3000;"), 2)
 
     def test_no_heading_still_one_chapter(self):
         chapters = self.parse("只有正文。\n")

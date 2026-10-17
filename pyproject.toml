@@ -8,8 +8,10 @@ version = "0.2.0"
 description = "把 Markdown 小说转换成 EPUB，样式可定制"
 readme = "README.md"
 requires-python = ">=3.8"
-# 不依赖第三方库：EPUB 打包和 Markdown 渲染都在 src/cvbook 里用标准库实现
-dependencies = []
+dependencies = [
+    "ebooklib>=0.18",
+    "markdown>=3.3",
+]
 
 [project.scripts]
 cvbook = "cvbook.cli:main"

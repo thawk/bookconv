@@ -79,30 +79,35 @@ body {
 }
 
 /* ---- 目录页 -------------------------------------------------------- */
+/* 目录页由 ebooklib 生成，结构是 <nav epub:type="toc"><h2>目录</h2><ol>… */
 
-.toc h1 {
+nav {
+  margin: 0 1.2em;
+}
+
+nav h2 {
   font-size: 1.4em;
   font-weight: normal;
   text-align: center;
   margin: 1em 0 1.2em;
 }
 
-.toc ol {
+nav ol {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.toc ol ol {
+nav ol ol {
   margin-left: 1.4em;
 }
 
-.toc li {
+nav li {
   margin: 0.35em 0;
   line-height: 1.5;
 }
 
-.toc a {
+nav a {
   color: inherit;
   text-decoration: none;
 }

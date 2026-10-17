@@ -1,17 +1,30 @@
 # cvbook
 
-把 Markdown / 纯文本小说转换成 EPUB，**只用 Python 标准库**：不用装任何包，
-拷到哪都能跑（`python3` 3.8+）。
+把 Markdown / 纯文本小说转换成 EPUB，不依赖 calibre 或 pandoc：EPUB 用
+[ebooklib](https://github.com/aerkalov/ebooklib) 生成，Markdown 用
+[python-markdown](https://python-markdown.github.io/) 解析。
 
 - 书名、作者、简介优先取文件头部的 YAML frontmatter，缺的字段回退到文件名（`《书名》作者：xxx.md`）
 - frontmatter 会自动从正文里剥离，不会再混进正文
 - 输入格式是插件：目前有 `markdown` 和 `txt`，以后可以加别的
 - 样式可定制：封面页 / 扉页 / 目录页 / 简介页 / 章节标题 / 各级标题 / 正文各有一段 CSS 钩子
-- 快：13MB / 1399 章的书大约 5 秒（calibre 要 20 多分钟）
+
+## 依赖（一次性，装在项目里）
+
+依赖装在项目自己的 `.venv` 里，**不需要装到 dotfiles，也不影响系统 Python**：
+
+```bash
+cd ~/Downloads/book/new/cvbook
+python3 -m venv .venv
+.venv/bin/pip install -e .
+```
+
+只有 `ebooklib` 和 `markdown`（`ebooklib` 会带上 `lxml`）。不想建 venv 也行：把这两个包装到
+系统 Python，然后 `PYTHONPATH=src python3 -m cvbook 某书.md`。
 
 ## 使用
 
-不需要安装，在项目目录里直接跑：
+项目根目录的 `./cvbook` 会自动使用 `.venv` 里的解释器，所以直接跑就行：
 
 ```bash
 ./cvbook 某书.md                    # 默认样式
@@ -21,18 +34,8 @@
 ./cvbook -m calibre 某书.md         # 用 calibre 兜底
 ```
 
-也可以从别的目录调用（把路径换成你的项目位置）：
-
-```bash
-~/Downloads/book/new/cvbook/cvbook 某书.md
-```
-
-想让它变成 PATH 里的 `cvbook` 命令，把 `contrib/cvbook-shim.sh` 拷到 PATH 里即可
-（可选，不是必须）：
-
-```bash
-install -m 755 contrib/cvbook-shim.sh ~/.dotfiles/util/bin/cvbook
-```
+从别的目录调用：`~/Downloads/book/new/cvbook/cvbook 某书.md`。
+想让 `cvbook` 变成 PATH 里的命令（可选），`install -m 755 contrib/cvbook-shim.sh ~/.dotfiles/util/bin/cvbook`。
 
 | 选项 | 说明 |
 | --- | --- |
@@ -90,9 +93,6 @@ comments: |
 <div class="page titlepage">
   <h1 class="book-title">书名</h1><p class="book-author">作者</p>
 </div>
-<div class="page toc">
-  <nav epub:type="toc" id="toc"><h1>目录</h1><ol>…</ol></nav>
-</div>
 <div class="page intro">
   <h2 class="intro-title">简介</h2><p>…</p><p>…</p>
 </div>
@@ -102,19 +102,22 @@ comments: |
 </div>
 ```
 
+目录页是 ebooklib 生成的 `nav.xhtml`，结构是
+`<nav epub:type="toc"><h2>目录</h2><ol>…</ol></nav>`，用 `nav` 相关的选择器调样式。
+
 | 选择器 | 对应 |
 | --- | --- |
 | `.page` | 每一页的容器（默认 `page-break-before: always`） |
 | `.page.first` | 全书第一页（不分页） |
 | `.cover` / `.cover .cover-image` | 封面页 / 封面图 |
 | `.titlepage` / `.book-title` / `.book-author` | 扉页 / 书名 / 作者 |
-| `.toc` / `.toc h1` / `.toc ol` / `.toc a` | 目录页 |
+| `nav` / `nav h2` / `nav ol` / `nav a` | 目录页 |
 | `.intro` / `.intro-title` | 简介页 / 简介标题 |
 | `.chapter` / `.chapter.first` | 正文页 |
 | `.chapter h1` | 章节标题 |
 | `.chapter h2`、`.chapter h3` | 小节标题 |
 | `.chapter p` | 正文段落 |
-| `.chapter img`、`.chapter blockquote`、`.chapter hr`、`.chapter pre`、`.chapter code` | 对应元素 |
+| `.chapter img`、`.chapter blockquote`、`.chapter hr`、`.chapter pre`、`.chapter code`、`.chapter table` | 对应元素 |
 
 样式来源的优先级：
 
@@ -169,32 +172,25 @@ class MyInput(InputFormat):
 ./cvbook -i txt --chapter-pattern '^第[0-9]+章' 某书.txt
 ```
 
-## 支持的 Markdown
+## Markdown 支持
 
-`src/cvbook/markdown_lite.py` 实现了一个够小说用的子集：
+用 python-markdown，启用了 `extra` + `toc` 扩展，所以常见写法都支持：
 
-- `#` ~ `######` 标题（自动生成唯一 id）
-- 段落（空行分段）、行尾两个空格硬换行
-- `---` / `***` 分隔线
-- `>` 引用
-- ``` 围栏代码块
-- `-` / `1.` 列表（不嵌套）
-- `![alt](图片)`、`[文字](链接)`
-- `**粗体**`、`*斜体*`、`` `代码` ``、反斜杠转义、原始 HTML 标签
+- 标题（自动生成唯一 id）、段落、`---` 分隔线、`>` 引用、围栏/缩进代码块
+- 表格、脚注、定义列表、属性列表（`extra`）
+- 列表、图片、链接、粗体/斜体、行内代码、原始 HTML
 
-没实现：表格、脚注、嵌套列表、Setext 标题（`===` / `---` 下划线式）。小说基本用不到，
-如果你的书里有这些，可以再补。
+`--keep-indent` 会把行首全角空格换成字符实体再渲染，避免被 Markdown 的段落处理吃掉。
 
 ## 项目结构
 
 ```
 cvbook/
-├── cvbook                 直接运行的入口（无需安装）
-├── pyproject.toml         可选：想 pip install 时用
+├── cvbook                 直接运行的入口（自动使用 .venv）
+├── pyproject.toml         依赖与打包信息
 ├── src/cvbook/
 │   ├── cli.py             命令行入口
-│   ├── epub.py            用标准库写 EPUB（含 nav / NCX / 封面）
-│   ├── markdown_lite.py   Markdown 子集 -> XHTML
+│   ├── epub.py            用 ebooklib 组装 EPUB（nav / NCX / 封面）
 │   ├── frontmatter.py     YAML frontmatter 容错解析
 │   ├── metadata.py        书名/作者兜底、封面查找
 │   ├── models.py          BookMeta / Chapter
@@ -212,7 +208,7 @@ cvbook/
 ## 测试
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ## 备注
