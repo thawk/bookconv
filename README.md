@@ -132,6 +132,10 @@ comments: |
 | `.chapter p` | 正文段落 |
 | `.chapter img`、`.chapter blockquote`、`.chapter hr`、`.chapter pre`、`.chapter code`、`.chapter table` | 对应元素 |
 
+默认字体：正文用宋体（Songti SC / 思源宋体），书名和各级标题用黑体
+（PingFang SC / 思源黑体 / 微软雅黑 / SimHei），这样标题和正文能明显区分开；
+想换字体就覆盖对应选择器的 `font-family`。
+
 样式来源的优先级：
 
 1. `--style` 指定的文件

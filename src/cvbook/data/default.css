@@ -211,3 +211,16 @@ nav a {
   padding: 0.3em 0.5em;
   text-indent: 0;
 }
+
+/* ---- 书名与各级标题：黑体（无衬线），和正文的宋体区分开 --------------- */
+
+.titlepage .book-title,
+.intro .intro-title,
+.chapter h1,
+.chapter h2,
+.chapter h3,
+nav h2 {
+  font-family: "PingFang SC", "Heiti SC", "Source Han Sans SC",
+               "Noto Sans CJK SC", "Microsoft YaHei", "SimHei",
+               "WenQuanYi Micro Hei", sans-serif;
+}
