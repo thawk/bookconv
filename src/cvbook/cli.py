@@ -9,6 +9,7 @@ import tempfile
 import time
 import traceback
 from typing import List, Optional, Sequence, Tuple
+from urllib.parse import urlsplit
 
 from . import __version__, inputs
 from .engines import convert_calibre, convert_pandoc
@@ -17,6 +18,7 @@ from .frontmatter import NoFrontMatter, read_frontmatter
 from .htmlutil import paragraphs
 from .images import (MEDIA_TYPES, EpubImage, ImageStore, convert_image,
                      image_size)
+from .inputs.base import is_url
 from .metadata import find_cover, resolve_meta
 from .models import BookMeta
 from .styles import StyleError
@@ -33,6 +35,11 @@ EPILOG = """\
 
 示例:
   cvbook 某书.md                    # 单个文件
+  cvbook 某书.txt                   # 纯文本（按章标题切）
+  cvbook 某书.adoc                  # AsciiDoc
+  cvbook 某书.chm                   # CHM（需要 7z 或 unar）
+  cvbook 某书目录/                   # 整本 HTML 目录
+  cvbook https://example.com/book/  # 网页（抓入口页里的链接）
   cvbook 卷一.md 卷二.md            # 每个文件各生成一个 epub
   cvbook --merge 卷一.md 卷二.md    # 合并成一本（顺序按命令行）
   cvbook --merge -o 全本.epub 卷一.md 卷二.md
@@ -44,7 +51,8 @@ EPILOG = """\
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cvbook",
-        description="把 Markdown / 纯文本小说转换成 EPUB，样式可定制。",
+        description="把 Markdown / 纯文本 / AsciiDoc / HTML / CHM "
+                    "转换成 EPUB，样式可定制。",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -61,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="输入格式，默认按扩展名自动识别（%s）"
                              % " / ".join(inputs.names()))
     parser.add_argument("--merge", action="store_true",
-                        help="把多个输入文件按顺序合并成一本书")
+                        help="把多个输入（文件/目录/URL）按顺序合并成一本书")
     parser.add_argument("-o", "--output", metavar="FILE", default=None,
                         help="输出文件名（默认用源文件名；合并时用第一个文件的名字）")
     parser.add_argument("--cover", metavar="FILE", default=None,
@@ -81,13 +89,30 @@ def build_parser() -> argparse.ArgumentParser:
                         help="保留段落开头的全角空格（默认去掉，交给 CSS）")
     parser.add_argument("--chapter-pattern", default="", metavar="REGEX",
                         help="txt 章节标题正则（默认识别 第N章/节/回/卷 等）")
-    parser.add_argument("files", nargs="+", metavar="<filename>")
+    parser.add_argument("files", nargs="+", metavar="<source>")
     return parser
 
 
+_INDEX_STEMS = {"index", "cover", "start", "toc", "mulu", "contents",
+                "default", "home", "main", "tempbook"}
+
+
 def default_output(path: str) -> str:
-    """输出到当前目录，文件名与源文件同名。"""
-    return os.path.basename(os.path.splitext(path)[0] + ".epub")
+    """输出到当前目录，文件名与源文件/目录同名。"""
+    if is_url(path):
+        parsed = urlsplit(path)
+        trailing = parsed.path.endswith("/") or not parsed.path
+        clean = parsed.path.rstrip("/")
+        name = os.path.basename(clean) or parsed.netloc or "book"
+        stem = os.path.splitext(name)[0] or name
+        if not trailing and stem.lower() in _INDEX_STEMS:
+            parent = os.path.basename(os.path.dirname(clean))
+            stem = parent or parsed.netloc or stem
+    else:
+        clean = path.rstrip(os.sep)
+        name = os.path.basename(clean) or "book"
+        stem = os.path.splitext(name)[0] or name
+    return (stem or "book") + ".epub"
 
 
 def load_cover(image_path: str) -> Optional[EpubImage]:
@@ -133,7 +158,8 @@ def announce_start(meta: BookMeta, cover_path: Optional[str],
             if size:
                 cover_text = "有（%d×%d）" % size
     print("开始生成: %s《%s》 作者: %s 封面: %s"
-          % (prefix, meta.title, meta.author_text, cover_text), flush=True)
+          % (prefix, meta.title, meta.author_text or "无", cover_text),
+          flush=True)
 
 
 def announce_done(meta: BookMeta, out: str, started: float,
@@ -162,6 +188,17 @@ def select_format(source: inputs.SourceFile, args) -> Optional[inputs.InputForma
 
     fmt = inputs.detect(source)
     if fmt is None:
+        if source.is_url:
+            print("!!! 无法从 URL 识别输入格式: %s" % source.path,
+                  file=sys.stderr)
+            return None
+        if source.is_dir:
+            print("!!! 目录里没有找到支持的输入文件: %s" % source.path,
+                  file=sys.stderr)
+            return None
+        if source.binary:
+            print("!!! 不支持的二进制格式: %s" % source.path, file=sys.stderr)
+            return None
         fmt = inputs.get(inputs.DEFAULT_FORMAT)
         if args.verbose:
             print("未识别扩展名，按 %s 解析: %s" % (fmt.name, source.path),
@@ -169,31 +206,57 @@ def select_format(source: inputs.SourceFile, args) -> Optional[inputs.InputForma
     return fmt
 
 
+def merge_meta(meta: BookMeta, extra: Optional[BookMeta]) -> BookMeta:
+    if extra is None:
+        return meta
+    if not meta.title:
+        meta.title = extra.title
+    if not meta.authors:
+        meta.authors = extra.authors
+    if not meta.comments:
+        meta.comments = extra.comments
+    return meta
+
+
 def read_source(path: str, args) -> Optional[Tuple]:
-    """读取文件、剥掉 frontmatter、选好输入插件。
+    """读取文件/目录/URL、剥掉 frontmatter、选好输入插件。
 
     返回 (source, fmt, meta, has_frontmatter)；失败返回 None。
     """
-    try:
-        with open(path, "rb") as f:
-            raw = f.read()
-    except OSError as error:
-        print("!!! 读取 '%s' 失败: %s" % (path, error), file=sys.stderr)
-        return None
-
     meta = BookMeta()
-    body = raw
+    body = b""
     has_frontmatter = False
-    try:
-        meta, body = read_frontmatter(raw)
-        has_frontmatter = True
-    except NoFrontMatter:
-        pass
+
+    if not (is_url(path) or os.path.isdir(path)):
+        if not path.lower().endswith(".chm"):
+            # CHM 由插件按路径解包，不需要整个读进内存
+            try:
+                with open(path, "rb") as f:
+                    raw = f.read()
+            except OSError as error:
+                print("!!! 读取 '%s' 失败: %s" % (path, error),
+                      file=sys.stderr)
+                return None
+            body = raw
+            if b"\x00" not in raw[:4096]:   # 二进制（CHM 等）没有 frontmatter
+                try:
+                    meta, body = read_frontmatter(raw)
+                    has_frontmatter = True
+                except NoFrontMatter:
+                    pass
 
     source = inputs.SourceFile(path, body)
     fmt = select_format(source, args)
     if fmt is None:
         return None
+
+    meta = resolve_meta(path, meta)
+    if not meta.title or not meta.authors:
+        try:
+            meta = merge_meta(meta, fmt.metadata(source))
+        except Exception as error:     # 元数据只是兜底，失败不影响正文转换
+            if args.verbose:
+                print("提示: 读取书籍信息失败: %s" % error, file=sys.stderr)
     return source, fmt, meta, has_frontmatter
 
 
@@ -250,7 +313,13 @@ def convert_native(path: str, source: inputs.SourceFile,
     started = time.time()
 
     images = ImageStore()
-    chapters = fmt.parse(source, images=images, options=parse_options(args))
+    try:
+        chapters = fmt.parse(source, images=images, options=parse_options(args))
+    except inputs.InputError as error:
+        print("!!! %s" % error, file=sys.stderr)
+        if args.verbose:
+            traceback.print_exc()
+        return False
     if not chapters:
         print("!!! 没有解析出任何内容: %s" % path, file=sys.stderr)
         return False
@@ -289,9 +358,9 @@ def convert_merged(paths: Sequence[str], args) -> bool:
         meta.comments = meta.comments or item_meta.comments
     meta = resolve_meta(paths[0], meta)
     if not meta.complete:
-        print("!!! 无法确定书名/作者: %s" % ", ".join(paths), file=sys.stderr)
-        print("    可在第一个文件头部加 frontmatter（title / authors），"
-              "或把文件命名为《书名》作者：xxx.md", file=sys.stderr)
+        print("!!! 无法确定书名: %s" % ", ".join(paths), file=sys.stderr)
+        print("    可在第一个文件头部加 frontmatter（title），"
+              "或把文件命名为《书名》…", file=sys.stderr)
         return False
 
     cover_path = pick_cover_path(args, paths[0])
@@ -303,7 +372,13 @@ def convert_merged(paths: Sequence[str], args) -> bool:
     options = parse_options(args)
     chapters = []
     for source, fmt, _, _ in loaded:
-        chapters.extend(fmt.parse(source, images=images, options=options))
+        try:
+            chapters.extend(fmt.parse(source, images=images, options=options))
+        except inputs.InputError as error:
+            print("!!! %s" % error, file=sys.stderr)
+            if args.verbose:
+                traceback.print_exc()
+            return False
     if not chapters:
         print("!!! 没有解析出任何内容", file=sys.stderr)
         return False
@@ -367,9 +442,9 @@ def convert_one(path: str, args) -> bool:
 
     meta = resolve_meta(path, meta)
     if not meta.complete:
-        print("!!! 无法确定书名/作者: %s" % path, file=sys.stderr)
-        print("    可在文件头部加 frontmatter（title / authors），"
-              "或把文件命名为《书名》作者：xxx.md", file=sys.stderr)
+        print("!!! 无法确定书名: %s" % path, file=sys.stderr)
+        print("    可在文件头部加 frontmatter（title），"
+              "把文件命名为《书名》…，或给 HTML/CHM 加 <title>", file=sys.stderr)
         return False
 
     out = args.output or default_output(path)

@@ -6,7 +6,7 @@
 #
 # 项目位置可以用 CVBOOK_HOME 覆盖。
 
-PROJECT="${CVBOOK_HOME:-$HOME/Downloads/book/new/cvbook}"
+PROJECT="${CVBOOK_HOME:-$HOME/workspace/cvbook}"
 
 if [[ ! -d "$PROJECT/src/cvbook" ]]; then
   echo "cvbook: 找不到项目目录: $PROJECT（用 CVBOOK_HOME 指定）" >&2

@@ -21,7 +21,8 @@ class BookMeta:
 
     @property
     def complete(self) -> bool:
-        return bool(self.title) and bool(self.authors)
+        # 作者可以没有（HTML/CHM 里经常提取不到），书名必须有
+        return bool(self.title)
 
 
 @dataclass

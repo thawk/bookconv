@@ -20,13 +20,23 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Sequence
+from urllib.parse import urljoin, urlsplit
 
 from ..images import ImageStore
-from ..models import Chapter
+from ..models import BookMeta, Chapter
+
+
+class InputError(Exception):
+    """输入无法读取/解析时抛出的可预期错误（CLI 只打印消息，不打印堆栈）。"""
 
 
 def decode_text(raw: bytes) -> str:
-    """按 UTF-8 / GB18030 依次尝试解码。"""
+    """按 UTF-8 / UTF-16 / GB18030 依次尝试解码。"""
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            return raw.decode("utf-16")
+        except UnicodeDecodeError:
+            pass
     for encoding in ("utf-8-sig", "gb18030"):
         try:
             return raw.decode(encoding)
@@ -35,20 +45,60 @@ def decode_text(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
+def is_url(path: str) -> bool:
+    return path.lower().startswith(("http://", "https://"))
+
+
 @dataclass
 class SourceFile:
-    """交给插件的源文件（正文部分已去掉 frontmatter）。"""
+    """交给插件的源文件（正文部分已去掉 frontmatter）。
+
+    ``path`` 可以是普通文件、目录，或者 http(s) URL。目录和 URL 没有
+    ``raw``（空 bytes），插件自己通过 :mod:`cvbook.inputs.htmlbook` 里的
+    loader 读取。
+    """
 
     path: str
-    raw: bytes
+    raw: bytes = b""
+
+    @property
+    def is_url(self) -> bool:
+        return is_url(self.path)
+
+    @property
+    def is_dir(self) -> bool:
+        return not self.is_url and os.path.isdir(self.path)
+
+    @property
+    def suffix(self) -> str:
+        path = urlsplit(self.path).path if self.is_url else self.path
+        return os.path.splitext(path)[1].lstrip(".").lower()
+
+    @property
+    def name(self) -> str:
+        """文件名（URL 去掉 query/fragment，目录取目录名）。"""
+        path = urlsplit(self.path).path if self.is_url else self.path
+        path = path.rstrip("/")
+        return os.path.basename(path) or "book"
 
     @property
     def base_dir(self) -> str:
+        if self.is_url:
+            return urljoin(self.path, ".")
+        if self.is_dir:
+            return os.path.abspath(self.path)
         return os.path.dirname(os.path.abspath(self.path))
 
     @property
     def text(self) -> str:
         return decode_text(self.raw)
+
+    @property
+    def binary(self) -> bool:
+        """文件内容看起来是二进制（例如 CHM）。"""
+        if self.raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+            return False                 # UTF-16 文本
+        return b"\x00" in self.raw[:4096]
 
 
 @dataclass
@@ -70,8 +120,23 @@ class InputFormat(ABC):
     extensions: Sequence[str] = ()
 
     def matches(self, source: SourceFile) -> bool:
-        ext = os.path.splitext(source.path)[1].lstrip(".").lower()
-        return ext in self.extensions
+        if source.is_url:
+            return self.matches_url(source)
+        if source.is_dir:
+            return self.matches_dir(source)
+        return source.suffix in self.extensions
+
+    def matches_url(self, source: SourceFile) -> bool:
+        """URL 输入（默认不处理，由 HTML 插件接）。"""
+        return False
+
+    def matches_dir(self, source: SourceFile) -> bool:
+        """目录输入（默认不处理，由 HTML 插件接）。"""
+        return False
+
+    def metadata(self, source: SourceFile) -> BookMeta:
+        """尽可能从内容里读出书名/作者，供文件名猜不出时兜底。"""
+        return BookMeta()
 
     @abstractmethod
     def parse(self, source: SourceFile, *, images: ImageStore,
@@ -80,4 +145,5 @@ class InputFormat(ABC):
         raise NotImplementedError
 
 
-__all__ = ["InputFormat", "ParseOptions", "SourceFile", "decode_text"]
+__all__ = ["InputError", "InputFormat", "ParseOptions", "SourceFile",
+           "decode_text", "is_url"]

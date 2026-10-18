@@ -4,12 +4,22 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence
 
-from .base import InputFormat, ParseOptions, SourceFile, decode_text
+from .asciidoc import AsciiDocInput
+from .base import (InputError, InputFormat, ParseOptions, SourceFile,
+                   decode_text)
+from .chm import ChmInput
+from .html import HtmlInput
 from .markdown import MarkdownInput
 from .txt import TextInput
 
 #: 注册的输入格式，顺序决定自动识别的优先级
-FORMATS: Sequence[InputFormat] = (MarkdownInput(), TextInput())
+FORMATS: Sequence[InputFormat] = (
+    MarkdownInput(),
+    TextInput(),
+    AsciiDocInput(),
+    HtmlInput(),
+    ChmInput(),
+)
 
 #: 识别不出扩展名时默认用哪种格式
 DEFAULT_FORMAT = "markdown"
@@ -33,5 +43,6 @@ def detect(source: SourceFile) -> Optional[InputFormat]:
     return None
 
 
-__all__ = ["FORMATS", "DEFAULT_FORMAT", "InputFormat", "ParseOptions",
-           "SourceFile", "decode_text", "detect", "get", "names"]
+__all__ = ["FORMATS", "DEFAULT_FORMAT", "InputError", "InputFormat",
+           "ParseOptions", "SourceFile", "decode_text", "detect", "get",
+           "names"]

@@ -152,6 +152,8 @@ class BookMetaTest(unittest.TestCase):
     def test_empty_is_incomplete(self):
         self.assertFalse(BookMeta().complete)
         self.assertTrue(BookMeta("书", ["人"]).complete)
+        # 作者可以没有，书名必须有
+        self.assertTrue(BookMeta("书").complete)
 
 
 if __name__ == "__main__":

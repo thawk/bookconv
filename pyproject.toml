@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cvbook"
-version = "0.2.0"
-description = "把 Markdown 小说转换成 EPUB，样式可定制"
+version = "0.3.0"
+description = "把 Markdown / txt / AsciiDoc / HTML / CHM 转换成 EPUB，样式可定制"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "ebooklib>=0.18",
+    "lxml>=4.6",
     "markdown>=3.3",
 ]
 

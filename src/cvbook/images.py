@@ -6,6 +6,7 @@ text/ 目录下，所以要把图片复制进 EPUB 并改写成 ../images/xxx �
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -110,6 +111,25 @@ def safe_name(name: str) -> str:
     return name
 
 
+def sniff_image_ext(data: bytes) -> Optional[str]:
+    """从文件头猜图片格式（给没有扩展名或扩展名不对的插图用）。"""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    head = data[:512].lstrip()
+    if head.startswith(b"\xef\xbb\xbf"):
+        head = head[3:].lstrip()
+    head = head.lower()
+    if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in data[:2048].lower()):
+        return "svg"
+    return None
+
+
 class ImageStore:
     """收集正文里的插图，按源文件去重，分配 EPUB 内路径。"""
 
@@ -130,10 +150,29 @@ class ImageStore:
         except OSError:
             return None
 
-        name = safe_name(os.path.basename(source))
-        ext = name.rsplit(".", 1)[-1].lower()
-        if ext not in MEDIA_TYPES:
-            print("!!! 忽略不支持的图片格式: %s" % source, file=sys.stderr)
+        return self.add_bytes(os.path.basename(source), data, source=source)
+
+    def add_bytes(self, name: str, data: bytes,
+                  source: Optional[str] = None) -> Optional[str]:
+        """登记内存里的图片（HTML/CHM/远程插图用）。
+
+        ``source`` 是去重键（本地路径、URL 或任意唯一标识）；不传时按内容
+        哈希去重。返回 EPUB 内路径，格式不支持时返回 None。
+        """
+        key = source or "sha1:" + hashlib.sha1(data).hexdigest()
+        if key in self._by_source:
+            return self._by_source[key]
+
+        name = safe_name(os.path.basename(name))
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        sniffed = sniff_image_ext(data)
+        if sniffed is not None and sniffed != ext:
+            # 扩展名和实际内容不一致时以内容为准（网页上 .jpg 里装 png 很常见）
+            name = os.path.splitext(name)[0] + "." + sniffed
+            ext = sniffed
+        elif ext not in MEDIA_TYPES:
+            print("!!! 忽略不支持的图片格式: %s" % (source or name),
+                  file=sys.stderr)
             return None
 
         if ext == "webp":
@@ -141,21 +180,23 @@ class ImageStore:
             if converted is not None:
                 name = os.path.splitext(name)[0] + ".png"
                 data = converted
+                ext = "png"
             else:
-                print("!!! 无法转换 webp 图片，按原格式嵌入: %s" % source,
-                      file=sys.stderr)
+                print("!!! 无法转换 webp 图片，按原格式嵌入: %s"
+                      % (source or name), file=sys.stderr)
 
         # 同名不同图时加后缀
         path = "images/" + name
-        if path in self._used_names and self._used_names[path] != source:
+        if path in self._used_names and self._used_names[path] != key:
             stem, dot, suffix = name.rpartition(".")
             index = 2
             while path in self._used_names:
-                candidate = "%s-%d.%s" % (stem, index, suffix) if dot else "%s-%d" % (name, index)
+                candidate = ("%s-%d.%s" % (stem, index, suffix) if dot
+                             else "%s-%d" % (name, index))
                 path = "images/" + candidate
                 index += 1
 
-        self._by_source[source] = path
-        self._used_names[path] = source
-        self.items.append(EpubImage(path, MEDIA_TYPES[name.rsplit(".", 1)[-1].lower()], data))
+        self._by_source[key] = path
+        self._used_names[path] = key
+        self.items.append(EpubImage(path, MEDIA_TYPES[ext], data))
         return path

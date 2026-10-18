@@ -1,12 +1,14 @@
 # cvbook
 
-把 Markdown / 纯文本小说转换成 EPUB，不依赖 calibre 或 pandoc：EPUB 用
-[ebooklib](https://github.com/aerkalov/ebooklib) 生成，Markdown 用
-[python-markdown](https://python-markdown.github.io/) 解析。
+把 Markdown / 纯文本 / AsciiDoc / HTML / CHM 转换成 EPUB，不依赖 calibre 或
+pandoc：EPUB 用 [ebooklib](https://github.com/aerkalov/ebooklib) 生成，
+Markdown 用 [python-markdown](https://python-markdown.github.io/) 解析，
+HTML/CHM 用 [lxml](https://lxml.de/) 清洗。
 
-- 书名、作者、简介优先取文件头部的 YAML frontmatter，缺的字段回退到文件名（`《书名》作者：xxx.md`）
+- 书名、作者、简介优先取文件头部的 YAML frontmatter，缺的字段回退到文件名（`《书名》作者：xxx.md`），
+  HTML/CHM 还会从页面 `<title>` / `<meta name="author">` / “作者：”里再兜一次
 - frontmatter 会自动从正文里剥离，不会再混进正文
-- 输入格式是插件：目前有 `markdown` 和 `txt`，以后可以加别的
+- 输入格式是插件：`markdown` / `txt` / `asciidoc` / `html` / `chm`（HTML 同时支持目录和 URL）
 - 样式可定制：封面页 / 扉页 / 目录页 / 简介页 / 章节标题 / 各级标题 / 正文各有一段 CSS 钩子
 
 ## 依赖（一次性，装在项目里）
@@ -14,13 +16,27 @@
 依赖装在项目自己的 `.venv` 里，**不需要装到 dotfiles，也不影响系统 Python**：
 
 ```bash
-cd ~/Downloads/book/new/cvbook
+cd ~/workspace/cvbook
 python3 -m venv .venv
+.venv/bin/pip install --upgrade pip
 .venv/bin/pip install -e .
 ```
 
-只有 `ebooklib` 和 `markdown`（`ebooklib` 会带上 `lxml`）。不想建 venv 也行：把这两个包装到
-系统 Python，然后 `PYTHONPATH=src python3 -m cvbook 某书.md`。
+依赖是 `ebooklib`、`markdown` 和 `lxml`（`ebooklib` 本来也会带 `lxml`，这里显式写上，
+因为 HTML/CHM 插件直接用它）。不想建 venv 也行：把这些包装到系统 Python，然后
+`PYTHONPATH=src python3 -m cvbook 某书.md`。
+
+**CHM 额外依赖一个解包工具**（按顺序尝试，有一个就够）：
+
+```bash
+# macOS
+brew install p7zip        # 提供 7z；或者 brew install unar
+# Debian / Ubuntu
+sudo apt install p7zip-full
+```
+
+CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以这里调用系统工具解包，
+解出来的目录再交给 HTML 插件。
 
 ## 使用
 
@@ -28,6 +44,11 @@ python3 -m venv .venv
 
 ```bash
 ./cvbook 某书.md                    # 默认样式
+./cvbook 某书.txt                   # 纯文本（按章标题切）
+./cvbook 某书.adoc                  # AsciiDoc
+./cvbook 某书.chm                   # CHM（需要 7z 或 unar）
+./cvbook 某书目录/                   # 整本 HTML 目录
+./cvbook http://example.com/book/   # 网页入口页（抓页面里的章节链接）
 ./cvbook -s my-style.css 某书.md    # 自定义样式（整体替换）
 ./cvbook --extra-style fix.css 某书.md
 ./cvbook -i txt 某书.txt            # 强制按 txt 解析
@@ -39,19 +60,22 @@ python3 -m venv .venv
 ./cvbook --merge -o 全本.epub 卷一.md 卷二.md
 ```
 
+输出文件写在**当前目录**，文件名与源文件/目录同名（`某书.md` → `某书.epub`，
+`某书目录/` → `某书目录.epub`）。
+
 合并成一本时：各文件的 frontmatter 会被剥掉，书名/作者/简介取第一个有值的文件
 （一般只需要给第一个文件写 frontmatter）；章节顺序就是命令行顺序；只支持内建引擎。
 
-从别的目录调用：`~/Downloads/book/new/cvbook/cvbook 某书.md`。
+从别的目录调用：`~/workspace/cvbook/cvbook 某书.md`。
 想让 `cvbook` 变成 PATH 里的命令（可选），`install -m 755 contrib/cvbook-shim.sh ~/.dotfiles/util/bin/cvbook`。
 
 | 选项 | 说明 |
 | --- | --- |
 | `-m, --method` | `native`（默认，内建实现）/ `calibre` / `pandoc` |
-| `-i, --input` | 输入格式 `markdown` / `txt`，默认按扩展名识别 |
-| `--merge` | 把多个输入文件合并成一本书 |
+| `-i, --input` | 输入格式 `markdown` / `txt` / `asciidoc` / `html` / `chm`，默认按扩展名/目录内容识别 |
+| `--merge` | 把多个输入（文件/目录/URL）合并成一本书 |
 | `-o, --output FILE` | 输出文件名（默认同源文件名；合并时用第一个文件的名字） |
-| `--cover FILE` | 指定封面图（默认找与源文件同名的图片） |
+| `--cover FILE` | 指定封面图（默认找与源文件同名的图片；目录则找 `cover.*`） |
 | `-s, --style FILE` | 用该 CSS 替换内置默认样式 |
 | `--extra-style FILE` | 在最终样式后追加 CSS，可重复 |
 | `--lang` | 书籍语言，默认 `zh` |
@@ -60,8 +84,6 @@ python3 -m venv .venv
 | `--keep-indent` | 保留段落开头的全角空格（默认去掉，交给 CSS `text-indent`） |
 | `--chapter-pattern REGEX` | txt 的章标题正则 |
 | `-v, --verbose` | 打印解析到的元数据、使用的样式等 |
-
-输出文件写在**当前目录**，文件名与源文件同名（`某书.md` → `某书.epub`）。
 
 ## frontmatter
 
@@ -165,11 +187,14 @@ class MyInput(InputFormat):
         ...
 ```
 
+- `SourceFile.path` 可以是文件、目录或 http(s) URL；目录/URL 的 `raw` 为空，
+  由插件自己读
 - `SourceFile.text` 已经按 UTF-8 / GB18030 解码；`base_dir` 是源文件目录
 - 返回 `Chapter(title, html, level)`
   - `html` 是页面内片段：章节标题 `<h1>`、小节 `<h2>/<h3>`、段落 `<p>`
   - `level` 是目录层级（1 顶层，2 挂在上一个顶层下面）
 - 段落缩进用 `htmlutil.strip_paragraph_indent`，插图用 `htmlutil.rewrite_images`
+- 可选实现 `metadata()`，在文件名猜不出书名/作者时从内容里补
 - 新插件在 `inputs/__init__.py` 的 `FORMATS` 里注册即可
 
 ### txt 插件
@@ -188,6 +213,62 @@ class MyInput(InputFormat):
 ```bash
 ./cvbook -i txt --chapter-pattern '^第[0-9]+章' 某书.txt
 ```
+
+### AsciiDoc 插件
+
+支持小说/技术书里常见的 AsciiDoc 子集：
+
+- 文档头：`= 书名`、`:author:` / `:authors:`、`:description:`
+- 章节：`== 第一章`（一级）、`=== 第一节`（二级）……
+- 段落、`*` / `-` / `.` 列表、定义列表、`____` 引用块、`****` 侧栏、`====` 示例
+- `----` / `....` 代码块、`|===` 表格、`image::` / `image:` 插图
+- `*粗体*`、`_斜体_`、`` `等宽` ``、`#高亮#`、`^上标^`、`~下标~`、`link:...[]`
+
+```bash
+./cvbook 某书.adoc
+./cvbook -i asciidoc 某书.txt        # 显式把 .txt 按 AsciiDoc 解析
+```
+
+刻意不支持 `include::`、条件指令、属性替换、脚注编号引用等——它们要么依赖完整的
+Asciidoctor，要么对小说转换没有意义。`.txt` 默认仍走 txt 插件（和旧 bookconv 的
+行为不同），只有显式 `-i asciidoc` 才会按 AsciiDoc 解析。
+
+### HTML 插件
+
+三种输入都支持：
+
+```bash
+./cvbook 某书.html                  # 单个页面
+./cvbook 某书目录/                   # 整本 HTML 目录
+./cvbook http://example.com/book/   # 网页
+```
+
+目录发现顺序：
+
+1. `page.js` / `pages.js`（EasyCHM 生成的章节表，正文在 `txt/*.txt` 里也能读）
+2. `.hhc`（CHM 自带的 HTML Help Contents）
+3. `index.html` / `cover.html` / `start.html` 等入口页里的链接（会识别子目录里的子书）
+4. 都没有时按文件名自然排序
+
+正文清洗：去掉 `script/style/iframe/form`、导航/页眉页脚、`display:none` 的元素；
+把 `<br><br>` 还原成段落；保留段落、标题、列表、表格、引用、代码和插图。EPUB 里没有
+对应的页面文件，所以相对链接只保留文字，外部链接保留。
+
+插图支持本地相对路径、远程 URL 和 `data:` URI；目录输入会找 `cover.jpg/png/webp`
+作为封面。网页只抓静态 HTML，不执行 JavaScript；旧 bookconv 里针对凤凰读书、南方周末、
+南都周刊的站点专用解析器没有迁移（这些页面结构早已失效），现在用通用入口页链接发现。
+
+### CHM 插件
+
+```bash
+./cvbook 某书.chm
+```
+
+先用 `7z` / `7za` / `7zz` / `unar` / `bsdtar` 把 CHM 解包到临时目录（见上面的依赖），之后完全
+复用 HTML 插件：优先 EasyCHM 的 `page.js` + `txt/`，其次 `.hhc`，最后入口页/文件名排序。
+
+限制：加密或损坏的 CHM 可能解不开；解包工具报错时会把错误原样打印出来。作者信息经常
+提取不到，这时只要求有书名，作者留空，不会因此拒绝转换。
 
 ## Markdown 支持
 
@@ -216,7 +297,10 @@ cvbook/
 │   ├── styles.py          样式加载与合并
 │   ├── engines.py         calibre / pandoc 兜底
 │   ├── data/default.css   内置样式
-│   └── inputs/            输入插件（markdown、txt）
+│   └── inputs/            输入插件（markdown、txt、asciidoc、html、chm）
+│       ├── htmlbook.py    HTML 目录发现 / 正文清洗（HTML 与 CHM 共用）
+│       ├── html.py        单文件 / 目录 / URL
+│       └── chm.py         CHM 解包
 ├── contrib/cvbook-shim.sh 可选：装进 PATH 用的转发脚本
 ├── examples/style.css     示例样式
 └── tests/
@@ -239,3 +323,9 @@ cvbook/
 - 目录只作为导航文档（`nav.xhtml` + `toc.ncx`），不进正文；点击阅读器的目录即可跳转
 - `webp` 封面/插图会尝试用 `sips`（macOS 自带）或 ImageMagick 转成 png，失败则按原格式嵌入
 - calibre / pandoc 引擎保留作兜底，它们不使用 `--style`，页面结构也不同
+- 书名必须有（frontmatter `title`、文件名 `《书名》…`，或 HTML/CHM 的 `<title>`）；
+  作者可以没有，不会因此拒绝转换
+- HTML/CHM 里的相对链接不会改写指向 EPUB 内部页面，统一去掉 `href` 只留文字；
+  站内锚点、脚注跳转也会失效
+- 从旧 bookconv 迁移了 CHM、AsciiDoc、HTML、HTML 目录、URL 这几种输入；`.txt` 仍由
+  原有 txt 插件处理。旧程序里针对具体网站的抓取逻辑没有保留
