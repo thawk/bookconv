@@ -131,7 +131,9 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     if include_titlepage:
         front.append(add_page(
             "titlepage", "titlepage", "titlepage.xhtml", meta.title,
+            '<div class="titlepage-inner">'
             '<h1 class="book-title">%s</h1><p class="book-author">%s</p>'
+            "</div>"
             % (_escape(meta.title), _escape(meta.author_text)),
             semantics="titlepage"))
 

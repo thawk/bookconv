@@ -102,7 +102,9 @@ comments: |
 
 ```html
 <div class="page titlepage">
-  <h1 class="book-title">书名</h1><p class="book-author">作者</p>
+  <div class="titlepage-inner">
+    <h1 class="book-title">书名</h1><p class="book-author">作者</p>
+  </div>
 </div>
 <div class="page intro">
   <h2 class="intro-title">简介</h2><p>…</p><p>…</p>
@@ -121,7 +123,7 @@ comments: |
 | `.page` | 每一页的容器（默认 `page-break-before: always`） |
 | `.page.first` | 全书第一页（不分页） |
 | `.cover` / `.cover .cover-image` | 封面页 / 封面图 |
-| `.titlepage` / `.book-title` / `.book-author` | 扉页 / 书名 / 作者 |
+| `.titlepage` / `.titlepage-inner` / `.book-title` / `.book-author` | 扉页（默认上下居中） / 内容块 / 书名 / 作者 |
 | `nav` / `nav h2` / `nav ol` / `nav a` | 导航文档（个别阅读器会显示它，一般看不到） |
 | `.intro` / `.intro-title` | 简介页 / 简介标题 |
 | `.chapter` / `.chapter.first` | 正文页 |
@@ -226,6 +228,7 @@ cvbook/
 
 - 转换开始时会打印书名、作者、有没有封面（附封面像素尺寸），结束打印“生成完成”和用时
 - 封面原样嵌入、不做缩放或再压缩；封面偏小（宽 < 1000）时会提示，可用 `--cover` 换更大的图
+- 扉页默认上下居中（flex + `min-height: 100vh`；老阅读器不支持 flex 时退回顶部，可用 `--style` 换成固定上边距）
 - 封面页/扉页/简介页标了 `epub:type`（`cover` / `titlepage` / `preface`），guide 里也声明了
   `title-page`，帮助阅读器认出扉页、不要自己再生成一页
 - 生成的 EPUB 是 EPUB 3（带 `nav` 导航文档），同时写了 `toc.ncx`，老阅读器也能用

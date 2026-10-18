@@ -44,9 +44,19 @@ body {
   max-height: 100%;
 }
 
-/* 扉页：左对齐、上方留白少一点 */
+/* 扉页：上下居中 */
 .titlepage {
-  margin-top: 18%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 1.4em;
+}
+
+.titlepage-inner {
+  text-align: center;
 }
 
 .titlepage .book-title {
