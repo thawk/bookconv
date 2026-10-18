@@ -1,4 +1,4 @@
-# cvbook
+# bookconv
 
 把 Markdown / 纯文本 / AsciiDoc / HTML / EPUB / CHM 转换成 EPUB，也可以把
 任意输入输出成 Markdown（`-f md`）。不依赖 calibre 或 pandoc：EPUB 用
@@ -20,7 +20,7 @@
 依赖装在项目自己的 `.venv` 里，**不需要装到 dotfiles，也不影响系统 Python**：
 
 ```bash
-cd ~/workspace/cvbook
+cd ~/workspace/bookconv
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -e .
@@ -29,7 +29,7 @@ python3 -m venv .venv
 依赖是 `ebooklib`、`markdown`、`lxml` 和 `html2text`（`ebooklib` 本来也会带
 `lxml`，这里显式写上，因为 HTML/CHM/EPUB 插件直接用它；`html2text` 只在
 `-f md` 时用到）。不想建 venv 也行：把这些包装到系统 Python，然后
-`PYTHONPATH=src python3 -m cvbook 某书.md`。
+`PYTHONPATH=src python3 -m bookconv 某书.md`。
 
 **CHM 额外依赖一个解包工具**（按顺序尝试，有一个就够）：
 
@@ -45,28 +45,28 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 
 ## 使用
 
-项目根目录的 `./cvbook` 会自动使用 `.venv` 里的解释器，所以直接跑就行：
+项目根目录的 `./bookconv` 会自动使用 `.venv` 里的解释器，所以直接跑就行：
 
 ```bash
-./cvbook 某书.md                    # 默认样式
-./cvbook 某书.txt                   # 纯文本（按章标题切）
-./cvbook 某书.adoc                  # AsciiDoc
-./cvbook 某书.chm                   # CHM（需要 7z 或 unar）
-./cvbook 某书.epub                  # EPUB（默认输出 EPUB）
-./cvbook 某书目录/                   # 整本 HTML 目录
-./cvbook http://example.com/book/   # 网页入口页（抓页面里的章节链接）
-./cvbook -f md 某书.epub            # 输出 Markdown（EPUB → MD）
-./cvbook -f md -o 某书.md 某书.chm  # CHM → Markdown
-./cvbook -f md --no-frontmatter 某书.epub
-./cvbook -s my-style.css 某书.md    # 自定义样式（整体替换）
-./cvbook --extra-style fix.css 某书.md
-./cvbook -i txt 某书.txt            # 强制按 txt 解析
-./cvbook -m calibre 某书.md         # 用 calibre 兜底
+./bookconv 某书.md                    # 默认样式
+./bookconv 某书.txt                   # 纯文本（按章标题切）
+./bookconv 某书.adoc                  # AsciiDoc
+./bookconv 某书.chm                   # CHM（需要 7z 或 unar）
+./bookconv 某书.epub                  # EPUB（默认输出 EPUB）
+./bookconv 某书目录/                   # 整本 HTML 目录
+./bookconv http://example.com/book/   # 网页入口页（抓页面里的章节链接）
+./bookconv -f md 某书.epub            # 输出 Markdown（EPUB → MD）
+./bookconv -f md -o 某书.md 某书.chm  # CHM → Markdown
+./bookconv -f md --no-frontmatter 某书.epub
+./bookconv -s my-style.css 某书.md    # 自定义样式（整体替换）
+./bookconv --extra-style fix.css 某书.md
+./bookconv -i txt 某书.txt            # 强制按 txt 解析
+./bookconv -m calibre 某书.md         # 用 calibre 兜底
 
 # 多个文件
-./cvbook 卷一.md 卷二.md            # 每个文件各生成一个 epub
-./cvbook --merge 卷一.md 卷二.md    # 按命令行顺序合并成一本
-./cvbook --merge -o 全本.epub 卷一.md 卷二.md
+./bookconv 卷一.md 卷二.md            # 每个文件各生成一个 epub
+./bookconv --merge 卷一.md 卷二.md    # 按命令行顺序合并成一本
+./bookconv --merge -o 全本.epub 卷一.md 卷二.md
 ```
 
 输出文件写在**当前目录**，文件名与源文件/目录同名（`某书.md` → `某书.epub`，
@@ -77,8 +77,8 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 合并成一本时：各文件的 frontmatter 会被剥掉，书名/作者/简介取第一个有值的文件
 （一般只需要给第一个文件写 frontmatter）；章节顺序就是命令行顺序；只支持内建引擎。
 
-从别的目录调用：`~/workspace/cvbook/cvbook 某书.md`。
-想让 `cvbook` 变成 PATH 里的命令（可选），`install -m 755 contrib/cvbook-shim.sh ~/.dotfiles/util/bin/cvbook`。
+从别的目录调用：`~/workspace/bookconv/bookconv 某书.md`。
+想让 `bookconv` 变成 PATH 里的命令（可选），`install -m 755 contrib/bookconv-shim.sh ~/.dotfiles/util/bin/bookconv`。
 
 | 选项 | 说明 |
 | --- | --- |
@@ -174,21 +174,21 @@ comments: |
 样式来源的优先级：
 
 1. `--style` 指定的文件
-2. `~/.config/cvbook/style.css`（存在时自动使用，**整体替换**默认样式）
-3. 包内 `src/cvbook/data/default.css`
+2. `~/.config/bookconv/style.css`（存在时自动使用，**整体替换**默认样式）
+3. 包内 `src/bookconv/data/default.css`
 
-追加的样式（按顺序）：`--extra-style`，然后是 `~/.config/cvbook/extra.css`
+追加的样式（按顺序）：`--extra-style`，然后是 `~/.config/bookconv/extra.css`
 （存在时自动追加）。所以日常微调只要写 `extra.css`，不用抄整个默认样式。
 
 `examples/style.css` 是一个“无衬线、无首行缩进、标题左对齐”的完整示例：
 
 ```bash
-./cvbook -s examples/style.css 某书.md
+./bookconv -s examples/style.css 某书.md
 ```
 
 ## 输入插件
 
-`src/cvbook/inputs/` 下每个插件都实现同一个接口：
+`src/bookconv/inputs/` 下每个插件都实现同一个接口：
 
 ```python
 class MyInput(InputFormat):
@@ -226,7 +226,7 @@ class MyInput(InputFormat):
 自定义正则：
 
 ```bash
-./cvbook -i txt --chapter-pattern '^第[0-9]+章' 某书.txt
+./bookconv -i txt --chapter-pattern '^第[0-9]+章' 某书.txt
 ```
 
 ### AsciiDoc 插件
@@ -240,8 +240,8 @@ class MyInput(InputFormat):
 - `*粗体*`、`_斜体_`、`` `等宽` ``、`#高亮#`、`^上标^`、`~下标~`、`link:...[]`
 
 ```bash
-./cvbook 某书.adoc
-./cvbook -i asciidoc 某书.txt        # 显式把 .txt 按 AsciiDoc 解析
+./bookconv 某书.adoc
+./bookconv -i asciidoc 某书.txt        # 显式把 .txt 按 AsciiDoc 解析
 ```
 
 刻意不支持 `include::`、条件指令、属性替换、脚注编号引用等——它们要么依赖完整的
@@ -253,9 +253,9 @@ Asciidoctor，要么对小说转换没有意义。`.txt` 默认仍走 txt 插件
 三种输入都支持：
 
 ```bash
-./cvbook 某书.html                  # 单个页面
-./cvbook 某书目录/                   # 整本 HTML 目录
-./cvbook http://example.com/book/   # 网页
+./bookconv 某书.html                  # 单个页面
+./bookconv 某书目录/                   # 整本 HTML 目录
+./bookconv http://example.com/book/   # 网页
 ```
 
 目录发现顺序：
@@ -276,7 +276,7 @@ EPUB 里没有对应的页面文件，所以相对链接只保留文字，外部
 ### CHM 插件
 
 ```bash
-./cvbook 某书.chm
+./bookconv 某书.chm
 ```
 
 先用 `7z` / `7za` / `7zz` / `unar` / `bsdtar` 把 CHM 解包到临时目录（见上面的依赖），之后完全
@@ -288,8 +288,8 @@ EPUB 里没有对应的页面文件，所以相对链接只保留文字，外部
 ### EPUB 插件
 
 ```bash
-./cvbook 某书.epub                  # EPUB → EPUB
-./cvbook -f md 某书.epub            # EPUB → Markdown
+./bookconv 某书.epub                  # EPUB → EPUB
+./bookconv -f md 某书.epub            # EPUB → Markdown
 ```
 
 用 ebooklib 读 EPUB：书名/作者/简介从 OPF 的 DC 元数据取；目录优先用 NCX/NAV，
@@ -302,21 +302,21 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
 - 加密/DRM 的 EPUB 读不了（ebooklib 会直接报错）
 - 目录里指向同一个 XHTML 文件不同锚点（`chapter.xhtml#sec1`）的情况，按文件只取一次，
   不会把每个锚点拆成独立章节
-- EPUB 自带 CSS 不保留，统一用 cvbook 的样式
+- EPUB 自带 CSS 不保留，统一用 bookconv 的样式
 - 文字方向、脚注弹窗等 EPUB3 特性不会特殊处理
 
 ## Markdown 输出（`-f md`）
 
 ```bash
-./cvbook -f md 某书.epub
-./cvbook -f md -o 某书.md 某书.chm
-./cvbook -f md --no-frontmatter 某书.epub
+./bookconv -f md 某书.epub
+./bookconv -f md -o 某书.md 某书.chm
+./bookconv -f md --no-frontmatter 某书.epub
 ```
 
 输出内容：
 
 - 文件头默认写 YAML frontmatter（`title` / `authors` / `comments`），可以直接被
-  cvbook 的 Markdown 输入读回；加 `--no-frontmatter` 就不写
+  bookconv 的 Markdown 输入读回；加 `--no-frontmatter` 就不写
 - 章节标题按目录层级写成 `#` / `##` / `###`
 - 插图写到 `<md 文件名>.images/` 目录，Markdown 里的路径同步改写
   （例如 `某书.md` 的图片在 `某书.images/`；目录名里的标点会替换成 `_`）
@@ -324,7 +324,7 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
   这样再把 md 转回 EPUB 时能自动识别为封面
 - `-f md` 只支持内建引擎（`-m native`）；`--style` / `--extra-style` 对 md 输出无效
 
-注意：Markdown 输出会保留 `##` 等层级。cvbook 的 Markdown **输入**把每个标题都作为
+注意：Markdown 输出会保留 `##` 等层级。bookconv 的 Markdown **输入**把每个标题都作为
 独立页面（标题 + 该标题下面的正文），标题级别按文档里的最高一级换算成 1、2、3……
 所以 `# 卷` / `## 章` / `### 节` 的 EPUB → MD → EPUB 能保留分卷和章节层级。
 如果某个标题下面没有正文、直接就是下一级标题，它只作为目录分组，不生成空页；
@@ -360,10 +360,10 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
 ## 项目结构
 
 ```
-cvbook/
-├── cvbook                 直接运行的入口（自动使用 .venv）
+bookconv/
+├── bookconv                 直接运行的入口（自动使用 .venv）
 ├── pyproject.toml         依赖与打包信息
-├── src/cvbook/
+├── src/bookconv/
 │   ├── cli.py             命令行入口
 │   ├── epub.py            用 ebooklib 组装 EPUB（nav / NCX / 封面）
 │   ├── frontmatter.py     YAML frontmatter 容错解析
@@ -380,7 +380,7 @@ cvbook/
 │       ├── html.py        单文件 / 目录 / URL
 │       ├── epub.py        EPUB 读取、目录/封面
 │       └── chm.py         CHM 解包
-├── contrib/cvbook-shim.sh 可选：装进 PATH 用的转发脚本
+├── contrib/bookconv-shim.sh 可选：装进 PATH 用的转发脚本
 ├── examples/style.css     示例样式
 └── tests/
 ```

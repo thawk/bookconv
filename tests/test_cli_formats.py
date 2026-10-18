@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import zipfile
 
-from cvbook.cli import main
+from bookconv.cli import main
 
 
 class CliFormatTest(unittest.TestCase):

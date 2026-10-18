@@ -4,7 +4,7 @@
 所以 EPUB 里的插图、表格、标题层级都能沿用 HTML/CHM 的处理逻辑。
 
 目录优先用 EPUB 的 NCX/NAV 目录；没有目录时按 spine 顺序。EPUB 自带的 CSS
-不会保留（cvbook 统一用自己的样式），封面会通过 ``cover()`` 交给 CLI。
+不会保留（bookconv 统一用自己的样式），封面会通过 ``cover()`` 交给 CLI。
 """
 
 from __future__ import annotations

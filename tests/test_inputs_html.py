@@ -10,10 +10,10 @@ import threading
 import unittest
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-from cvbook.images import ImageStore
-from cvbook.inputs.base import ParseOptions, SourceFile
-from cvbook.inputs.chm import ChmInput
-from cvbook.inputs.html import HtmlInput
+from bookconv.images import ImageStore
+from bookconv.inputs.base import ParseOptions, SourceFile
+from bookconv.inputs.chm import ChmInput
+from bookconv.inputs.html import HtmlInput
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"

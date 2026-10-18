@@ -5,12 +5,12 @@ import os
 import tempfile
 import unittest
 
-from cvbook.htmlutil import paragraphs, plain_text, strip_paragraph_indent
-from cvbook.images import ImageStore
-from cvbook.inputs.base import ParseOptions, SourceFile
-from cvbook.inputs.markdown import (MarkdownInput, detect_heading_level,
+from bookconv.htmlutil import paragraphs, plain_text, strip_paragraph_indent
+from bookconv.images import ImageStore
+from bookconv.inputs.base import ParseOptions, SourceFile
+from bookconv.inputs.markdown import (MarkdownInput, detect_heading_level,
                                     split_sections)
-from cvbook.inputs.txt import TextInput, split_events
+from bookconv.inputs.txt import TextInput, split_events
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"

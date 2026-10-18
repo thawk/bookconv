@@ -10,8 +10,8 @@ from typing import Iterable, List, Optional
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_CSS_NAME = "default.css"
 
-#: 样式目录：$XDG_CONFIG_HOME/cvbook（默认 ~/.config/cvbook）
-CONFIG_DIR_RELATIVE = Path("cvbook")
+#: 样式目录：$XDG_CONFIG_HOME/bookconv（默认 ~/.config/bookconv）
+CONFIG_DIR_RELATIVE = Path("bookconv")
 #: 存在时替换内置默认样式
 CONFIG_STYLE_NAME = "style.css"
 #: 存在时追加到最终样式后面
@@ -38,13 +38,13 @@ def config_dir() -> Path:
 
 
 def user_style_path() -> Optional[Path]:
-    """~/.config/cvbook/style.css：存在时替换默认样式。"""
+    """~/.config/bookconv/style.css：存在时替换默认样式。"""
     path = config_dir() / CONFIG_STYLE_NAME
     return path if path.is_file() else None
 
 
 def user_extra_path() -> Optional[Path]:
-    """~/.config/cvbook/extra.css：存在时追加到最终样式后面。"""
+    """~/.config/bookconv/extra.css：存在时追加到最终样式后面。"""
     path = config_dir() / CONFIG_EXTRA_NAME
     return path if path.is_file() else None
 
@@ -61,8 +61,8 @@ def resolve(style: Optional[str] = None,
             extra: Iterable[str] = ()) -> StyleSheet:
     """决定最终使用的 CSS。
 
-    优先级：--style 指定的文件 > ~/.config/cvbook/style.css > 内置默认样式，
-    最后按顺序追加 --extra-style 与 ~/.config/cvbook/extra.css 的内容。
+    优先级：--style 指定的文件 > ~/.config/bookconv/style.css > 内置默认样式，
+    最后按顺序追加 --extra-style 与 ~/.config/bookconv/extra.css 的内容。
     """
     sources: List[str] = []
 

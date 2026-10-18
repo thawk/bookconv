@@ -1,16 +1,16 @@
 """把 ``Chapter`` 列表写成单个 Markdown 文件。
 
-用于 ``cvbook --format md``。章节正文已经是清洗过的 XHTML 片段，所以这里只做
+用于 ``bookconv --format md``。章节正文已经是清洗过的 XHTML 片段，所以这里只做
 三件事：去掉重复的章节标题、按目录层级调整小节标题、用 html2text 转成 Markdown。
 
 输出约定：
 
-* 文件头写 YAML frontmatter（title / authors / comments），可以被 cvbook 的
+* 文件头写 YAML frontmatter（title / authors / comments），可以被 bookconv 的
   Markdown 输入插件直接读回；
 * 第 1 级章节用 ``#``，第 2 级用 ``##``，依此类推；
 * 插图写到 ``<md 文件名>.images/``，Markdown 里的路径同步改写；
 * EPUB/CHM 等输入自带的封面写到与 md 同名的图片文件（``书名.jpg``），
-  这样再次用 cvbook 转回 EPUB 时能自动找到封面。
+  这样再次用 bookconv 转回 EPUB 时能自动找到封面。
 """
 
 from __future__ import annotations

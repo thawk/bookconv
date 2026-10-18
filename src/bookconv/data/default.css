@@ -1,10 +1,10 @@
-/* cvbook 默认样式
+/* bookconv 默认样式
  * =====================================================================
  * 想改样式？三种方式（优先级从高到低）：
- *   1. cvbook -s 你的.css 某书.md          单次替换整个样式
- *   2. ~/.config/cvbook/style.css          全局默认（存在时自动使用，整体替换）
- *      ~/.config/cvbook/extra.css          全局微调（存在时自动追加）
- *   3. cvbook --extra-style 补丁.css 某书.md   在内置样式后追加
+ *   1. bookconv -s 你的.css 某书.md          单次替换整个样式
+ *   2. ~/.config/bookconv/style.css          全局默认（存在时自动使用，整体替换）
+ *      ~/.config/bookconv/extra.css          全局微调（存在时自动追加）
+ *   3. bookconv --extra-style 补丁.css 某书.md   在内置样式后追加
  *
  * 可用的钩子（生成的页面结构见 README）：
  *   .page              每一页的容器（默认强制分页）

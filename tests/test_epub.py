@@ -7,9 +7,9 @@ import tempfile
 import unittest
 import zipfile
 
-from cvbook.epub import build_epub
-from cvbook.images import EpubImage
-from cvbook.models import BookMeta, Chapter
+from bookconv.epub import build_epub
+from bookconv.images import EpubImage
+from bookconv.models import BookMeta, Chapter
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"

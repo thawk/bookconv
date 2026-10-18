@@ -8,10 +8,10 @@ import zipfile
 
 from ebooklib import epub
 
-from cvbook.cli import main
-from cvbook.images import ImageStore
-from cvbook.inputs.base import ParseOptions, SourceFile
-from cvbook.inputs.epub import EpubInput
+from bookconv.cli import main
+from bookconv.images import ImageStore
+from bookconv.inputs.base import ParseOptions, SourceFile
+from bookconv.inputs.epub import EpubInput
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"
@@ -21,7 +21,7 @@ PNG = base64.b64decode(
 
 def build_epub(path, *, with_toc=True, with_cover=True):
     book = epub.EpubBook()
-    book.set_identifier("cvbook-test-epub")
+    book.set_identifier("bookconv-test-epub")
     book.set_title("EPUB 测试书")
     book.set_language("zh")
     book.add_author("张三")

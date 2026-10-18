@@ -5,9 +5,9 @@ import os
 import tempfile
 import unittest
 
-from cvbook.images import ImageStore
-from cvbook.inputs.asciidoc import AsciiDocInput, _BlockRenderer, split_document
-from cvbook.inputs.base import ParseOptions, SourceFile
+from bookconv.images import ImageStore
+from bookconv.inputs.asciidoc import AsciiDocInput, _BlockRenderer, split_document
+from bookconv.inputs.base import ParseOptions, SourceFile
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"

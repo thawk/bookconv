@@ -81,7 +81,7 @@ def convert_image(data: bytes, source_name: str, target_ext: str = "png") -> Opt
     if not tools:
         return None
 
-    workdir = tempfile.mkdtemp(prefix="cvbook-img.")
+    workdir = tempfile.mkdtemp(prefix="bookconv-img.")
     try:
         source = os.path.join(workdir, "in." + (source_name.rsplit(".", 1)[-1].lower() or "webp"))
         target = os.path.join(workdir, "out." + target_ext)

@@ -1,4 +1,4 @@
-"""cvbook —— 把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转换成 EPUB 或 Markdown。
+"""bookconv —— 把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转换成 EPUB 或 Markdown。
 
 包结构::
 

@@ -2,7 +2,7 @@
 
 import unittest
 
-from cvbook.frontmatter import (BookMeta, NoFrontMatter, parse_meta,
+from bookconv.frontmatter import (BookMeta, NoFrontMatter, parse_meta,
                                 read_frontmatter, split_frontmatter)
 
 

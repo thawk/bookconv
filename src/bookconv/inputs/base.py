@@ -1,15 +1,15 @@
 """输入格式插件接口。
 
 每种源文件格式实现一个 :class:`InputFormat` 子类，负责把源文件解析成"页"
-（:class:`cvbook.models.Chapter`）。核心流程只认这个接口，所以以后要加新的
+（:class:`bookconv.models.Chapter`）。核心流程只认这个接口，所以以后要加新的
 格式（比如带章节识别的 txt、HTML 等）不用改 EPUB 生成部分。
 
 约定：解析结果里
 
 * 章节标题用 ``<h1>``，小节用 ``<h2>`` / ``<h3>``，正文段落用 ``<p>``；
-* 段落开头的缩进用 :func:`cvbook.htmlutil.strip_paragraph_indent` 去掉，
+* 段落开头的缩进用 :func:`bookconv.htmlutil.strip_paragraph_indent` 去掉，
   交给 CSS 控制（``keep_indent`` 可关闭）；
-* 插图用 :func:`cvbook.htmlutil.rewrite_images` 收进 EPUB；
+* 插图用 :func:`bookconv.htmlutil.rewrite_images` 收进 EPUB；
 * ``Chapter.level`` 是目录层级（1 = 顶层，2 = 上一个顶层条目下的子条目），
   方便以后做"自动识别各级标题"的格式。
 """
@@ -54,7 +54,7 @@ class SourceFile:
     """交给插件的源文件（正文部分已去掉 frontmatter）。
 
     ``path`` 可以是普通文件、目录，或者 http(s) URL。目录和 URL 没有
-    ``raw``（空 bytes），插件自己通过 :mod:`cvbook.inputs.htmlbook` 里的
+    ``raw``（空 bytes），插件自己通过 :mod:`bookconv.inputs.htmlbook` 里的
     loader 读取。
     """
 

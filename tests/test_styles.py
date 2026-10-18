@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cvbook import styles
+from bookconv import styles
 
 
 def write(path: Path, text: str) -> str:
@@ -25,7 +25,7 @@ class ResolveStyleTest(unittest.TestCase):
 
     def test_config_style_replaces_default(self):
         with tempfile.TemporaryDirectory() as config:
-            write(Path(config) / "cvbook" / "style.css", ".x { color: red; }")
+            write(Path(config) / "bookconv" / "style.css", ".x { color: red; }")
             with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": config}):
                 sheet = styles.resolve()
         self.assertEqual(sheet.css.strip(), ".x { color: red; }")
@@ -33,7 +33,7 @@ class ResolveStyleTest(unittest.TestCase):
 
     def test_config_extra_appends(self):
         with tempfile.TemporaryDirectory() as config:
-            write(Path(config) / "cvbook" / "extra.css", ".x { color: blue; }")
+            write(Path(config) / "bookconv" / "extra.css", ".x { color: blue; }")
             with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": config}):
                 sheet = styles.resolve()
         self.assertIn("Songti SC", sheet.css)
@@ -42,7 +42,7 @@ class ResolveStyleTest(unittest.TestCase):
     def test_explicit_style_wins(self):
         with tempfile.TemporaryDirectory() as config, \
                 tempfile.TemporaryDirectory() as work:
-            write(Path(config) / "cvbook" / "style.css", ".config { }")
+            write(Path(config) / "bookconv" / "style.css", ".config { }")
             explicit = write(Path(work) / "mine.css", ".mine { }")
             with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": config}):
                 sheet = styles.resolve(explicit)

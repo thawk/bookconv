@@ -1,4 +1,4 @@
-"""python -m cvbook 入口。"""
+"""python -m bookconv 入口。"""
 
 import sys
 

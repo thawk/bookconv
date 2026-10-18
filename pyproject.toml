@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cvbook"
+name = "bookconv"
 version = "0.4.0"
 description = "把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转成 EPUB 或 Markdown"
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cvbook = "cvbook.cli:main"
+bookconv = "bookconv.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -25,4 +25,4 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-cvbook = ["data/*.css"]
+bookconv = ["data/*.css"]

@@ -1,8 +1,8 @@
 /* 示例样式：无衬线、首行不缩进、章节标题左对齐
  *
  * 用法:
- *   cvbook -s examples/style.css 某书.md
- * 或者复制到 ~/.config/cvbook/style.css 当作全局默认。
+ *   bookconv -s examples/style.css 某书.md
+ * 或者复制到 ~/.config/bookconv/style.css 当作全局默认。
  *
  * 这是"整体替换"，所以要把需要的规则都写上；也可以只写想改的部分，
  * 用 --extra-style examples/style.css 追加到内置样式后面。

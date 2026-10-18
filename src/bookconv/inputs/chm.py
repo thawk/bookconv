@@ -6,7 +6,7 @@ CHM 是微软的压缩帮助文件格式，纯 Python 解 LZX 太折腾，所以
 * macOS: ``brew install p7zip``（或 ``brew install unar``）
 * Debian/Ubuntu: ``apt install p7zip-full``
 
-解包之后就是一个普通 HTML 目录，交给 :mod:`cvbook.inputs.htmlbook` 处理：
+解包之后就是一个普通 HTML 目录，交给 :mod:`bookconv.inputs.htmlbook` 处理：
 优先用 ``.hhc`` 目录，其次 EasyCHM 的 ``page.js``，最后按入口页/文件名排序。
 """
 
@@ -124,7 +124,7 @@ class ChmInput(InputFormat):
         if not os.path.isfile(path):
             raise InputError("CHM 文件不存在: %s" % path)
 
-        workdir = tempfile.mkdtemp(prefix="cvbook-chm-")
+        workdir = tempfile.mkdtemp(prefix="bookconv-chm-")
         atexit.register(shutil.rmtree, workdir, ignore_errors=True)
         root = extract_chm(path, workdir)
         self._roots[path] = root

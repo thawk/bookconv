@@ -74,7 +74,7 @@ def _mark_first(item: epub.EpubHtml) -> None:
 
 def book_identifier(meta: BookMeta) -> str:
     """用书名+作者生成稳定的 uuid，重复转换时 id 不变。"""
-    seed = "cvbook:%s|%s" % (meta.title, meta.author_text)
+    seed = "bookconv:%s|%s" % (meta.title, meta.author_text)
     return "urn:uuid:%s" % uuid.uuid5(uuid.NAMESPACE_URL, seed)
 
 

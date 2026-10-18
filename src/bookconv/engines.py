@@ -76,7 +76,7 @@ def _pandoc_metadata(meta: BookMeta, cover: Optional[str]) -> str:
     if cover:
         lines.append("cover-image: %s" % _yaml_scalar(cover))
 
-    fd, path = tempfile.mkstemp(prefix="cvbook-meta.", suffix=".yaml")
+    fd, path = tempfile.mkstemp(prefix="bookconv-meta.", suffix=".yaml")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     return path
@@ -104,7 +104,7 @@ def _prepare_cover(cover: str, workdir: str) -> str:
 
 def convert_pandoc(src: str, out: str, meta: BookMeta,
                    cover: Optional[str], verbose: bool = False) -> bool:
-    workdir = tempfile.mkdtemp(prefix="cvbook-pandoc.")
+    workdir = tempfile.mkdtemp(prefix="bookconv-pandoc.")
     try:
         cover_path = _prepare_cover(cover, workdir) if cover else None
         metadata = _pandoc_metadata(meta, cover_path)

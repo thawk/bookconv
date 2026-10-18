@@ -28,40 +28,40 @@ from .styles import resolve as resolve_style
 EPILOG = """\
 样式:
   默认样式内置在包里，想改就复制一份再改，例如：
-    1) 全局默认：~/.config/cvbook/style.css（存在时自动使用，整体替换）
-    2) 全局微调：~/.config/cvbook/extra.css（存在时自动追加）
-    3) 单次指定：cvbook -s my-style.css 某书.md
-    4) 只追加：  cvbook --extra-style fix.css 某书.md
+    1) 全局默认：~/.config/bookconv/style.css（存在时自动使用，整体替换）
+    2) 全局微调：~/.config/bookconv/extra.css（存在时自动追加）
+    3) 单次指定：bookconv -s my-style.css 某书.md
+    4) 只追加：  bookconv --extra-style fix.css 某书.md
   可用的 CSS 钩子见 README（.page / .cover / .titlepage / .intro / .chapter ...）。
 
 示例:
-  cvbook 某书.md                    # 单个文件
-  cvbook 某书.txt                   # 纯文本（按章标题切）
-  cvbook 某书.adoc                  # AsciiDoc
-  cvbook 某书.chm                   # CHM（需要 7z 或 unar）
-  cvbook 某书.epub                  # EPUB
-  cvbook 某书目录/                   # 整本 HTML 目录
-  cvbook https://example.com/book/  # 网页（抓入口页里的链接）
-  cvbook -f md 某书.epub            # 输出 Markdown（默认仍然输出 EPUB）
-  cvbook -f md -o 某书.md 某书.chm
-  cvbook 卷一.md 卷二.md            # 每个文件各生成一个 epub
-  cvbook --merge 卷一.md 卷二.md    # 合并成一本（顺序按命令行）
-  cvbook --merge -o 全本.epub 卷一.md 卷二.md
-  cvbook -s my-style.css 某书.md
-  cvbook -m calibre 某书.md         # 用 calibre 兜底（此时 --style 无效）
+  bookconv 某书.md                    # 单个文件
+  bookconv 某书.txt                   # 纯文本（按章标题切）
+  bookconv 某书.adoc                  # AsciiDoc
+  bookconv 某书.chm                   # CHM（需要 7z 或 unar）
+  bookconv 某书.epub                  # EPUB
+  bookconv 某书目录/                   # 整本 HTML 目录
+  bookconv https://example.com/book/  # 网页（抓入口页里的链接）
+  bookconv -f md 某书.epub            # 输出 Markdown（默认仍然输出 EPUB）
+  bookconv -f md -o 某书.md 某书.chm
+  bookconv 卷一.md 卷二.md            # 每个文件各生成一个 epub
+  bookconv --merge 卷一.md 卷二.md    # 合并成一本（顺序按命令行）
+  bookconv --merge -o 全本.epub 卷一.md 卷二.md
+  bookconv -s my-style.css 某书.md
+  bookconv -m calibre 某书.md         # 用 calibre 兜底（此时 --style 无效）
 """
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cvbook",
+        prog="bookconv",
         description="把 Markdown / 纯文本 / AsciiDoc / HTML / EPUB / CHM "
                     "转换成 EPUB（或 Markdown），样式可定制。",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version",
-                        version="cvbook %s" % __version__)
+                        version="bookconv %s" % __version__)
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="输出更多日志")
     parser.add_argument("-m", "--method", choices=("native", "calibre", "pandoc"),
@@ -307,12 +307,12 @@ def make_body_copy(path: str, body: bytes) -> Optional[str]:
     suffix = "." + ext
 
     try:
-        fd, temp = tempfile.mkstemp(prefix=".cvbook-body.", suffix=suffix,
+        fd, temp = tempfile.mkstemp(prefix=".bookconv-body.", suffix=suffix,
                                     dir=src_dir)
     except OSError:
         print("!!! 无法在 '%s' 中创建临时文件，改用临时目录"
               "（相对图片链接可能失效）" % src_dir, file=sys.stderr)
-        fd, temp = tempfile.mkstemp(prefix=".cvbook-body.", suffix=suffix)
+        fd, temp = tempfile.mkstemp(prefix=".bookconv-body.", suffix=suffix)
 
     with os.fdopen(fd, "wb") as f:
         f.write(body)

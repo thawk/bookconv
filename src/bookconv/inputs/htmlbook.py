@@ -8,7 +8,7 @@
 2. 再把每个 HTML 页面的 ``<body>`` 清洗成 XHTML 片段：去掉脚本/样式/导航，
    保留段落、标题、列表、表格、引用、代码和插图；相对链接因为 EPUB 里没有
    对应文件，统一去掉 ``href`` 只留文字。
-3. 插图交给 :class:`cvbook.images.ImageStore`，本地文件、远程 URL、data URI
+3. 插图交给 :class:`bookconv.images.ImageStore`，本地文件、远程 URL、data URI
    都支持。
 
 解析器不依赖 calibre/pandoc，只用到 lxml（ebooklib 也会依赖它）。
@@ -93,7 +93,7 @@ MARKER_STARTS = (
      re.compile(r"<!--\s*BookContent\s+End[^>]*-->", re.IGNORECASE)),
 )
 
-_DEFAULT_UA = "Mozilla/5.0 (compatible; cvbook/0.3; +https://github.com/)"
+_DEFAULT_UA = "Mozilla/5.0 (compatible; bookconv/0.3; +https://github.com/)"
 
 
 # ---------------------------------------------------------------------------

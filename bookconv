@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """无需安装，直接在项目目录里运行::
 
-    ./cvbook 某书.md
-    ./cvbook -s my-style.css 某书.md
+    ./bookconv 某书.md
+    ./bookconv -s my-style.css 某书.md
 
 依赖（ebooklib / markdown）装在项目内的 ``.venv`` 里（见 README）：
 
@@ -25,7 +25,7 @@ if os.path.exists(VENV_PYTHON) and os.path.abspath(sys.executable) != VENV_PYTHO
 
 sys.path.insert(0, os.path.join(HERE, "src"))
 
-from cvbook.cli import main  # noqa: E402
+from bookconv.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(main())

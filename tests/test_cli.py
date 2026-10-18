@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import zipfile
 
-from cvbook.cli import main
+from bookconv.cli import main
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"
