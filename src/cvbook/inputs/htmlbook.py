@@ -312,6 +312,9 @@ def _local_tag(tag) -> str:
 def parse_html(text: str):
     if not text or not text.strip():
         return None
+    # XHTML/EPUB 常带 XML 声明，lxml 的 HTML 解析器不接受 str + 声明
+    text = re.sub(r"^\ufeff?\s*<\?xml[^>]*\?>", "", text,
+                  count=1, flags=re.IGNORECASE)
     parser = lxml_html.HTMLParser(encoding="utf-8", recover=True)
     try:
         return lxml_html.fromstring(text, parser=parser)

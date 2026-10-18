@@ -19,10 +19,10 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 from urllib.parse import urljoin, urlsplit
 
-from ..images import ImageStore
+from ..images import EpubImage, ImageStore
 from ..models import BookMeta, Chapter
 
 
@@ -137,6 +137,10 @@ class InputFormat(ABC):
     def metadata(self, source: SourceFile) -> BookMeta:
         """尽可能从内容里读出书名/作者，供文件名猜不出时兜底。"""
         return BookMeta()
+
+    def cover(self, source: SourceFile) -> Optional[EpubImage]:
+        """源文件内部自带封面时返回它（目前只有 EPUB 用）。"""
+        return None
 
     @abstractmethod
     def parse(self, source: SourceFile, *, images: ImageStore,

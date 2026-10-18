@@ -1,4 +1,4 @@
-"""cvbook —— 把 Markdown / txt / AsciiDoc / HTML / CHM 转换成 EPUB。
+"""cvbook —— 把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转换成 EPUB 或 Markdown。
 
 包结构::
 
@@ -8,10 +8,11 @@
     styles.py       内置默认 CSS 与自定义样式合并
     epub.py         用 ebooklib 组装 EPUB（封面页/扉页/目录页/简介页/正文页）
     engines.py      calibre / pandoc 备用引擎
-    inputs/         输入插件（markdown / txt / asciidoc / html / chm）
+    inputs/         输入插件（markdown / txt / asciidoc / html / epub / chm）
+    markdown_output.py  Markdown 输出（--format md）
     cli.py          命令行入口
 
 依赖放在项目内的 ``.venv`` 里，不需要装到 dotfiles。
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

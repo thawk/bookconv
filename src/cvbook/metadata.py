@@ -11,7 +11,7 @@ from .frontmatter import BookMeta
 
 FILENAME_TITLE_RE = re.compile(r"^.*《([^》]*)》")
 FILENAME_AUTHOR_RE = re.compile(r"^.*作者[:：][ \t]*(.*)")
-COVER_EXTS = ("jpg", "jpeg", "png", "webp")
+COVER_EXTS = ("jpg", "jpeg", "png", "webp", "gif", "svg")
 
 
 def _basename(path: str) -> str:

@@ -8,6 +8,7 @@ from .asciidoc import AsciiDocInput
 from .base import (InputError, InputFormat, ParseOptions, SourceFile,
                    decode_text)
 from .chm import ChmInput
+from .epub import EpubInput
 from .html import HtmlInput
 from .markdown import MarkdownInput
 from .txt import TextInput
@@ -18,6 +19,7 @@ FORMATS: Sequence[InputFormat] = (
     TextInput(),
     AsciiDocInput(),
     HtmlInput(),
+    EpubInput(),
     ChmInput(),
 )
 

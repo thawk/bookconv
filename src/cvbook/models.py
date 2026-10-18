@@ -31,8 +31,11 @@ class Chapter:
 
     - ``html`` 是页面内部的 XHTML 片段，章节标题用 ``<h1>``。
     - ``level`` 是目录层级：1 是顶层，2 挂在上一个 1 级条目下，依此类推。
+    - ``virtual`` 为真时只在目录里占一个分组，不生成正文页面（例如下面没有
+      正文、直接就是子章节的卷标题）。
     """
 
     title: str
     html: str
     level: int = 1
+    virtual: bool = False

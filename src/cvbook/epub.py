@@ -30,13 +30,13 @@ def _escape(text: str) -> str:
 class _TocNode(object):
     __slots__ = ("item", "level", "children")
 
-    def __init__(self, item: epub.EpubHtml, level: int) -> None:
+    def __init__(self, item: object, level: int) -> None:
         self.item = item
         self.level = level
         self.children: List["_TocNode"] = []
 
 
-def build_toc(entries: Sequence[Tuple[epub.EpubHtml, int]]) -> tuple:
+def build_toc(entries: Sequence[Tuple[object, int]]) -> tuple:
     """把 (页面, 层级) 列表转成 ebooklib 需要的嵌套目录结构。"""
     roots: List[_TocNode] = []
     stack: List[_TocNode] = []
@@ -56,6 +56,8 @@ def build_toc(entries: Sequence[Tuple[epub.EpubHtml, int]]) -> tuple:
         for node in nodes:
             if node.children:
                 result.append((node.item, convert(node.children)))
+            elif isinstance(node.item, epub.Section):
+                result.append((node.item, ()))
             else:
                 result.append(node.item)
         return tuple(result)
@@ -101,6 +103,8 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
         book.set_cover(cover.path, cover.data, create_page=False)
 
     for index, image in enumerate(images, 1):
+        if cover is not None and image.path == cover.path:
+            continue                    # 正文里引用了封面图，避免重复写入
         book.add_item(epub.EpubItem(uid="image-%04d" % index,
                                     file_name=image.path,
                                     media_type=image.media_type,
@@ -108,7 +112,7 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
 
     front: List[epub.EpubHtml] = []
     chapter_items: List[epub.EpubHtml] = []
-    toc_entries: List[Tuple[epub.EpubHtml, int]] = []
+    toc_entries: List[Tuple[object, int]] = []
 
     def add_page(kind: str, uid: str, file_name: str, title: str,
                  inner: str, semantics: str = "") -> epub.EpubHtml:
@@ -143,16 +147,23 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
             '<h2 class="intro-title">%s</h2>%s'
             % (_escape(intro_title), intro_html), semantics="preface"))
 
-    for index, chapter in enumerate(chapters, 1):
-        item = add_page("chapter", "chap-%04d" % index,
-                        "%s/chapter-%04d.xhtml" % (CHAPTER_DIR, index),
+    page_index = 0
+    for chapter in chapters:
+        if chapter.virtual:
+            # 只在目录里占分组，不生成正文页
+            toc_entries.append((epub.Section(chapter.title), chapter.level))
+            continue
+        page_index += 1
+        item = add_page("chapter", "chap-%04d" % page_index,
+                        "%s/chapter-%04d.xhtml" % (CHAPTER_DIR, page_index),
                         chapter.title, chapter.html)
         chapter_items.append(item)
         toc_entries.append((item, chapter.level))
 
     # 第一页不分页
-    first_page = (front or chapter_items)[0]
-    _mark_first(first_page)
+    first_pages = front + chapter_items
+    if first_pages:
+        _mark_first(first_pages[0])
 
     book.toc = build_toc(toc_entries)
 
@@ -176,8 +187,8 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
     book.guide.append({"type": "toc", "href": NAV_PATH, "title": "目录"})
 
     if verbose:
-        print("EPUB: %d 章, %d 张插图, 封面: %s"
-              % (len(chapters), len(images), cover.path if cover else "无"))
+        print("EPUB: %d 页, %d 张插图, 封面: %s"
+              % (len(chapter_items), len(images), cover.path if cover else "无"))
 
     epub.write_epub(out_path, book, {"raise_exceptions": True,
                                      "epub3_landmark": False})

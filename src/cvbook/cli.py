@@ -19,6 +19,7 @@ from .htmlutil import paragraphs
 from .images import (MEDIA_TYPES, EpubImage, ImageStore, convert_image,
                      image_size)
 from .inputs.base import is_url
+from .markdown_output import write_markdown
 from .metadata import find_cover, resolve_meta
 from .models import BookMeta
 from .styles import StyleError
@@ -38,8 +39,11 @@ EPILOG = """\
   cvbook 某书.txt                   # 纯文本（按章标题切）
   cvbook 某书.adoc                  # AsciiDoc
   cvbook 某书.chm                   # CHM（需要 7z 或 unar）
+  cvbook 某书.epub                  # EPUB
   cvbook 某书目录/                   # 整本 HTML 目录
   cvbook https://example.com/book/  # 网页（抓入口页里的链接）
+  cvbook -f md 某书.epub            # 输出 Markdown（默认仍然输出 EPUB）
+  cvbook -f md -o 某书.md 某书.chm
   cvbook 卷一.md 卷二.md            # 每个文件各生成一个 epub
   cvbook --merge 卷一.md 卷二.md    # 合并成一本（顺序按命令行）
   cvbook --merge -o 全本.epub 卷一.md 卷二.md
@@ -51,8 +55,8 @@ EPILOG = """\
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cvbook",
-        description="把 Markdown / 纯文本 / AsciiDoc / HTML / CHM "
-                    "转换成 EPUB，样式可定制。",
+        description="把 Markdown / 纯文本 / AsciiDoc / HTML / EPUB / CHM "
+                    "转换成 EPUB（或 Markdown），样式可定制。",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -70,10 +74,15 @@ def build_parser() -> argparse.ArgumentParser:
                              % " / ".join(inputs.names()))
     parser.add_argument("--merge", action="store_true",
                         help="把多个输入（文件/目录/URL）按顺序合并成一本书")
+    parser.add_argument("-f", "--format", "--output-format", dest="output_format",
+                        choices=("epub", "md"), default="epub",
+                        help="输出格式：epub（默认）或 md")
+    parser.add_argument("--no-frontmatter", action="store_true",
+                        help="md 输出不写 YAML frontmatter")
     parser.add_argument("-o", "--output", metavar="FILE", default=None,
                         help="输出文件名（默认用源文件名；合并时用第一个文件的名字）")
     parser.add_argument("--cover", metavar="FILE", default=None,
-                        help="指定封面图（默认找与源文件同名的图片）")
+                        help="指定封面图（默认找同名图片/目录 cover；EPUB 用内嵌封面）")
     parser.add_argument("-s", "--style", metavar="FILE",
                         help="自定义 CSS，替换内置默认样式")
     parser.add_argument("--extra-style", metavar="FILE", action="append",
@@ -97,8 +106,9 @@ _INDEX_STEMS = {"index", "cover", "start", "toc", "mulu", "contents",
                 "default", "home", "main", "tempbook"}
 
 
-def default_output(path: str) -> str:
+def default_output(path: str, output_format: str = "epub") -> str:
     """输出到当前目录，文件名与源文件/目录同名。"""
+    suffix = ".md" if output_format == "md" else ".epub"
     if is_url(path):
         parsed = urlsplit(path)
         trailing = parsed.path.endswith("/") or not parsed.path
@@ -112,7 +122,11 @@ def default_output(path: str) -> str:
         clean = path.rstrip(os.sep)
         name = os.path.basename(clean) or "book"
         stem = os.path.splitext(name)[0] or name
-    return (stem or "book") + ".epub"
+    candidate = (stem or "book") + suffix
+    if (not is_url(path)
+            and os.path.realpath(candidate) == os.path.realpath(path)):
+        candidate = (stem or "book") + "-converted" + suffix
+    return candidate
 
 
 def load_cover(image_path: str) -> Optional[EpubImage]:
@@ -145,13 +159,30 @@ def pick_cover_path(args, path: str) -> Optional[str]:
     return args.cover or find_cover(path)
 
 
+def load_input_cover(args, path: str, fmt: Optional[inputs.InputFormat],
+                     source: Optional[inputs.SourceFile]):
+    """返回 (封面文件路径, 封面图)。先找本地同名图，再用源文件内嵌封面。"""
+    cover_path = pick_cover_path(args, path)
+    if cover_path:
+        return cover_path, load_cover(cover_path)
+    if args.no_cover or fmt is None or source is None:
+        return None, None
+    try:
+        cover = fmt.cover(source)
+    except Exception as error:
+        if args.verbose:
+            print("提示: 读取内嵌封面失败: %s" % error, file=sys.stderr)
+        return None, None
+    return (None, cover) if cover is not None else (None, None)
+
+
 def announce_start(meta: BookMeta, cover_path: Optional[str],
                    cover_image: Optional[EpubImage] = None,
                    merged_files: int = 0) -> None:
     prefix = "合并 %d 个文件 → " % merged_files if merged_files > 1 else ""
     cover_text = "无"
     size = None
-    if cover_path:
+    if cover_path or cover_image is not None:
         cover_text = "有"
         if cover_image is not None:
             size = image_size(cover_image.data)
@@ -228,8 +259,8 @@ def read_source(path: str, args) -> Optional[Tuple]:
     has_frontmatter = False
 
     if not (is_url(path) or os.path.isdir(path)):
-        if not path.lower().endswith(".chm"):
-            # CHM 由插件按路径解包，不需要整个读进内存
+        if not path.lower().endswith((".chm", ".epub")):
+            # CHM/EPUB 由插件按路径读取，不需要整个读进内存
             try:
                 with open(path, "rb") as f:
                     raw = f.read()
@@ -250,13 +281,22 @@ def read_source(path: str, args) -> Optional[Tuple]:
     if fmt is None:
         return None
 
-    meta = resolve_meta(path, meta)
-    if not meta.title or not meta.authors:
+    if fmt.name == "epub":
+        # EPUB 自带权威元数据，优先于文件名
         try:
             meta = merge_meta(meta, fmt.metadata(source))
-        except Exception as error:     # 元数据只是兜底，失败不影响正文转换
+        except Exception as error:
             if args.verbose:
-                print("提示: 读取书籍信息失败: %s" % error, file=sys.stderr)
+                print("提示: 读取 EPUB 元数据失败: %s" % error, file=sys.stderr)
+        meta = resolve_meta(path, meta)
+    else:
+        meta = resolve_meta(path, meta)
+        if not meta.title or not meta.authors:
+            try:
+                meta = merge_meta(meta, fmt.metadata(source))
+            except Exception as error:  # 元数据只是兜底，失败不影响正文转换
+                if args.verbose:
+                    print("提示: 读取书籍信息失败: %s" % error, file=sys.stderr)
     return source, fmt, meta, has_frontmatter
 
 
@@ -300,15 +340,16 @@ def build_book(chapters, images: ImageStore, meta: BookMeta, out: str, args,
         report_build_error(error, args)
         return False
 
-    announce_done(meta, out, started, len(chapters))
+    announce_done(meta, out, started,
+                  len([chapter for chapter in chapters
+                       if not getattr(chapter, "virtual", False)]))
     return True
 
 
 def convert_native(path: str, source: inputs.SourceFile,
                    fmt: inputs.InputFormat, meta: BookMeta, out: str,
                    args) -> bool:
-    cover_path = pick_cover_path(args, path)
-    cover = load_cover(cover_path) if cover_path else None
+    cover_path, cover = load_input_cover(args, path, fmt, source)
     announce_start(meta, cover_path, cover)
     started = time.time()
 
@@ -323,6 +364,22 @@ def convert_native(path: str, source: inputs.SourceFile,
     if not chapters:
         print("!!! 没有解析出任何内容: %s" % path, file=sys.stderr)
         return False
+
+    if args.output_format == "md":
+        if args.style or args.extra_style:
+            print("!!! --style / --extra-style 只对 EPUB 输出生效，已忽略",
+                  file=sys.stderr)
+        try:
+            write_markdown(out, meta, chapters, images, cover=cover,
+                           include_frontmatter=not args.no_frontmatter,
+                           verbose=args.verbose)
+        except Exception as error:
+            print("!!! 生成 Markdown 失败: %s" % error, file=sys.stderr)
+            if args.verbose:
+                traceback.print_exc()
+            return False
+        announce_done(meta, out, started, len(chapters))
+        return True
 
     try:
         style = resolve_style(args.style, args.extra_style)
@@ -363,8 +420,9 @@ def convert_merged(paths: Sequence[str], args) -> bool:
               "或把文件命名为《书名》…", file=sys.stderr)
         return False
 
-    cover_path = pick_cover_path(args, paths[0])
-    cover = load_cover(cover_path) if cover_path else None
+    first_source, first_fmt, _, _ = loaded[0]
+    cover_path, cover = load_input_cover(args, paths[0], first_fmt,
+                                         first_source)
     announce_start(meta, cover_path, cover, len(loaded))
     started = time.time()
 
@@ -383,6 +441,35 @@ def convert_merged(paths: Sequence[str], args) -> bool:
         print("!!! 没有解析出任何内容", file=sys.stderr)
         return False
 
+    out = args.output or default_output(paths[0], args.output_format)
+    out_real = os.path.realpath(out)
+    collision = any(not is_url(item_path)
+                    and os.path.realpath(item_path) == out_real
+                    for item_path in paths)
+    if collision:
+        if args.output:
+            print("!!! 输出文件不能与输入相同: %s" % out,
+                  file=sys.stderr)
+            return False
+        stem, ext = os.path.splitext(out)
+        out = stem + "-converted" + ext
+
+    if args.output_format == "md":
+        if args.style or args.extra_style:
+            print("!!! --style / --extra-style 只对 EPUB 输出生效，已忽略",
+                  file=sys.stderr)
+        try:
+            write_markdown(out, meta, chapters, images, cover=cover,
+                           include_frontmatter=not args.no_frontmatter,
+                           verbose=args.verbose)
+        except Exception as error:
+            print("!!! 生成 Markdown 失败: %s" % error, file=sys.stderr)
+            if args.verbose:
+                traceback.print_exc()
+            return False
+        announce_done(meta, out, started, len(chapters))
+        return True
+
     try:
         style = resolve_style(args.style, args.extra_style)
     except StyleError as error:
@@ -394,13 +481,15 @@ def convert_merged(paths: Sequence[str], args) -> bool:
               % (len(loaded), len(chapters), ", ".join(style.sources)),
               file=sys.stderr)
 
-    out = args.output or default_output(paths[0])
     return build_book(chapters, images, meta, out, args, style, cover, started)
 
 
 def convert_legacy(path: str, body: bytes, meta: BookMeta, out: str, args,
                    has_frontmatter: bool) -> bool:
     """calibre / pandoc 引擎，需要把正文落到临时文件。"""
+    if args.output_format != "epub":
+        print("!!! Markdown 输出只支持内建引擎（-m native）", file=sys.stderr)
+        return False
     if args.style or args.extra_style:
         print("!!! --style / --extra-style 只对内建引擎（-m native）生效，"
               "已忽略", file=sys.stderr)
@@ -444,10 +533,14 @@ def convert_one(path: str, args) -> bool:
     if not meta.complete:
         print("!!! 无法确定书名: %s" % path, file=sys.stderr)
         print("    可在文件头部加 frontmatter（title），"
-              "把文件命名为《书名》…，或给 HTML/CHM 加 <title>", file=sys.stderr)
+              "把文件命名为《书名》…，或给 HTML/CHM/EPUB 加书名", file=sys.stderr)
         return False
 
-    out = args.output or default_output(path)
+    out = args.output or default_output(path, args.output_format)
+    if (args.output and not is_url(path)
+            and os.path.realpath(out) == os.path.realpath(path)):
+        print("!!! 输出文件不能与输入相同: %s" % out, file=sys.stderr)
+        return False
 
     if args.method == "native":
         return convert_native(path, source, fmt, meta, out, args)
