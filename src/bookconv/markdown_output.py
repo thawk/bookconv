@@ -5,7 +5,7 @@
 
 输出约定：
 
-* 文件头写 YAML frontmatter（title / authors / comments），可以被 bookconv 的
+* 文件头写 YAML frontmatter（title / author / description），可以被 bookconv 的
   Markdown 输入插件直接读回；
 * 第 1 级章节用 ``#``，第 2 级用 ``##``，依此类推；
 * 插图写到 ``<md 文件名>.images/``，Markdown 里的路径同步改写；
@@ -140,10 +140,10 @@ def _frontmatter(meta: BookMeta) -> str:
     if meta.title:
         lines.append("title: " + _yaml_string(meta.title))
     if meta.authors:
-        lines.append("authors:")
+        lines.append("author:")
         lines.extend("  - " + _yaml_string(author) for author in meta.authors)
     if meta.comments:
-        lines.append("comments: |")
+        lines.append("description: |")
         for line in meta.comments.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
             lines.append("  " + line if line else "")
     lines.append("---")
