@@ -14,6 +14,7 @@
   （HTML 同时支持目录和 URL）
 - 输出格式用 `-f/--format` 控制：`epub`（默认）或 `md`
 - 样式可定制：封面页 / 扉页 / 目录页 / 简介页 / 章节标题 / 各级标题 / 正文各有一段 CSS 钩子
+- 附带 `bookcover`：按书名从起点 / 纵横 / 17K / 晋江抓高清封面和简介（只用标准库）
 
 ## 依赖（一次性，装在项目里）
 
@@ -97,6 +98,38 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 | `--keep-indent` | 保留段落开头的全角空格（默认去掉，交给 CSS `text-indent`） |
 | `--chapter-pattern REGEX` | txt 的章标题正则 |
 | `-v, --verbose` | 打印解析到的元数据、使用的样式等 |
+
+## 下载封面和简介（`bookcover`）
+
+`bookcover` 按书名去原创小说站点抓封面和简介，下好之后可以直接配合
+`bookconv --cover` 用。封面按 `《书名》作者：xxx.扩展名` 命名，简介保存为
+同名 `.desc`（UTF-8 纯文本）。只用标准库，没有 venv 也能跑。
+
+| 站点 | `-s` | 封面 |
+| --- | --- | --- |
+| 起点中文网 | `qidian` | 600×800 |
+| 纵横中文网 | `zongheng` | 站点原图（600×800） |
+| 17K小说网 | `17k` | 600×800 |
+| 晋江文学城 | `jjwxc` | 站点原图（常见 200×280 / 400×560） |
+
+```bash
+./bookcover 凡人修仙传                    # 书名和作者都匹配时直接下载
+./bookcover 剑来 -a 烽火戏诸侯 -o ./books
+./bookcover 雪中                          # 多个结果时列出《书名》作者：xxx 供选择
+./bookcover 撒野 -s jjwxc --pick 1        # 非交互选择
+./bookcover 遮天 --cover-only -f          # 只下封面并覆盖旧文件
+```
+
+- 书名（和可选的 `-a` 作者）完全匹配且只有一个结果时直接下载；否则列出
+  `《书名》作者：xxx` 让你确认，输入序号选择，`0` 跳过
+- 起点 PC 站有 JS 反爬，改走 `m.qidian.com` 的移动端搜索（不需要浏览器）；
+  晋江的搜索参数是 GBK，代码里已处理
+- 默认不覆盖已有文件，`-f/--force` 覆盖；`--cover-only` / `--desc-only` 只取其一
+- 同一本书在多个站点都有时，按 起点 → 纵横 → 17K → 晋江 的顺序取
+- 非交互环境用 `--pick N` 或 `-y`；退出码 `0` 成功、`1` 下载失败、
+  `2` 没有选中（需要选择 / 跳过 / 没有相关结果）
+
+从别的目录调用：`~/workspace/bookconv/bookcover 某书`。
 
 ## frontmatter
 
@@ -362,9 +395,12 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
 ```
 bookconv/
 ├── bookconv                 直接运行的入口（自动使用 .venv）
+├── bookcover                下载封面/简介的入口（只用标准库）
 ├── pyproject.toml         依赖与打包信息
 ├── src/bookconv/
 │   ├── cli.py             命令行入口
+│   ├── cover.py           从原创小说站点抓取封面 / 简介
+│   ├── cover_cli.py       bookcover 命令行入口
 │   ├── epub.py            用 ebooklib 组装 EPUB（nav / NCX / 封面）
 │   ├── frontmatter.py     YAML frontmatter 容错解析
 │   ├── metadata.py        书名/作者兜底、封面查找

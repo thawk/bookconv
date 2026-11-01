@@ -118,7 +118,7 @@ class MarkdownOutputTest(unittest.TestCase):
         text = self.read("source.md")
         self.assertIn('title: "EPUB 测试书"', text)
         self.assertIn('- "张三"', text)
-        self.assertIn("comments: |", text)
+        self.assertIn("description: |", text)
         self.assertIn("# 第一卷", text)
         self.assertIn("## 第一章", text)
         self.assertIn("正文一", text)
@@ -216,7 +216,7 @@ class MarkdownOutputTest(unittest.TestCase):
 
     def test_merge_markdown(self):
         with open("a.md", "w", encoding="utf-8") as f:
-            f.write("---\ntitle: 合集\nauthors: 甲\n---\n\n# 第一章\n\n正文一\n")
+            f.write("---\ntitle: 合集\nauthor: 甲\n---\n\n# 第一章\n\n正文一\n")
         with open("b.md", "w", encoding="utf-8") as f:
             f.write("# 第二章\n\n正文二\n")
         self.assertEqual(main(["--merge", "-f", "md", "-o", "all.md",

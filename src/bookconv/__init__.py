@@ -10,9 +10,11 @@
     engines.py      calibre / pandoc 备用引擎
     inputs/         输入插件（markdown / txt / asciidoc / html / epub / chm）
     markdown_output.py  Markdown 输出（--format md）
+    cover.py        从原创小说站点抓取封面 / 简介
+    cover_cli.py    bookcover 命令行入口
     cli.py          命令行入口
 
 依赖放在项目内的 ``.venv`` 里，不需要装到 dotfiles。
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

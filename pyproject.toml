@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bookconv"
-version = "0.4.0"
+version = "0.5.0"
 description = "把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转成 EPUB 或 Markdown"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 bookconv = "bookconv.cli:main"
+bookcover = "bookconv.cover_cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

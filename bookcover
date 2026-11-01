@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""无需安装，直接在项目目录里运行::
+
+    ./bookcover 凡人修仙传
+    ./bookcover 剑来 -a 烽火戏诸侯 -o ./books
+
+和 ``./bookconv`` 一样，如果项目里有 ``.venv`` 就用里面的解释器重新执行自己。
+``bookcover`` 只用标准库，所以没有 venv 时也能直接跑。
+"""
+
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+VENV_PYTHON = os.path.join(HERE, ".venv", "bin", "python")
+
+if os.path.exists(VENV_PYTHON) and os.path.abspath(sys.executable) != VENV_PYTHON:
+    os.execv(VENV_PYTHON, [VENV_PYTHON, os.path.abspath(__file__)] + sys.argv[1:])
+
+sys.path.insert(0, os.path.join(HERE, "src"))
+
+from bookconv.cover_cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())
