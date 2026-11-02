@@ -1,6 +1,8 @@
 """输入插件（markdown / txt）的测试。"""
 
 import base64
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -37,6 +39,24 @@ class MarkdownSectionTest(unittest.TestCase):
         text = "# 第1章\n\n```\n# 这不是标题\n```\n\n# 第2章\n"
         sections = split_sections(text)
         self.assertEqual([s.title for s in sections], ["第1章", "第2章"])
+
+    def test_tilde_code_fence_is_not_heading(self):
+        text = "# 第1章\n\n~~~python\n# 这不是标题\n~~~\n\n# 第2章\n"
+        sections = split_sections(text)
+        self.assertEqual([s.title for s in sections], ["第1章", "第2章"])
+
+    def test_decorative_tildes_are_not_code_fence(self):
+        # 全角缩进的装饰性文字不应被当成代码围栏，否则后面的标题会被吞掉
+        text = ("## 第1章\n\n　　~~~山樱院~~~\n\n正文\n\n"
+                "## 第2章\n\n正文\n")
+        sections = split_sections(text)
+        self.assertEqual([s.title for s in sections], ["第1章", "第2章"])
+        self.assertIn("正文", sections[0].chunk)
+
+    def test_section_line_numbers(self):
+        text = "前言\n\n# 第1章\n\n正文\n\n# 第2章\n"
+        sections = split_sections(text)
+        self.assertEqual([s.line for s in sections], [1, 3, 7])
 
     def test_no_heading(self):
         sections = split_sections("只有正文，没有标题。\n")
@@ -85,6 +105,24 @@ class MarkdownInputTest(unittest.TestCase):
         chapters = self.parse("# 第1章\n\n　　缩进段落。\n", keep_indent=True)
         self.assertIn("缩进段落。", chapters[0].html)
         self.assertEqual(chapters[0].html.count("&#x3000;"), 2)
+
+    def test_large_section_warns_with_source_location(self):
+        text = ("## 第1章\n\n" + "字" * 200_001
+                + "\n\n## 第2章\n\n正文\n")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            chapters = self.parse(text)
+        self.assertEqual(len(chapters), 2)
+        message = stderr.getvalue()
+        self.assertIn("第 1-4 行", message)
+        self.assertIn("第1章", message)
+        self.assertIn("book.md", message)
+
+    def test_normal_sections_do_not_warn(self):
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.parse("## 第1章\n\n正文\n\n## 第2章\n\n正文\n")
+        self.assertEqual(stderr.getvalue(), "")
 
     def test_no_heading_still_one_chapter(self):
         chapters = self.parse("只有正文。\n")

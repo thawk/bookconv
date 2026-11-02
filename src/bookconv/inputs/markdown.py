@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -30,6 +31,26 @@ HEADING_TAG_RE = re.compile(r"<h[1-6]\b[^>]*>(.*?)</h[1-6]>",
                             re.IGNORECASE | re.DOTALL)
 FULLWIDTH_INDENT_RE = re.compile(r"^(\u3000+)")
 
+#: 代码围栏开头：与 python-markdown 的 fenced_code 保持一致。语言/信息串
+#: 只能由 ``[\w#.+-]`` 组成，因此 ``~~~山樱院~~~`` 这种装饰性文字不会被误判。
+FENCE_OPEN_RE = re.compile(
+    r"^ {0,3}(`{3,}|~{3,})[ ]*(?:\{[^\}\n]*\}|[\w#.+-]*[ ]*)?$")
+
+#: 单个章节超过这么多字符就提示，通常是章节标题没被识别导致多章合并。
+LARGE_SECTION_CHARS = 200_000
+
+
+def _fence_open(line: str) -> Optional[str]:
+    """返回代码围栏标记（如 `` ``` ``）；不是围栏开头则返回 None。"""
+    matched = FENCE_OPEN_RE.match(line)
+    return matched.group(1) if matched else None
+
+
+def _fence_close(line: str, marker: str) -> bool:
+    """判断该行是否闭合了指定的代码围栏。"""
+    return re.fullmatch(r" {0,3}%s[ \t]*" % re.escape(marker),
+                        line) is not None
+
 
 @dataclass
 class MarkdownSection:
@@ -38,20 +59,21 @@ class MarkdownSection:
     title: str
     level: int          #: 1-6；0 表示第一个标题之前的前言
     chunk: str
+    line: int = 1       #: 该节在源文件里的起始行号（1 起）
 
 
 def _iter_heading_lines(text: str):
     """逐行产出 (原始行, 标题匹配)；围栏/缩进代码块里的 # 不算标题。"""
     fence: Optional[str] = None
     for line in text.splitlines():
-        stripped = line.lstrip()
         if fence is not None:
-            if stripped.startswith(fence):
+            if _fence_close(line, fence):
                 fence = None
             yield line, None
             continue
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            fence = stripped[:3]
+        marker = _fence_open(line)
+        if marker is not None:
+            fence = marker
             yield line, None
             continue
         if line.startswith("    ") or line.startswith("\t"):
@@ -72,25 +94,49 @@ def split_sections(text: str) -> List[MarkdownSection]:
     sections: List[MarkdownSection] = []
     title = ""
     level = 0
+    start_line = 1
     lines: List[str] = []
 
     def flush() -> None:
         nonlocal title, level, lines
         if title or any(line.strip() for line in lines):
-            sections.append(MarkdownSection(title, level, "\n".join(lines)))
+            sections.append(MarkdownSection(title, level, "\n".join(lines),
+                                            start_line))
         title, level, lines = "", 0, []
 
-    for line, matched in _iter_heading_lines(text):
+    for line_number, (line, matched) in enumerate(
+            _iter_heading_lines(text), start=1):
         if matched is not None:
             flush()
             title = matched.group(3).strip()
             level = len(matched.group(2))
+            start_line = line_number
             lines = [line]
             continue
         lines.append(line)
 
     flush()
     return sections
+
+
+def warn_large_sections(source: SourceFile,
+                        sections: List[MarkdownSection]) -> None:
+    """章节异常大时提示源文件位置：通常是标题没被识别，导致多章合并。"""
+    if len(sections) < 2:
+        return
+    for index, section in enumerate(sections):
+        size = len(section.chunk)
+        if size < LARGE_SECTION_CHARS:
+            continue
+        if index + 1 < len(sections):
+            span = "第 %d-%d 行" % (section.line,
+                                    sections[index + 1].line - 1)
+        else:
+            span = "第 %d 行起" % section.line
+        print("提示: '%s' %s的章节异常大（%d 字符，约 %.1f 万字），"
+              "可能没有正确切分: %s"
+              % (source.path, span, size, size / 10000.0,
+                 section.title or "前言"), file=sys.stderr)
 
 
 def _section_body(section: MarkdownSection) -> str:
@@ -139,15 +185,15 @@ def preserve_leading_indent(text: str) -> str:
     lines = []
     fence = None
     for line in text.splitlines():
-        stripped = line.lstrip()
-        if fence is None and (stripped.startswith("```")
-                              or stripped.startswith("~~~")):
-            fence = stripped[:3]
+        if fence is not None:
+            if _fence_close(line, fence):
+                fence = None
             lines.append(line)
             continue
-        if fence is not None:
-            if stripped.startswith(fence):
-                fence = None
+
+        marker = _fence_open(line)
+        if marker is not None:
+            fence = marker
             lines.append(line)
             continue
 
@@ -166,6 +212,7 @@ class MarkdownInput(InputFormat):
     def parse(self, source: SourceFile, *, images: ImageStore,
               options: ParseOptions) -> List[Chapter]:
         sections = split_sections(source.text)
+        warn_large_sections(source, sections)
         base_level = detect_heading_level(source.text)
         has_titles = any(section.level > 0 for section in sections)
         chapters: List[Chapter] = []
@@ -205,4 +252,5 @@ class MarkdownInput(InputFormat):
 
 
 __all__ = ["MarkdownInput", "MarkdownSection", "detect_heading_level",
-           "split_sections", "render_markdown", "preserve_leading_indent"]
+           "split_sections", "render_markdown", "preserve_leading_indent",
+           "warn_large_sections"]
