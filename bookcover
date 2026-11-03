@@ -3,6 +3,7 @@
 """无需安装，直接在项目目录里运行::
 
     ./bookcover 凡人修仙传
+    ./bookcover "《剑来》作者：烽火戏诸侯.md"
     ./bookcover 剑来 -a 烽火戏诸侯 -o ./books
 
 和 ``./bookconv`` 一样，如果项目里有 ``.venv`` 就用里面的解释器重新执行自己。

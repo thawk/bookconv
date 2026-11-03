@@ -12,6 +12,7 @@ from bookconv.cover import (Book, Response, clean_title, download, image_info,
                             parse_jjwxc_detail, parse_qidian, parse_zongheng,
                             quote_query, safe_base_name, select_book, text_of,
                             url_extension, write_file)
+from bookconv.cover_cli import BookQuery, parse_query, parse_queries
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAE"
@@ -132,6 +133,60 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(book.cover_urls,
                          ["https://static.zongheng.com/upload/cover/8c/75/x.jpeg"])
         self.assertIn("珠帘", book.description)
+
+
+class SourceParseTest(unittest.TestCase):
+    def test_plain_title(self):
+        self.assertEqual(parse_query("凡人修仙传"),
+                         BookQuery("凡人修仙传"))
+
+    def test_bookconv_filename(self):
+        self.assertEqual(parse_query("《剑来》作者：烽火戏诸侯.md"),
+                         BookQuery("剑来", "烽火戏诸侯"))
+
+    def test_bookconv_string_without_extension(self):
+        self.assertEqual(parse_query("《剑来》作者：烽火戏诸侯"),
+                         BookQuery("剑来", "烽火戏诸侯"))
+
+    def test_path_and_url(self):
+        self.assertEqual(
+            parse_query("/tmp/books/《剑来》作者：烽火戏诸侯.epub"),
+            BookQuery("剑来", "烽火戏诸侯"))
+        self.assertEqual(
+            parse_query("https://example.com/《剑来》作者：烽火戏诸侯.md"),
+            BookQuery("剑来", "烽火戏诸侯"))
+
+    def test_plain_filename_strips_extension(self):
+        self.assertEqual(parse_query("剑来.md"), BookQuery("剑来"))
+
+    def test_plain_author_suffix(self):
+        self.assertEqual(parse_query("剑来 作者：烽火戏诸侯.md"),
+                         BookQuery("剑来", "烽火戏诸侯"))
+
+    def test_dedupe(self):
+        queries = parse_queries([
+            "《剑来》作者：烽火戏诸侯.md",
+            "《剑来》作者：烽火戏诸侯.epub",
+            "剑来",
+        ])
+        self.assertEqual(queries, [BookQuery("剑来", "烽火戏诸侯")])
+
+    def test_same_title_different_authors_kept(self):
+        queries = parse_queries(["《剑来》作者：甲", "《剑来》作者：乙"])
+        self.assertEqual(queries, [BookQuery("剑来", "甲"),
+                                   BookQuery("剑来", "乙")])
+
+    def test_author_override(self):
+        queries = parse_queries(["《剑来》作者：甲", "《剑来》作者：乙"],
+                                author="丙")
+        self.assertEqual(queries, [BookQuery("剑来", "丙")])
+
+    def test_author_override_applies_to_all_inputs(self):
+        queries = parse_queries(
+            ["《剑来》作者：甲", "《雪中悍刀行》", "《剑来》作者：乙"],
+            author="丙")
+        self.assertEqual(queries, [BookQuery("剑来", "丙"),
+                                   BookQuery("雪中悍刀行", "丙")])
 
 
 class TextTest(unittest.TestCase):
