@@ -9,8 +9,9 @@ import unittest
 
 from bookconv.cover import (Book, Response, clean_title, download, image_info,
                             is_related, normalize, parse_17k, parse_jjwxc,
-                            parse_jjwxc_detail, parse_qidian, parse_zongheng,
-                            quote_query, safe_base_name, select_book, text_of,
+                            parse_jjwxc_detail, parse_qidian,
+                            parse_qidian_detail, parse_zongheng, quote_query,
+                            safe_base_name, select_book, text_of,
                             url_extension, write_file)
 from bookconv.cover_cli import BookQuery, parse_query, parse_queries
 
@@ -26,6 +27,12 @@ QIDIAN_PAGE = """
  <div><h2 class="_searchBookName_lrbl7_250"><mark>凡人修仙传</mark></h2>
  <p class="_searchBookDesc_lrbl7_337">一个普通山村小子，偶然下进入到当地江湖小门派。</p>
  <div><p class="_searchBookAuthor_lrbl7_429">忘语</p></div></div></a></div>
+"""
+
+QIDIAN_DETAIL_PAGE = """
+<script id="vite-plugin-ssr_pageContext" type="application/json">{"pageContext":
+{"pageProps":{"pageData":{"bookInfo":{"desc":
+"\\u3000\\u3000第一段。\\n第二段。\\n\\n第三段。"}}}}}</script>
 """
 
 K17_PAGE = """
@@ -96,6 +103,11 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(book.author, "忘语")
         self.assertIn("普通山村", book.description)
         self.assertTrue(book.cover_urls[0].endswith("/349573/107580/600"))
+
+    def test_qidian_detail_keeps_line_breaks(self):
+        book = parse_qidian(QIDIAN_PAGE)[0]
+        parse_qidian_detail(book, QIDIAN_DETAIL_PAGE)
+        self.assertEqual(book.description, "第一段。\n第二段。\n\n第三段。")
 
     def test_17k(self):
         books = parse_17k(K17_PAGE)
@@ -281,6 +293,16 @@ class DownloadTest(unittest.TestCase):
                                      os.path.basename(base) + ".desc"]))
             with open(base + ".desc", "rb") as f:
                 self.assertEqual(f.read(), "简介正文\n".encode("utf-8"))
+
+    def test_download_keeps_multiline_description(self):
+        book = Book("qidian", "起点中文网", "剑来", "烽火戏诸侯",
+                    description="第一段\n第二段", cover_urls=["https://x/cover"])
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertTrue(download(book, self.FakeClient(), directory,
+                                     want_cover=False))
+            path = os.path.join(directory, "《剑来》作者：烽火戏诸侯.desc")
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), "第一段\n第二段\n".encode("utf-8"))
 
     def test_safe_base_name(self):
         self.assertEqual(safe_base_name("A/B", "C:D"), "《A／B》作者：C：D")

@@ -324,6 +324,25 @@ def parse_qidian(page: str) -> List[Book]:
     return books
 
 
+def parse_qidian_detail(book: Book, page: str) -> None:
+    """从起点详情页补全简介（搜索结果的简介没有换行）。"""
+    matched = re.search(
+        r'<script id="vite-plugin-ssr_pageContext" type="application/json">'
+        r'(.*?)</script>', page, re.S)
+    if not matched:
+        return
+    try:
+        description = json.loads(matched.group(1))[
+            "pageContext"]["pageProps"]["pageData"]["bookInfo"]["desc"]
+    except (TypeError, KeyError, ValueError):
+        return
+    if not isinstance(description, str):
+        return
+    description = text_of(description)
+    if description:
+        book.description = description
+
+
 def parse_zongheng(data) -> List[Book]:
     """解析 search.zongheng.com/search/book 返回的 JSON。"""
     books: List[Book] = []
@@ -478,7 +497,19 @@ class QidianProvider(Provider):
                                ua=UA_MOBILE)
         if resp.status != 200:
             raise FetchError("起点搜索返回 HTTP %d" % resp.status)
-        return parse_qidian(decode_body(resp))
+        books = parse_qidian(decode_body(resp))
+        for book in books:
+            book.detail = self._detail_filler(book.page_url)
+        return books
+
+    def _detail_filler(self, page_url: str) -> Callable[[Book], None]:
+        def fill(book: Book) -> None:
+            resp = self.client.get(page_url, referer="https://m.qidian.com/",
+                                   ua=UA_MOBILE)
+            if resp.status != 200:
+                return
+            parse_qidian_detail(book, decode_body(resp))
+        return fill
 
 
 class ZonghengProvider(Provider):
