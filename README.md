@@ -89,7 +89,7 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 | `--no-frontmatter` | `-f md` 时不写 YAML frontmatter |
 | `--merge` | 把多个输入（文件/目录/URL）合并成一本书 |
 | `-o, --output FILE` | 输出文件名（默认同源文件名；合并时用第一个文件的名字） |
-| `--cover FILE` | 指定封面图（默认找同名图片/目录里的 `cover.*`；EPUB 用内嵌封面） |
+| `--cover FILE` | 指定封面图（默认找同名图片、目录里的 `cover.*`，再找 `bookcover` 下载的 `《书名》作者：xxx.扩展名`；文件不存在或无效时不生成封面页） |
 | `-s, --style FILE` | 用该 CSS 替换内置默认样式（仅 EPUB 输出） |
 | `--extra-style FILE` | 在最终样式后追加 CSS，可重复（仅 EPUB 输出） |
 | `--lang` | 书籍语言，默认 `zh` |
@@ -102,8 +102,9 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 ## 下载封面和简介（`bookcover`）
 
 `bookcover` 按书名去原创小说站点抓封面和简介，下好之后可以直接配合
-`bookconv --cover` 用。封面按 `《书名》作者：xxx.扩展名` 命名，简介保存为
-同名 `.desc`（UTF-8 纯文本）。只用标准库，没有 venv 也能跑。
+`bookconv` 用：除了同名图片，`bookconv` 也会自动找
+`《书名》作者：xxx.扩展名` 形式的封面。封面按 `《书名》作者：xxx.扩展名`
+命名，简介保存为同名 `.desc`（UTF-8 纯文本）。只用标准库，没有 venv 也能跑。
 
 | 站点 | `-s` | 封面 |
 | --- | --- | --- |

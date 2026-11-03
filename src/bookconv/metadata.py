@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import urlsplit
 
 from .frontmatter import BookMeta
+from .images import sniff_image_ext
 
 FILENAME_TITLE_RE = re.compile(r"^.*《([^》]*)》")
 FILENAME_AUTHOR_RE = re.compile(r"^.*作者[:：][ \t]*(.*)")
@@ -45,20 +46,65 @@ def resolve_meta(path: str, info: Optional[BookMeta] = None) -> BookMeta:
     return info
 
 
-def find_cover(path: str) -> Optional[str]:
-    """找封面图：文件找同名图片，目录找里面的 cover.*。"""
+def bookcover_base_name(title: str, author: str) -> str:
+    """生成 bookcover 下载文件用的“《书名》作者：xxx”基名。"""
+    name = "《%s》作者：%s" % (title, author or "未知")
+    name = name.replace("/", "／").replace("\\", "＼").replace(":", "：")
+    name = re.sub(r"[\x00-\x1f\x7f]", "", name)
+    return name.rstrip(" .") or "未命名"
+
+
+def _usable(path: str) -> bool:
+    """存在、非空且文件头像图片，才算封面。"""
+    try:
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            return False
+        with open(path, "rb") as f:
+            return sniff_image_ext(f.read(4096)) is not None
+    except OSError:
+        return False
+
+
+def _bookcover_names(meta: Optional[BookMeta]) -> List[str]:
+    if meta is None or not meta.title:
+        return []
+    authors = [author for author in meta.authors if author]
+    names = []
+    for author in authors or [""]:
+        name = bookcover_base_name(meta.title, author)
+        if name not in names:
+            names.append(name)
+    if len(authors) > 1:
+        name = bookcover_base_name(meta.title, meta.author_text)
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def _find_bookcover_cover(directory: str,
+                          meta: Optional[BookMeta]) -> Optional[str]:
+    for name in _bookcover_names(meta):
+        for ext in COVER_EXTS:
+            cover = os.path.join(directory, "%s.%s" % (name, ext))
+            if _usable(cover):
+                return cover
+    return None
+
+
+def find_cover(path: str, meta: Optional[BookMeta] = None) -> Optional[str]:
+    """找封面图：先找同名图片/目录 cover.*，再找 bookcover 下载的封面。"""
     if path.lower().startswith(("http://", "https://")):
         return None
     if os.path.isdir(path):
         for ext in COVER_EXTS:
             cover = os.path.join(path, "cover." + ext)
-            if os.path.isfile(cover):
+            if _usable(cover):
                 return cover
-        return None
+        return _find_bookcover_cover(path, meta)
 
     stem = os.path.splitext(path)[0]
     for ext in COVER_EXTS:
         cover = "%s.%s" % (stem, ext)
-        if os.path.isfile(cover):
+        if _usable(cover):
             return cover
-    return None
+    return _find_bookcover_cover(os.path.dirname(os.path.abspath(path)), meta)

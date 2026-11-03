@@ -188,6 +188,51 @@ class CliTest(unittest.TestCase):
         with zipfile.ZipFile("book.epub") as z:
             self.assertIn("EPUB/images/cover.png", z.namelist())
 
+    def test_bookcover_named_cover_fallback(self):
+        source = "《测试书名》（校对版全本）作者：幸福来敲门.txt"
+        self.write(source, "第1章 开始\n正文。\n")
+        self.write("《测试书名》作者：幸福来敲门.png", PNG, binary=True)
+        self.assertEqual(main([source]), 0)
+        epub = "《测试书名》（校对版全本）作者：幸福来敲门.epub"
+        opf = self.opf(epub)
+        self.assertIn('properties="cover-image"', opf)
+        with zipfile.ZipFile(epub) as z:
+            self.assertIn("EPUB/images/cover.png", z.namelist())
+
+    def test_missing_cover_produces_no_cover_page(self):
+        self.write("book.md", BOOK_MD)
+        self.assertEqual(main(["book.md"]), 0)
+        with zipfile.ZipFile("book.epub") as z:
+            names = z.namelist()
+        self.assertFalse(any(name.endswith("cover.xhtml") for name in names))
+        self.assertNotIn('properties="cover-image"', self.opf("book.epub"))
+
+    def test_missing_cover_option_is_ignored(self):
+        self.write("book.md", BOOK_MD)
+        self.assertEqual(main(["--cover", "missing.png", "book.md"]), 0)
+        with zipfile.ZipFile("book.epub") as z:
+            names = z.namelist()
+        self.assertFalse(any(name.endswith("cover.xhtml") for name in names))
+        self.assertNotIn('properties="cover-image"', self.opf("book.epub"))
+
+    def test_empty_cover_file_is_ignored(self):
+        self.write("book.md", BOOK_MD)
+        self.write("book.png", b"", binary=True)
+        self.assertEqual(main(["book.md"]), 0)
+        with zipfile.ZipFile("book.epub") as z:
+            names = z.namelist()
+        self.assertFalse(any(name.endswith("cover.xhtml") for name in names))
+        self.assertNotIn('properties="cover-image"', self.opf("book.epub"))
+
+    def test_invalid_cover_file_is_ignored(self):
+        self.write("book.md", BOOK_MD)
+        self.write("book.png", b"not an image", binary=True)
+        self.assertEqual(main(["book.md"]), 0)
+        with zipfile.ZipFile("book.epub") as z:
+            names = z.namelist()
+        self.assertFalse(any(name.endswith("cover.xhtml") for name in names))
+        self.assertNotIn('properties="cover-image"', self.opf("book.epub"))
+
     def test_verbose_runs(self):
         self.write("book.md", BOOK_MD)
         self.assertEqual(main(["-v", "book.md"]), 0)

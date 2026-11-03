@@ -17,7 +17,7 @@ from .epub import build_epub
 from .frontmatter import NoFrontMatter, read_frontmatter
 from .htmlutil import paragraphs
 from .images import (MEDIA_TYPES, EpubImage, ImageStore, convert_image,
-                     image_size)
+                     image_size, sniff_image_ext)
 from .inputs.base import is_url
 from .markdown_output import write_markdown
 from .metadata import find_cover, resolve_meta
@@ -137,6 +137,12 @@ def load_cover(image_path: str) -> Optional[EpubImage]:
     except OSError as error:
         print("!!! 读取封面失败 %s: %s" % (image_path, error), file=sys.stderr)
         return None
+    if not data:
+        print("!!! 封面文件为空: %s" % image_path, file=sys.stderr)
+        return None
+    if sniff_image_ext(data) is None:
+        print("!!! 封面不是有效的图片: %s" % image_path, file=sys.stderr)
+        return None
 
     ext = os.path.splitext(image_path)[1].lstrip(".").lower()
     if ext == "webp":
@@ -152,19 +158,29 @@ def load_cover(image_path: str) -> Optional[EpubImage]:
     return EpubImage(path="images/cover." + ext, media_type=media_type, data=data)
 
 
-def pick_cover_path(args, path: str) -> Optional[str]:
+def pick_cover_path(args, path: str,
+                    meta: Optional[BookMeta] = None) -> Optional[str]:
     """--cover 优先，否则找与源文件同名的图片；--no-cover 时不要封面。"""
     if args.no_cover:
         return None
-    return args.cover or find_cover(path)
+    if args.cover:
+        if os.path.isfile(args.cover):
+            return args.cover
+        print("!!! 找不到封面文件: %s" % args.cover, file=sys.stderr)
+        return None
+    return find_cover(path, meta)
 
 
 def load_input_cover(args, path: str, fmt: Optional[inputs.InputFormat],
-                     source: Optional[inputs.SourceFile]):
+                     source: Optional[inputs.SourceFile],
+                     meta: Optional[BookMeta] = None):
     """返回 (封面文件路径, 封面图)。先找本地同名图，再用源文件内嵌封面。"""
-    cover_path = pick_cover_path(args, path)
+    cover_path = pick_cover_path(args, path, meta)
     if cover_path:
-        return cover_path, load_cover(cover_path)
+        cover = load_cover(cover_path)
+        if cover is None:
+            return None, None
+        return cover_path, cover
     if args.no_cover or fmt is None or source is None:
         return None, None
     try:
@@ -349,7 +365,7 @@ def build_book(chapters, images: ImageStore, meta: BookMeta, out: str, args,
 def convert_native(path: str, source: inputs.SourceFile,
                    fmt: inputs.InputFormat, meta: BookMeta, out: str,
                    args) -> bool:
-    cover_path, cover = load_input_cover(args, path, fmt, source)
+    cover_path, cover = load_input_cover(args, path, fmt, source, meta)
     announce_start(meta, cover_path, cover)
     started = time.time()
 
@@ -422,7 +438,7 @@ def convert_merged(paths: Sequence[str], args) -> bool:
 
     first_source, first_fmt, _, _ = loaded[0]
     cover_path, cover = load_input_cover(args, paths[0], first_fmt,
-                                         first_source)
+                                         first_source, meta)
     announce_start(meta, cover_path, cover, len(loaded))
     started = time.time()
 
@@ -502,7 +518,7 @@ def convert_legacy(path: str, body: bytes, meta: BookMeta, out: str, args,
             return False
         source = temp
 
-    cover = pick_cover_path(args, path)
+    cover = pick_cover_path(args, path, meta)
     announce_start(meta, cover)
     started = time.time()
 

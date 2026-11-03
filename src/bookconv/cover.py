@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .images import image_size, sniff_image_ext
+from .metadata import bookcover_base_name
 
 UA_DESKTOP = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -767,10 +768,7 @@ def fetch_cover(book: Book, client: HttpClient,
 
 def safe_base_name(title: str, author: str) -> str:
     """生成“《书名》作者：xxx”形式的文件名（保留中文，替换斜杠）。"""
-    name = "《%s》作者：%s" % (title, author or "未知")
-    name = name.replace("/", "／").replace("\\", "＼").replace(":", "：")
-    name = re.sub(r"[\x00-\x1f\x7f]", "", name)
-    return name.rstrip(" .") or "未命名"
+    return bookcover_base_name(title, author)
 
 
 def write_file(path: str, data: bytes, force: bool = False) -> bool:
