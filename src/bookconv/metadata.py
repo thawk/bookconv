@@ -91,6 +91,55 @@ def _find_bookcover_cover(directory: str,
     return None
 
 
+def _decode_text(raw: bytes) -> str:
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            return raw.decode("utf-16")
+        except UnicodeDecodeError:
+            pass
+    for encoding in ("utf-8-sig", "gb18030"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def _read_description(path: str) -> str:
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return ""
+    return _decode_text(raw).strip()
+
+
+def _description_candidates(path: str,
+                            meta: Optional[BookMeta]) -> List[str]:
+    if path.lower().startswith(("http://", "https://")):
+        return []
+    if os.path.isdir(path):
+        return ([os.path.join(path, "cover.desc")]
+                + [os.path.join(path, name + ".desc")
+                   for name in _bookcover_names(meta)])
+
+    candidates = [os.path.splitext(path)[0] + ".desc"]
+    directory = os.path.dirname(os.path.abspath(path))
+    candidates.extend(os.path.join(directory, name + ".desc")
+                      for name in _bookcover_names(meta))
+    return candidates
+
+
+def read_description(path: str,
+                     meta: Optional[BookMeta] = None) -> str:
+    """读取同名或 bookcover 命名的 ``.desc`` 作为简介。"""
+    for candidate in _description_candidates(path, meta):
+        text = _read_description(candidate)
+        if text:
+            return text
+    return ""
+
+
 def find_cover(path: str, meta: Optional[BookMeta] = None) -> Optional[str]:
     """找封面图：先找同名图片/目录 cover.*，再找 bookcover 下载的封面。"""
     if path.lower().startswith(("http://", "https://")):

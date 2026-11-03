@@ -20,7 +20,7 @@ from .images import (MEDIA_TYPES, EpubImage, ImageStore, convert_image,
                      image_size, sniff_image_ext)
 from .inputs.base import is_url
 from .markdown_output import write_markdown
-from .metadata import find_cover, resolve_meta
+from .metadata import find_cover, read_description, resolve_meta
 from .models import BookMeta
 from .styles import StyleError
 from .styles import resolve as resolve_style
@@ -313,6 +313,8 @@ def read_source(path: str, args) -> Optional[Tuple]:
             except Exception as error:  # 元数据只是兜底，失败不影响正文转换
                 if args.verbose:
                     print("提示: 读取书籍信息失败: %s" % error, file=sys.stderr)
+    if not meta.comments.strip():
+        meta.comments = read_description(path, meta)
     return source, fmt, meta, has_frontmatter
 
 

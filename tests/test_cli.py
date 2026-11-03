@@ -233,6 +233,20 @@ class CliTest(unittest.TestCase):
         self.assertFalse(any(name.endswith("cover.xhtml") for name in names))
         self.assertNotIn('properties="cover-image"', self.opf("book.epub"))
 
+    def test_description_fallback_from_desc_file(self):
+        source = "《描述书》（校对版全本）作者：甲.txt"
+        self.write(source, "第1章 开始\n正文。\n")
+        self.write("《描述书》作者：甲.desc",
+                   "第一行简介。\n第二行简介。\n")
+        self.assertEqual(main([source]), 0)
+        epub = "《描述书》（校对版全本）作者：甲.epub"
+        opf = self.opf(epub)
+        self.assertIn("第一行简介。", opf)
+        self.assertIn("第二行简介。", opf)
+        intro = self.html(epub, "intro.xhtml")
+        self.assertIn("第一行简介。", intro)
+        self.assertIn("第二行简介。", intro)
+
     def test_verbose_runs(self):
         self.write("book.md", BOOK_MD)
         self.assertEqual(main(["-v", "book.md"]), 0)

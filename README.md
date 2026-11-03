@@ -162,6 +162,7 @@ comments: |
 - `title` → 书名
 - `authors` / `author` / `creator` → 作者（可以是列表，也可以写 `张三 & 李四`）
 - `comments` / `description` / `abstract` / `summary` → 简介（写进 `dc:description`，并生成简介页）
+- 没有简介时，会读取同名 `.desc`，或 `bookcover` 下载的 `《书名》作者：xxx.desc`
 - 解析是容错的：字段之间有空行、块标量内容没缩进、CRLF、BOM 都能处理
 
 ## 样式

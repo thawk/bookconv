@@ -5,7 +5,8 @@ import os
 import tempfile
 import unittest
 
-from bookconv.metadata import (bookcover_base_name, find_cover, resolve_meta)
+from bookconv.metadata import (bookcover_base_name, find_cover,
+                               read_description, resolve_meta)
 from bookconv.models import BookMeta
 
 PNG = base64.b64decode(
@@ -103,6 +104,54 @@ class FindCoverTest(unittest.TestCase):
     def test_url_has_no_cover(self):
         self.assertIsNone(find_cover("https://example.com/book",
                                      BookMeta(title="书")))
+
+
+class ReadDescriptionTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = self.tmp.name
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def touch(self, name, text):
+        path = os.path.join(self.dir, name)
+        with open(path, "wb") as f:
+            f.write(text if isinstance(text, bytes) else text.encode("utf-8"))
+        return path
+
+    def test_same_stem(self):
+        source = self.touch("书.txt", "正文")
+        self.touch("书.desc", "第一行\n第二行")
+        self.assertEqual(read_description(source), "第一行\n第二行")
+
+    def test_bookcover_fallback(self):
+        source = self.touch("《书》（校对版全本）作者：甲.txt", "正文")
+        self.touch("《书》作者：甲.desc", "简介")
+        self.assertEqual(read_description(source, resolve_meta(source)), "简介")
+
+    def test_empty_same_stem_falls_back(self):
+        source = self.touch("《书》（校对版全本）作者：甲.txt", "正文")
+        self.touch("《书》（校对版全本）作者：甲.desc", "  \n")
+        self.touch("《书》作者：甲.desc", "简介")
+        self.assertEqual(read_description(source, resolve_meta(source)), "简介")
+
+    def test_directory(self):
+        directory = os.path.join(self.dir, "book")
+        os.mkdir(directory)
+        self.touch("book/《书》作者：甲.desc", "简介")
+        self.assertEqual(read_description(directory,
+                                          BookMeta(title="书", authors=["甲"])),
+                         "简介")
+
+    def test_missing(self):
+        source = self.touch("书.txt", "正文")
+        self.assertEqual(read_description(source), "")
+
+    def test_gb18030(self):
+        source = self.touch("书.txt", "正文")
+        self.touch("书.desc", "中文简介".encode("gb18030"))
+        self.assertEqual(read_description(source), "中文简介")
 
 
 if __name__ == "__main__":
