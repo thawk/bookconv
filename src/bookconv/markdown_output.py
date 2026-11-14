@@ -65,18 +65,25 @@ def _inner_html(root) -> str:
     return "".join(parts)
 
 
+def _title_key(text: str) -> str:
+    return re.sub(r"\s+", "", text)
+
+
 def _strip_title_heading(root, title: str) -> None:
     if not title:
         return
-    title = re.sub(r"\s+", " ", title).strip()
-    for child in root:
+    title_key = _title_key(title)
+    if not title_key:
+        return
+    for child in list(root):
         tag = _local_tag(child.tag)
         if tag not in HEADING_TAGS:
             continue
-        heading = re.sub(r"\s+", " ", child.text_content()).strip()
-        if not heading:
+        heading_key = _title_key(child.text_content())
+        if not heading_key:
             continue
-        if heading == title or title in heading or heading in title:
+        if (heading_key == title_key or title_key in heading_key
+                or heading_key in title_key):
             previous = child.getprevious()
             tail = child.tail or ""
             root.remove(child)
@@ -85,6 +92,7 @@ def _strip_title_heading(root, title: str) -> None:
                     previous.tail = (previous.tail or "") + tail
                 else:
                     root.text = (root.text or "") + tail
+            continue
         break
 
 

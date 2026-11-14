@@ -978,6 +978,46 @@ def _render_inner(node, ctx: _RenderContext) -> str:
     return "".join(parts)
 
 
+def _heading_separator(left: str, right: str) -> str:
+    """两个块级片段直接拼接时，按需补一个空格（避免英文单词粘连）。"""
+    left_text = html_lib.unescape(re.sub(r"<[^>]+>", "", left)).rstrip()
+    right_text = html_lib.unescape(re.sub(r"<[^>]+>", "", right))
+    if not left_text or not right_text:
+        return ""
+    last, first = left_text[-1], right_text[0]
+    if last.isspace() or first.isspace():
+        return ""
+    # 中文标题常见 “第209章” + “现在……” 直接相连，不能硬塞空格
+    if last.isalnum() and first.isalnum():
+        return " "
+    return ""
+
+
+def _render_heading_inner(node, ctx: _RenderContext) -> str:
+    """把标题里的块级元素（有些 EPUB 用 div/p 拼标题）压成一行。"""
+    parts: List[str] = []
+    if node.text:
+        parts.append(escape(node.text))
+    for child in node:
+        tag = _local_tag(child.tag)
+        if (tag and tag not in DROP_TAGS
+                and tag not in ("nav", "header", "footer")
+                and not _is_chrome(child)):
+            if tag == "br":
+                parts.append(" ")
+            elif tag in BLOCK_TAGS:
+                inner = _render_heading_inner(child, ctx)
+                if inner.strip():
+                    if parts:
+                        parts.append(_heading_separator(parts[-1], inner))
+                    parts.append(inner)
+            else:
+                parts.append(_render_node(child, ctx))
+        if child.tail:
+            parts.append(escape(child.tail))
+    return re.sub(r"\s+", " ", "".join(parts)).strip()
+
+
 def _render_flow(node, ctx: _RenderContext) -> str:
     """按块/行内分组渲染：零散文本和 ``<br>`` 会被包成 ``<p>``。"""
     parts: List[str] = []
@@ -1037,15 +1077,17 @@ def _render_node(node, ctx: _RenderContext) -> str:
                 attrs += ' %s="%s"' % (name, value.strip())
         return "<img%s/>" % attrs
 
+    if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
+        level = min(6, int(tag[1]) + 1)      # 页面标题由我们加，正文标题降一级
+        inner = _render_heading_inner(node, ctx)
+        return "<h%d>%s</h%d>" % (level, inner, level)
+
     inner = _render_inner(node, ctx)
 
     if tag in ("br", "hr"):
         return "<%s/>" % tag
     if tag in ("p", "div"):
         return "<%s>%s</%s>" % (tag, inner, tag)
-    if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
-        level = min(6, int(tag[1]) + 1)      # 页面标题由我们加，正文标题降一级
-        return "<h%d>%s</h%d>" % (level, inner, level)
     if tag in ("ul", "ol", "li", "dl", "dt", "dd", "blockquote", "pre",
                "code", "b", "strong", "i", "em", "s", "strike", "del",
                "sub", "sup", "kbd", "samp", "var", "ruby", "rt", "rp"):
@@ -1143,13 +1185,23 @@ def _strip_nav_paragraphs(fragment: str) -> str:
     return paragraph.sub(replace, fragment)
 
 
+def _title_key(text: str) -> str:
+    return re.sub(r"\s+", "", clean_title(text))
+
+
 def _strip_heading_duplicate(fragment: str, title: str) -> str:
     if not title:
         return fragment
-    matched = re.match(r"\s*<h[1-6][^>]*>(.*?)</h[1-6]>\s*",
-                       fragment, re.DOTALL | re.IGNORECASE)
-    if matched and clean_title(matched.group(1)) == title:
-        return fragment[matched.end():]
+    key = _title_key(title)
+    if not key:
+        return fragment
+    heading = re.compile(r"<h[1-6][^>]*>(.*?)</h[1-6]>",
+                         re.DOTALL | re.IGNORECASE)
+    # 只看正文里的第一个标题；它前面可能还有 logo 等其他内容
+    for matched in heading.finditer(fragment):
+        if _title_key(matched.group(1)) == key:
+            return fragment[:matched.start()] + fragment[matched.end():]
+        break
     return fragment
 
 

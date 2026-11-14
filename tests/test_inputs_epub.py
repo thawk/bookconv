@@ -51,6 +51,25 @@ def build_epub(path, *, with_toc=True, with_cover=True):
     return path
 
 
+def build_heading_epub(path, title, content):
+    """建一本只有一个章节、章节正文由测试指定的 EPUB。"""
+    book = epub.EpubBook()
+    book.set_identifier("bookconv-test-heading")
+    book.set_title("标题测试")
+    book.set_language("zh")
+    book.add_author("甲")
+    chapter = epub.EpubHtml(title=title, file_name="text/c1.xhtml", lang="zh")
+    chapter.content = ("<html><head><title>%s</title></head><body>%s</body>"
+                       "</html>" % (title, content))
+    book.add_item(chapter)
+    book.toc = (chapter,)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.spine = ["nav", chapter]
+    epub.write_epub(path, book)
+    return path
+
+
 class EpubInputTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -232,6 +251,32 @@ class MarkdownOutputTest(unittest.TestCase):
         text = self.read("meta.md")
         self.assertIn('title: "EPUB 测试书"', text)
         self.assertIn('- "张三"', text)
+
+    def test_duplicate_title_heading_is_removed(self):
+        path = build_heading_epub(
+            os.path.join(self.tmp.name, "heading.epub"), "第209章 现在可以启航了",
+            '<div class="logo"><p>logo</p></div>'
+            '<h2 class="head"><div class="biaoti1">第209章</div>'
+            '<div class="biaoti2"><p> 现在可以启航了</p></div></h2>'
+            "<p>正文一</p>")
+        self.assertEqual(main(["-f", "md", "-o", "heading.md", path]), 0)
+        text = self.read("heading.md")
+        self.assertEqual(text.count("第209章 现在可以启航了"), 1)
+        self.assertIn("# 第209章 现在可以启航了", text)
+        self.assertIn("正文一", text)
+        self.assertNotIn("####", text)
+        self.assertNotIn("\n第209章\n", text)
+
+    def test_heading_with_nested_blocks_stays_on_one_line(self):
+        path = build_heading_epub(
+            os.path.join(self.tmp.name, "nested.epub"), "第1章",
+            '<h2 class="head"><div>第一节</div><div><p>小节</p></div></h2>'
+            "<p>正文</p>")
+        self.assertEqual(main(["-f", "md", "-o", "nested.md", path]), 0)
+        text = self.read("nested.md")
+        self.assertIn("# 第1章", text)
+        self.assertIn("### 第一节 小节", text)
+        self.assertIn("正文", text)
 
     def test_md_with_legacy_engine_is_rejected(self):
         self.assertEqual(main(["-f", "md", "-m", "calibre", self.source]), 1)

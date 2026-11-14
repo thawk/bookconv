@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bookconv"
-version = "0.5.0"
+version = "0.5.1"
 description = "把 Markdown / txt / AsciiDoc / HTML / EPUB / CHM 转成 EPUB 或 Markdown"
 readme = "README.md"
 requires-python = ">=3.8"
