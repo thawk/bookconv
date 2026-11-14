@@ -130,6 +130,21 @@ class CliTest(unittest.TestCase):
         nav = self.html("《txt 书》作者：甲.epub", "nav.xhtml")
         self.assertRegex(nav, r"(?s)第一卷 风起.*?<ol>.*?第1章 开始")
 
+    def test_virtual_volume_title_in_first_chapter(self):
+        self.write("vol.md", "---\ntitle: 分卷书\n---\n\n"
+                             "# 第一卷\n\n## 第1章\n\n正文一\n\n"
+                             "## 第2章\n\n正文二\n\n"
+                             "# 第二卷\n\n## 第3章\n\n正文三\n")
+        self.assertEqual(main(["vol.md"]), 0)
+        first = self.html("vol.epub", "chapter-0001.xhtml")
+        second = self.html("vol.epub", "chapter-0002.xhtml")
+        third = self.html("vol.epub", "chapter-0003.xhtml")
+        self.assertIn('<h1 class="volume-title">第一卷</h1>', first)
+        self.assertIn("第1章", first)
+        self.assertIn('<h2 class="chapter-title"', first)
+        self.assertNotIn("volume-title", second)
+        self.assertIn('<h1 class="volume-title">第二卷</h1>', third)
+
     def test_unknown_input_format(self):
         self.write("book.md", BOOK_MD)
         with self.assertRaises(SystemExit) as raised:   # argparse 拒绝

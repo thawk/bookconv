@@ -205,6 +205,7 @@ comments: |
 | `.intro` / `.intro-title` | 简介页 / 简介标题 |
 | `.chapter` / `.chapter.first` | 正文页 |
 | `.chapter h1` | 章节标题 |
+| `.chapter .volume-title` | 只在目录里的卷标题（补在该卷第一页正文开头） |
 | `.chapter h2`、`.chapter h3` | 小节标题 |
 | `.chapter p` | 正文段落 |
 | `.chapter img`、`.chapter blockquote`、`.chapter hr`、`.chapter pre`、`.chapter code`、`.chapter table` | 对应元素 |

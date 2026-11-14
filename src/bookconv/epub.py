@@ -27,6 +27,23 @@ def _escape(text: str) -> str:
     return html_lib.escape(text, quote=True)
 
 
+HEADING_RE = re.compile(r"<h([1-6])(\b[^>]*)>(.*?)</h\1>",
+                        re.IGNORECASE | re.DOTALL)
+
+
+def _shift_first_heading(html: str, shift: int) -> str:
+    """把页面里第一个标题降若干级（插入卷标题后，让章成为卷的子标题）。"""
+    if shift <= 0:
+        return html
+    matched = HEADING_RE.search(html)
+    if matched is None:
+        return html
+    level = min(6, int(matched.group(1)) + shift)
+    replacement = "<h%d%s>%s</h%d>" % (
+        level, matched.group(2), matched.group(3), level)
+    return html[:matched.start()] + replacement + html[matched.end():]
+
+
 class _TocNode(object):
     __slots__ = ("item", "level", "children")
 
@@ -34,6 +51,17 @@ class _TocNode(object):
         self.item = item
         self.level = level
         self.children: List["_TocNode"] = []
+
+
+class _GroupNode(object):
+    """只在目录里出现的卷/部标题，等正文第一页时补一个标题。"""
+
+    __slots__ = ("level", "title", "shown")
+
+    def __init__(self, level: int, title: str) -> None:
+        self.level = level
+        self.title = title
+        self.shown = False
 
 
 def build_toc(entries: Sequence[Tuple[object, int]]) -> tuple:
@@ -148,15 +176,31 @@ def build_epub(out_path: str, meta: BookMeta, chapters: Sequence[Chapter], *,
             % (_escape(intro_title), intro_html), semantics="preface"))
 
     page_index = 0
+    groups: List[_GroupNode] = []
     for chapter in chapters:
+        while groups and groups[-1].level >= chapter.level:
+            groups.pop()
         if chapter.virtual:
             # 只在目录里占分组，不生成正文页
+            groups.append(_GroupNode(chapter.level, chapter.title))
             toc_entries.append((epub.Section(chapter.title), chapter.level))
             continue
+        pending = [group for group in groups if not group.shown]
+        for group in groups:
+            group.shown = True
+        inner = chapter.html
+        if pending:
+            # 卷没有自己的页面时，正文第一页要带上卷标题，否则不翻目录
+            # 就看不出已经跨卷了。卷标题比章节高一级，章节标题相应降级。
+            headings = "".join(
+                '<h%d class="volume-title">%s</h%d>\n'
+                % (min(6, index), _escape(group.title), min(6, index))
+                for index, group in enumerate(pending, 1))
+            inner = headings + _shift_first_heading(inner, len(pending))
         page_index += 1
         item = add_page("chapter", "chap-%04d" % page_index,
                         "%s/chapter-%04d.xhtml" % (CHAPTER_DIR, page_index),
-                        chapter.title, chapter.html)
+                        chapter.title, inner)
         chapter_items.append(item)
         toc_entries.append((item, chapter.level))
 

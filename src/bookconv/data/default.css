@@ -14,6 +14,7 @@
  *                                        .book-author    作者
  *   .intro             简介页            .intro-title    简介标题
  *   .chapter           正文页            .chapter h1     章节标题
+ *                                        .volume-title   只在目录中的卷标题
  *   .chapter h2/h3     小节标题          .chapter p      正文段落
  *   .chapter img       插图              .chapter hr     分隔线
  *   .chapter blockquote / pre / code / table
@@ -139,12 +140,23 @@ nav a {
 
 /* ---- 正文 ---------------------------------------------------------- */
 
-.chapter h1 {
+.chapter h1,
+.chapter .chapter-title {
   font-size: 1.5em;
   font-weight: bold;
   text-align: center;
   line-height: 1.45;
   margin: 1.2em 0 1.2em;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+.chapter .volume-title {
+  font-size: 1.8em;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.4;
+  margin: 1.2em 0 0.5em;
   page-break-after: avoid;
   break-after: avoid;
 }
@@ -219,6 +231,8 @@ nav a {
 .chapter h1,
 .chapter h2,
 .chapter h3,
+.chapter .chapter-title,
+.chapter .volume-title,
 nav h2 {
   font-family: "PingFang SC", "Heiti SC", "Source Han Sans SC",
                "Noto Sans CJK SC", "Microsoft YaHei", "SimHei",

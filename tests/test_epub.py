@@ -125,6 +125,48 @@ class NestedTocTest(unittest.TestCase):
             # 第一卷下面应该有一个嵌套的 <ol>
             self.assertRegex(nav, r"(?s)第一卷.*?<ol>.*?第1章.*?</ol>")
 
+    def test_virtual_volume_title_in_first_chapter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "virtual.epub")
+            meta = BookMeta(title="分卷书", authors=["作者"])
+            chapters = [
+                Chapter("第一卷", "", level=1, virtual=True),
+                Chapter("第1章", "<h1>第1章</h1><p>正文一。</p>", level=2),
+                Chapter("第2章", "<h1>第2章</h1><p>正文二。</p>", level=2),
+                Chapter("第二卷", "", level=1, virtual=True),
+                Chapter("第3章", "<h1>第3章</h1><p>正文三。</p>", level=2),
+            ]
+            build_epub(out, meta, chapters, css="")
+            with zipfile.ZipFile(out) as z:
+                def page(suffix):
+                    name = next(n for n in z.namelist() if n.endswith(suffix))
+                    return z.read(name).decode("utf-8")
+
+                first = page("chapter-0001.xhtml")
+                second = page("chapter-0002.xhtml")
+                third = page("chapter-0003.xhtml")
+            self.assertIn('<h1 class="volume-title">第一卷</h1>', first)
+            self.assertIn("<h2>第1章</h2>", first)
+            self.assertNotIn("volume-title", second)
+            self.assertIn('<h1 class="volume-title">第二卷</h1>', third)
+            self.assertIn("<h2>第3章</h2>", third)
+
+    def test_volume_with_content_is_not_repeated(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "content.epub")
+            meta = BookMeta(title="分卷书", authors=["作者"])
+            chapters = [
+                Chapter("第一卷", '<h1 class="chapter-title">第一卷</h1>',
+                        level=1),
+                Chapter("第1章", "<h1>第1章</h1><p>正文一。</p>", level=2),
+            ]
+            build_epub(out, meta, chapters, css="")
+            with zipfile.ZipFile(out) as z:
+                name = next(n for n in z.namelist()
+                            if n.endswith("chapter-0001.xhtml"))
+                first = z.read(name).decode("utf-8")
+            self.assertNotIn("volume-title", first)
+
 
 if __name__ == "__main__":
     unittest.main()
