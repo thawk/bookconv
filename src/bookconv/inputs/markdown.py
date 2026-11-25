@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import markdown
+from lxml import etree, html as lxml_html
 
 from ..htmlutil import escape, plain_text, rewrite_images, strip_paragraph_indent
 from ..images import ImageStore
@@ -205,6 +206,141 @@ def preserve_leading_indent(text: str) -> str:
     return "\n".join(lines)
 
 
+def _local_tag(tag) -> str:
+    if not isinstance(tag, str):
+        return ""
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _class_tokens(element) -> List[str]:
+    return (element.get("class") or "").lower().split()
+
+
+def _remove_element(element) -> None:
+    parent = element.getparent()
+    if parent is None:
+        return
+    tail = element.tail or ""
+    previous = element.getprevious()
+    parent.remove(element)
+    if tail:
+        if previous is not None:
+            previous.tail = (previous.tail or "") + tail
+        else:
+            parent.text = (parent.text or "") + tail
+
+
+def _safe_label(label: str) -> str:
+    return re.sub(r"[^0-9A-Za-z_.-]+", "-", label).strip("-") or "note"
+
+
+def _inner_html(root) -> str:
+    parts: List[str] = []
+    if root.text:
+        parts.append(root.text)
+    for child in root:
+        parts.append(etree.tostring(child, encoding="unicode", method="xml",
+                                    with_tail=False))
+        if child.tail:
+            parts.append(child.tail)
+    return "".join(parts)
+
+
+def _rstrip_ending(element) -> None:
+    """去掉元素末尾的空白（删掉反链后常留下 ``&#160;``）。"""
+    while True:
+        if len(element) == 0:
+            if element.text:
+                element.text = element.text.rstrip()
+            return
+        child = element[-1]
+        tail = child.tail or ""
+        if tail.strip():
+            child.tail = tail.rstrip()
+            return
+        child.tail = ""
+        element = child
+
+
+def _drop_footnote_backlinks(element) -> None:
+    for anchor in list(element.iter("a")):
+        href = (anchor.get("href") or "").strip()
+        text = (anchor.text_content() or "").strip()
+        if (href.startswith("#")
+                and ("footnote-backref" in _class_tokens(anchor)
+                     or text in ("⊙", "↩", "↵"))):
+            _remove_element(anchor)
+    _rstrip_ending(element)
+
+
+def normalize_footnotes(html: str) -> str:
+    """把 python-markdown 的脚注 HTML 改成 EPUB3 的 noteref / footnote。"""
+    if "fnref:" not in html and 'class="footnote"' not in html:
+        return html
+    try:
+        root = lxml_html.fragment_fromstring(html, create_parent="div")
+    except (etree.ParserError, ValueError):
+        return html
+
+    blocks = [element for element in root.iter()
+              if _local_tag(element.tag) == "div"
+              and "footnote" in _class_tokens(element)]
+    for block in blocks:
+        asides = []
+        for item in block.iter("li"):
+            target = (item.get("id") or "").strip()
+            label = _safe_label(target.split(":", 1)[-1])
+            _drop_footnote_backlinks(item)
+            aside = lxml_html.fragment_fromstring(
+                '<aside class="footnote" epub:type="footnote"></aside>')
+            aside.set("id", "fn-" + label)
+            if item.text and item.text.strip():
+                aside.text = item.text
+            for child in list(item):
+                aside.append(child)
+            asides.append(aside)
+        parent = block.getparent()
+        if parent is None:
+            continue
+        index = parent.index(block)
+        for offset, aside in enumerate(asides):
+            parent.insert(index + offset, aside)
+        parent.remove(block)
+
+    for sup in [element for element in root.iter()
+                if _local_tag(element.tag) == "sup"
+                and (element.get("id") or "").startswith("fnref:")]:
+        anchor = next((child for child in sup.iter("a")
+                       if "footnote-ref" in _class_tokens(child)), None)
+        if anchor is None:
+            continue
+        href = (anchor.get("href") or "").strip()
+        label = _safe_label(href.lstrip("#").split(":", 1)[-1])
+        anchor.set("epub:type", "noteref")
+        anchor.set("href", "#fn-" + label)
+        anchor.set("id", "fnref-" + label)
+        if sup.get("id"):
+            del sup.attrib["id"]
+
+    return _inner_html(root)
+
+
+def strip_duplicate_first_line(html: str, title: str) -> str:
+    """去掉正文开头与章节标题重复的第一段。"""
+    if not title:
+        return html
+    key = re.sub(r"\s+", "", title)
+    if not key:
+        return html
+    matched = re.search(r"<p\b[^>]*>(.*?)</p>", html,
+                        re.DOTALL | re.IGNORECASE)
+    if matched is None:
+        return html
+    if re.sub(r"\s+", "", plain_text(matched.group(1))) != key:
+        return html
+    return html[:matched.start()] + html[matched.end():]
+
+
 class MarkdownInput(InputFormat):
     name = "markdown"
     extensions = ("md", "markdown", "mdown", "mkd")
@@ -246,6 +382,8 @@ class MarkdownInput(InputFormat):
             else:
                 title, html = _page_heading(html, section.title)
 
+            html = strip_duplicate_first_line(html, title)
+            html = normalize_footnotes(html)
             chapters.append(Chapter(title=title, html=html, level=level))
 
         return chapters

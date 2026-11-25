@@ -43,6 +43,7 @@ EPILOG = """\
   bookconv 某书目录/                   # 整本 HTML 目录
   bookconv https://example.com/book/  # 网页（抓入口页里的链接）
   bookconv -f md 某书.epub            # 输出 Markdown（默认仍然输出 EPUB）
+  bookconv -f markdown 某书.epub      # md / markdown 都可以
   bookconv -f md -o 某书.md 某书.chm
   bookconv 卷一.md 卷二.md            # 每个文件各生成一个 epub
   bookconv --merge 卷一.md 卷二.md    # 合并成一本（顺序按命令行）
@@ -50,6 +51,16 @@ EPILOG = """\
   bookconv -s my-style.css 某书.md
   bookconv -m calibre 某书.md         # 用 calibre 兜底（此时 --style 无效）
 """
+
+
+def output_format(value: str) -> str:
+    """``-f`` 的取值：md 和 markdown 都接受，统一成 md。"""
+    value = value.strip().lower()
+    if value in ("md", "markdown"):
+        return "md"
+    if value == "epub":
+        return "epub"
+    raise argparse.ArgumentTypeError("输出格式只能是 epub 或 md/markdown")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,8 +86,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--merge", action="store_true",
                         help="把多个输入（文件/目录/URL）按顺序合并成一本书")
     parser.add_argument("-f", "--format", "--output-format", dest="output_format",
-                        choices=("epub", "md"), default="epub",
-                        help="输出格式：epub（默认）或 md")
+                        type=output_format, choices=("epub", "md"), default="epub",
+                        help="输出格式：epub（默认）或 md/markdown")
     parser.add_argument("--no-frontmatter", action="store_true",
                         help="md 输出不写 YAML frontmatter")
     parser.add_argument("-o", "--output", metavar="FILE", default=None,

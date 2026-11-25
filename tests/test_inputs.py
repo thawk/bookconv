@@ -183,6 +183,19 @@ class MarkdownInputTest(unittest.TestCase):
         self.assertNotIn("正文", chapters[0].html)
         self.assertIn("正文", chapters[1].html)
 
+    def test_duplicate_first_line_is_removed(self):
+        chapters = self.parse("# 第1章\n\n第1章\n\n正文\n")
+        self.assertNotIn("<p>第1章</p>", chapters[0].html)
+        self.assertIn("正文", chapters[0].html)
+
+    def test_footnotes_become_epub_semantics(self):
+        chapters = self.parse("# 第1章\n\n正文[^1]。\n\n[^1]: 脚注内容\n")
+        html = chapters[0].html
+        self.assertIn('epub:type="noteref"', html)
+        self.assertIn('epub:type="footnote"', html)
+        self.assertIn('id="fn-1"', html)
+        self.assertIn("脚注内容", html)
+
     def test_image_rewritten(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             with open(os.path.join(tmpdir, "pic.png"), "wb") as f:

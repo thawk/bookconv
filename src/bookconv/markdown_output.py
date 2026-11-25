@@ -19,7 +19,7 @@ import json
 import os
 import re
 import sys
-from typing import List, Optional
+from typing import Dict, List, Optional, Set
 
 import html2text
 from lxml import etree, html as lxml_html
@@ -115,8 +115,145 @@ def _rewrite_images(root, assets_name: str) -> None:
             image.set("src", assets_name + "/" + name)
 
 
+class _FootnoteState(object):
+    """整篇 Markdown 共用，保证脚注标签不重复。"""
+
+    def __init__(self) -> None:
+        self.labels: Dict[str, str] = {}
+        self.defined: Set[str] = set()
+        self.used: Set[str] = set()
+        self.counter = 0
+
+    def label(self, target: str) -> str:
+        if target in self.labels:
+            return self.labels[target]
+        self.counter += 1
+        base = re.sub(r"[^0-9A-Za-z_.-]+", "-", target).strip("-")
+        if not base:
+            base = "note%d" % self.counter
+        label = base
+        index = 2
+        while label.lower() in self.used:
+            label = "%s-%d" % (base, index)
+            index += 1
+        self.used.add(label.lower())
+        self.labels[target] = label
+        return label
+
+
+def _epub_types(element) -> List[str]:
+    value = element.get("epub:type") or element.get("type") or ""
+    return [part.lower() for part in value.split()]
+
+
+def _class_tokens(element) -> List[str]:
+    return (element.get("class") or "").lower().split()
+
+
+def _is_noteref(element) -> bool:
+    href = (element.get("href") or "").strip()
+    if not href.startswith("#"):
+        return False
+    return ("noteref" in _epub_types(element)
+            or any("footnote" in token for token in _class_tokens(element)))
+
+
+def _is_footnote(element) -> bool:
+    return ("footnote" in _epub_types(element)
+            or "footnote" in _class_tokens(element))
+
+
+def _remove_element(element) -> None:
+    parent = element.getparent()
+    if parent is None:
+        return
+    tail = element.tail or ""
+    previous = element.getprevious()
+    parent.remove(element)
+    if tail:
+        if previous is not None:
+            previous.tail = (previous.tail or "") + tail
+        else:
+            parent.text = (parent.text or "") + tail
+
+
+def _drop_footnote_backlinks(element) -> None:
+    for anchor in list(element.iter("a")):
+        href = (anchor.get("href") or "").strip()
+        text = (anchor.text_content() or "").strip()
+        if (href.startswith("#")
+                and ("footnote-backref" in _class_tokens(anchor)
+                     or text in ("⊙", "↩", "↵"))):
+            _remove_element(anchor)
+
+
+def _footnote_text(element, converter: html2text.HTML2Text) -> str:
+    _drop_footnote_backlinks(element)
+    for rule in list(element.iter("hr")):
+        _remove_element(rule)
+    text = converter.handle(_inner_html(element)).strip()
+    return text.replace("\u00a0", " ").strip()
+
+
+def _format_footnote(label: str, text: str) -> str:
+    lines = [line.rstrip() for line in text.replace("\r\n", "\n")
+             .replace("\r", "\n").split("\n")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return ""
+    parts = ["[^%s]: %s" % (label, lines[0].strip())]
+    for line in lines[1:]:
+        parts.append("    " + line.strip() if line.strip() else "")
+    return "\n".join(parts)
+
+
+def _extract_footnotes(root, converter: html2text.HTML2Text,
+                       state: _FootnoteState) -> List[str]:
+    """把 EPUB/HTML 里的脚注块转成 Markdown 脚注定义。"""
+    definitions: List[str] = []
+    asides = [element for element in root.iter()
+              if _local_tag(element.tag) == "aside" and _is_footnote(element)]
+    for aside in asides:
+        items = [child for child in aside.iter()
+                 if _local_tag(child.tag) == "li"
+                 and (child.get("id") or "").strip()]
+        if not items:
+            items = [aside]
+        for item in items:
+            target = (item.get("id") or aside.get("id") or "").strip()
+            if not target:
+                continue
+            text = _footnote_text(item, converter)
+            if not text:
+                continue
+            state.defined.add(target)
+            definitions.append(_format_footnote(state.label(target), text))
+        _remove_element(aside)
+
+    for anchor in list(root.iter("a")):
+        if not _is_noteref(anchor):
+            continue
+        href = (anchor.get("href") or "").strip()
+        target = href[1:] if href.startswith("#") else ""
+        if target not in state.defined:
+            # 找不到对应的脚注体，就保留链接文字，避免写出悬空的 [^标签]
+            continue
+        label = state.label(target)
+        replacement = etree.Element("span")
+        replacement.text = "[^%s]" % label
+        replacement.tail = anchor.tail
+        parent = anchor.getparent()
+        if parent is not None:
+            parent.replace(anchor, replacement)
+    return definitions
+
+
 def _chapter_markdown(chapter: Chapter, assets_name: str,
-                      converter: html2text.HTML2Text) -> str:
+                      converter: html2text.HTML2Text,
+                      footnotes: _FootnoteState) -> str:
     if not chapter.html.strip():
         return ""
     try:
@@ -129,13 +266,16 @@ def _chapter_markdown(chapter: Chapter, assets_name: str,
     _strip_title_heading(root, chapter.title)
     _shift_headings(root, chapter.level - 1)
     _rewrite_images(root, assets_name)
+    definitions = _extract_footnotes(root, converter, footnotes)
     fragment = _inner_html(root)
     if not fragment.strip():
-        return ""
+        return "\n\n".join(definitions)
     markdown = converter.handle(fragment).strip()
     # html2text 会在强调标记和中文标点之间插空格，去掉更自然
     markdown = re.sub(r"(\*\*|__|\*|_)[ \t]+([，。！？；：、）】」』])",
                       r"\1\2", markdown)
+    if definitions:
+        markdown = "\n\n".join([markdown] + definitions)
     return markdown
 
 
@@ -194,6 +334,7 @@ def write_markdown(out_path: str, meta: BookMeta, chapters: List[Chapter],
                               assets_name)
 
     converter = _new_converter()
+    footnotes = _FootnoteState()
     parts: List[str] = []
     if include_frontmatter:
         parts.append(_frontmatter(meta))
@@ -202,7 +343,7 @@ def write_markdown(out_path: str, meta: BookMeta, chapters: List[Chapter],
         title = (chapter.title or "正文").replace("\n", " ").strip()
         level = min(6, max(1, chapter.level))
         parts.append("#" * level + " " + title)
-        body = _chapter_markdown(chapter, assets_name, converter)
+        body = _chapter_markdown(chapter, assets_name, converter, footnotes)
         if body:
             parts.append(body)
 

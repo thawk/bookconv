@@ -278,6 +278,48 @@ class MarkdownOutputTest(unittest.TestCase):
         self.assertIn("### 第一节 小节", text)
         self.assertIn("正文", text)
 
+    def test_footnote_roundtrip(self):
+        path = build_heading_epub(
+            os.path.join(self.tmp.name, "footnote.epub"), "第20章 脚注",
+            '<p>前文<a class="duokan-footnote" epub:type="noteref" '
+            'href="#D_1" id="C_1"><img alt="note" '
+            'src="../images/note.png"/></a>后文</p>'
+            '<aside epub:type="footnote">'
+            '<ol class="duokan-footnote-content">'
+            '<li class="duokan-footnote-item" id="D_1">'
+            '<p class="footnote"><a href="#C_1">⊙</a>'
+            "注：Double-modules 脚注</p></li></ol></aside>")
+        self.assertEqual(main(["-f", "md", "-o", "footnote.md", path]), 0)
+        text = self.read("footnote.md")
+        self.assertIn("前文[^D_1]后文", text)
+        self.assertIn("[^D_1]: 注：Double-modules 脚注", text)
+        self.assertNotIn("note.png", text)
+
+        self.assertEqual(main(["-o", "footnote-back.epub", "footnote.md"]), 0)
+        with zipfile.ZipFile("footnote-back.epub") as z:
+            page = next(z.read(name).decode("utf-8")
+                        for name in z.namelist()
+                        if name.endswith("chapter-0001.xhtml"))
+        self.assertIn('epub:type="noteref"', page)
+        self.assertIn('href="#fn-D_1"', page)
+        self.assertIn('epub:type="footnote"', page)
+        self.assertIn('id="fn-D_1"', page)
+        self.assertIn("Double-modules 脚注", page)
+
+    def test_markdown_alias_for_output_format(self):
+        self.assertEqual(main(["-f", "markdown", self.source]), 0)
+        self.assertTrue(os.path.isfile("source.md"))
+
+    def test_title_with_author_suffix_is_not_repeated(self):
+        path = build_heading_epub(
+            os.path.join(self.tmp.name, "ruby.epub"), "完本感言",
+            "<h2><ruby>完本感言<rt>十月廿二·著</rt></ruby></h2>"
+            "<p>正文</p>")
+        self.assertEqual(main(["-f", "md", "-o", "ruby.md", path]), 0)
+        text = self.read("ruby.md")
+        self.assertEqual(text.count("完本感言"), 1)
+        self.assertNotIn("十月廿二·著", text)
+
     def test_md_with_legacy_engine_is_rejected(self):
         self.assertEqual(main(["-f", "md", "-m", "calibre", self.source]), 1)
 

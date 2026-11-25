@@ -1048,12 +1048,112 @@ def _render_flow(node, ctx: _RenderContext) -> str:
     return "\n".join(parts)
 
 
+def _epub_types(node) -> List[str]:
+    value = node.get("epub:type") or node.get("type") or ""
+    return [part.lower() for part in value.split()]
+
+
+def _class_tokens(node) -> List[str]:
+    return (node.get("class") or "").lower().split()
+
+
+def _is_noteref(node) -> bool:
+    href = (node.get("href") or "").strip()
+    if not href.startswith("#"):
+        return False
+    return ("noteref" in _epub_types(node)
+            or any("footnote" in token for token in _class_tokens(node)))
+
+
+def _is_footnote_aside(node) -> bool:
+    return ("footnote" in _epub_types(node)
+            or "footnote" in _class_tokens(node))
+
+
+def _remove_element(element) -> None:
+    parent = element.getparent()
+    if parent is None:
+        return
+    tail = element.tail or ""
+    previous = element.getprevious()
+    parent.remove(element)
+    if tail:
+        if previous is not None:
+            previous.tail = (previous.tail or "") + tail
+        else:
+            parent.text = (parent.text or "") + tail
+
+
+def _noteref_label(node) -> str:
+    text = clean_title(node.text_content())
+    if text and text not in ("⊙", "↩", "↵"):
+        return text
+    for image in node.iter("img"):
+        alt = clean_title(image.get("alt") or "")
+        if alt and alt.lower() != "note":
+            return alt
+    return "注"
+
+
+def _render_noteref(node) -> str:
+    href = (node.get("href") or "").strip()
+    ident = (node.get("id") or "").strip()
+    attrs = ' class="footnote-ref" epub:type="noteref" href="%s"' % escape(href)
+    if ident:
+        attrs += ' id="%s"' % escape(ident)
+    anchor = "<a%s>%s</a>" % (attrs, escape(_noteref_label(node)))
+    parent = node.getparent()
+    if parent is not None and _local_tag(parent.tag) == "sup":
+        return anchor
+    return "<sup>%s</sup>" % anchor
+
+
+def _drop_footnote_backlinks(node) -> None:
+    for anchor in list(node.iter("a")):
+        href = (anchor.get("href") or "").strip()
+        text = clean_title(anchor.text_content())
+        if (href.startswith("#")
+                and ("footnote-backref" in _class_tokens(anchor)
+                     or text in ("⊙", "↩", "↵"))):
+            _remove_element(anchor)
+
+
+def _render_footnote_aside(node, ctx: _RenderContext) -> str:
+    """把 ``<aside epub:type="footnote">`` 还原成带 id 的脚注块。"""
+    items = [child for child in node.iter()
+             if _local_tag(child.tag) == "li"
+             and (child.get("id") or "").strip()]
+    if not items:
+        ident = (node.get("id") or "").strip()
+        if not ident:
+            # 没有 id 就无法和引用对应，按普通内容保留
+            return "<div>%s</div>" % _render_flow(node, ctx)
+        items = [node]
+
+    parts: List[str] = []
+    for item in items:
+        _drop_footnote_backlinks(item)
+        for rule in list(item.iter("hr")):
+            _remove_element(rule)
+        content = _render_flow(item, ctx)
+        if not content.strip():
+            continue
+        ident = (item.get("id") or node.get("id") or "").strip()
+        attr = ' id="%s"' % escape(ident) if ident else ""
+        parts.append('<aside class="footnote" epub:type="footnote"%s>%s</aside>'
+                     % (attr, content))
+    return "\n".join(parts)
+
+
 def _render_node(node, ctx: _RenderContext) -> str:
     tag = _local_tag(node.tag)
     if not tag or tag in DROP_TAGS:
         return ""
     if tag in ("nav", "header", "footer") or _is_chrome(node):
         return ""
+
+    if tag == "aside" and _is_footnote_aside(node):
+        return _render_footnote_aside(node, ctx)
 
     if tag == "div" or tag in ("section", "article", "main", "aside",
                                 "figure"):
@@ -1081,6 +1181,9 @@ def _render_node(node, ctx: _RenderContext) -> str:
         level = min(6, int(tag[1]) + 1)      # 页面标题由我们加，正文标题降一级
         inner = _render_heading_inner(node, ctx)
         return "<h%d>%s</h%d>" % (level, inner, level)
+
+    if tag == "a" and _is_noteref(node):
+        return _render_noteref(node)
 
     inner = _render_inner(node, ctx)
 
@@ -1189,6 +1292,21 @@ def _title_key(text: str) -> str:
     return re.sub(r"\s+", "", clean_title(text))
 
 
+def _same_title(left: str, right: str) -> bool:
+    """标题文字是否算重复（允许标题后面多出作者等附加信息）。"""
+    if not left or not right:
+        return False
+    if left == right:
+        return True
+    if len(left) >= len(right):
+        longer, shorter = left, right
+    else:
+        longer, shorter = right, left
+    # 多出来的部分只有作者名之类的一小段时才算重复，避免误删真正的小节标题
+    return (longer.startswith(shorter)
+            and len(longer) - len(shorter) <= 20)
+
+
 def _strip_heading_duplicate(fragment: str, title: str) -> str:
     if not title:
         return fragment
@@ -1199,6 +1317,22 @@ def _strip_heading_duplicate(fragment: str, title: str) -> str:
                          re.DOTALL | re.IGNORECASE)
     # 只看正文里的第一个标题；它前面可能还有 logo 等其他内容
     for matched in heading.finditer(fragment):
+        if _same_title(_title_key(matched.group(1)), key):
+            return fragment[:matched.start()] + fragment[matched.end():]
+        break
+    return fragment
+
+
+def _strip_paragraph_duplicate(fragment: str, title: str) -> str:
+    """去掉正文开头与章节标题完全相同的普通段落。"""
+    if not title:
+        return fragment
+    key = _title_key(title)
+    if not key:
+        return fragment
+    paragraph = re.compile(r"<p\b[^>]*>(.*?)</p>",
+                           re.DOTALL | re.IGNORECASE)
+    for matched in paragraph.finditer(fragment):
         if _title_key(matched.group(1)) == key:
             return fragment[:matched.start()] + fragment[matched.end():]
         break
@@ -1240,6 +1374,7 @@ def render_page(text: str, href: str, loader: Loader, images: ImageStore,
     fragment = _split_br_paragraphs(fragment)
     fragment = _strip_nav_paragraphs(fragment)
     fragment = _strip_heading_duplicate(fragment, title)
+    fragment = _strip_paragraph_duplicate(fragment, title)
     if not options.keep_indent:
         fragment = strip_paragraph_indent(fragment)
     return fragment.strip()

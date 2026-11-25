@@ -17,6 +17,7 @@
  *                                        .volume-title   只在目录中的卷标题
  *   .chapter h2/h3     小节标题          .chapter p      正文段落
  *   .chapter img       插图              .chapter hr     分隔线
+ *   .chapter .footnote-ref / aside.footnote   脚注引用 / 脚注块
  *   .chapter blockquote / pre / code / table
  * ===================================================================== */
 
@@ -191,6 +192,23 @@ nav a {
 .chapter img {
   max-width: 100%;
   height: auto;
+}
+
+.chapter .footnote-ref {
+  text-decoration: none;
+}
+
+.chapter aside.footnote {
+  margin: 1.2em 0 0;
+  padding-top: 0.6em;
+  border-top: 1px solid #ddd;
+  font-size: 0.88em;
+  color: #555;
+}
+
+.chapter aside.footnote p {
+  text-indent: 0;
+  margin: 0 0 0.4em;
 }
 
 .chapter hr {

@@ -12,7 +12,7 @@
 - frontmatter 会自动从正文里剥离，不会再混进正文
 - 输入格式是插件：`markdown` / `txt` / `asciidoc` / `html` / `epub` / `chm`
   （HTML 同时支持目录和 URL）
-- 输出格式用 `-f/--format` 控制：`epub`（默认）或 `md`
+- 输出格式用 `-f/--format` 控制：`epub`（默认）或 `md` / `markdown`
 - 样式可定制：封面页 / 扉页 / 目录页 / 简介页 / 章节标题 / 各级标题 / 正文各有一段 CSS 钩子
 - 附带 `bookcover`：按书名从起点 / 纵横 / 17K / 晋江抓高清封面和简介（只用标准库）
 
@@ -57,6 +57,7 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 ./bookconv 某书目录/                   # 整本 HTML 目录
 ./bookconv http://example.com/book/   # 网页入口页（抓页面里的章节链接）
 ./bookconv -f md 某书.epub            # 输出 Markdown（EPUB → MD）
+./bookconv -f markdown 某书.epub      # md / markdown 都可以
 ./bookconv -f md -o 某书.md 某书.chm  # CHM → Markdown
 ./bookconv -f md --no-frontmatter 某书.epub
 ./bookconv -s my-style.css 某书.md    # 自定义样式（整体替换）
@@ -85,7 +86,7 @@ CHM 本身是微软的压缩帮助格式，纯 Python 解 LZX 太折腾，所以
 | --- | --- |
 | `-m, --method` | `native`（默认，内建实现）/ `calibre` / `pandoc` |
 | `-i, --input` | 输入格式 `markdown` / `txt` / `asciidoc` / `html` / `epub` / `chm`，默认按扩展名/目录内容识别 |
-| `-f, --format` | 输出格式 `epub`（默认）或 `md`；`--output-format` 是别名 |
+| `-f, --format` | 输出格式 `epub`（默认）或 `md` / `markdown`；`--output-format` 是别名 |
 | `--no-frontmatter` | `-f md` 时不写 YAML frontmatter |
 | `--merge` | 把多个输入（文件/目录/URL）合并成一本书 |
 | `-o, --output FILE` | 输出文件名（默认同源文件名；合并时用第一个文件的名字） |
@@ -346,7 +347,9 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
 - 目录里指向同一个 XHTML 文件不同锚点（`chapter.xhtml#sec1`）的情况，按文件只取一次，
   不会把每个锚点拆成独立章节
 - EPUB 自带 CSS 不保留，统一用 bookconv 的样式
-- 文字方向、脚注弹窗等 EPUB3 特性不会特殊处理
+- EPUB3 脚注（`epub:type="noteref"` + `<aside epub:type="footnote">`，包括多看脚注）
+  会转成 Markdown 脚注；再转回 EPUB 时恢复成 `epub:type` 脚注。其他文字方向等特性
+  不会特殊处理
 
 ## Markdown 输出（`-f md`）
 
@@ -365,7 +368,10 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
   （例如 `某书.md` 的图片在 `某书.images/`；目录名里的标点会替换成 `_`）
 - 如果输入自带封面，会写成与 md 同名的图片（`某书.jpg` / `某书.png`），
   这样再把 md 转回 EPUB 时能自动识别为封面
-- `-f md` 只支持内建引擎（`-m native`）；`--style` / `--extra-style` 对 md 输出无效
+- EPUB/HTML 里的脚注会写成 Markdown 脚注（`[^标签]` + `[^标签]: 内容`），
+  再转回 EPUB 时恢复成 EPUB3 脚注
+- `-f md` / `-f markdown` 只支持内建引擎（`-m native`）；`--style` /
+  `--extra-style` 对 md 输出无效
 
 注意：Markdown 输出会保留 `##` 等层级。bookconv 的 Markdown **输入**把每个标题都作为
 独立页面（标题 + 该标题下面的正文），标题级别按文档里的最高一级换算成 1、2、3……
@@ -379,6 +385,7 @@ guide 和文件名依次查找，输出 EPUB 时会带上。
 
 - 标题（自动生成唯一 id）、段落、`---` 分隔线、`>` 引用、围栏/缩进代码块
 - 表格、脚注、定义列表、属性列表（`extra`）
+- 脚注会转换成 EPUB3 的 `noteref` / `<aside epub:type="footnote">`，和 EPUB 输入互转
 - 列表、图片、链接、粗体/斜体、行内代码、原始 HTML
 
 每个标题都会成为章节页或目录分组，页面内容是“标题 + 下一个标题之前的正文”。
@@ -451,6 +458,6 @@ bookconv/
 - 书名必须有（frontmatter `title`、文件名 `《书名》…`、HTML/CHM 的 `<title>`，或 EPUB 元数据）；
   作者可以没有，不会因此拒绝转换
 - HTML/CHM/EPUB 里的相对链接不会改写指向 EPUB 内部页面，统一去掉 `href` 只留文字；
-  站内锚点、脚注跳转也会失效
+  站内锚点会失效，但脚注引用/脚注块会单独保留并参与互转
 - 从旧 bookconv 迁移了 CHM、AsciiDoc、HTML、HTML 目录、URL 这几种输入；`.txt` 仍由
   原有 txt 插件处理。旧程序里针对具体网站的抓取逻辑没有保留
